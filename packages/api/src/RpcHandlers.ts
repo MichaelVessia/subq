@@ -1,4 +1,4 @@
-import { AppRpcs, type DashboardStatsParams } from '@scale/shared'
+import { AppRpcs, type DashboardStatsParams, type StatsParams } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
 import { Greeter } from './Greeter.js'
 import { WeightLogRepo } from './repositories/WeightLogRepo.js'
@@ -34,6 +34,14 @@ export const RpcHandlersLive = AppRpcs.toLayer(
 
       // Dashboard stats
       GetDashboardStats: (params: DashboardStatsParams) => statsService.getDashboardStats(params),
+
+      // Stats page endpoints
+      GetWeightStats: (params: StatsParams) => statsService.getWeightStats(params),
+      GetWeightTrend: (params: StatsParams) => statsService.getWeightTrend(params),
+      GetInjectionSiteStats: (params: StatsParams) => statsService.getInjectionSiteStats(params),
+      GetDosageHistory: (params: StatsParams) => statsService.getDosageHistory(params),
+      GetInjectionFrequency: (params: StatsParams) => statsService.getInjectionFrequency(params),
+      GetDrugBreakdown: (params: StatsParams) => statsService.getDrugBreakdown(params),
     }
   }),
 ).pipe(Layer.provide(Greeter.layer))

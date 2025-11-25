@@ -1,6 +1,20 @@
 import { SqlClient } from '@effect/sql'
 import { Effect, Layer, Schema } from 'effect'
-import { DashboardStats, type DashboardStatsParams } from '@scale/shared'
+import {
+  DashboardStats,
+  type DashboardStatsParams,
+  WeightStats,
+  WeightTrendStats,
+  WeightTrendPoint,
+  InjectionSiteStats,
+  InjectionSiteCount,
+  DosageHistoryStats,
+  DosageHistoryPoint,
+  InjectionFrequencyStats,
+  DrugBreakdownStats,
+  DrugCount,
+  type StatsParams,
+} from '@scale/shared'
 
 // ============================================
 // Raw SQL Result Schema
@@ -16,6 +30,53 @@ const StatsRow = Schema.Struct({
 
 const decodeRow = Schema.decodeUnknown(StatsRow)
 
+// Weight stats row schema
+const WeightStatsRow = Schema.Struct({
+  min_weight: Schema.NullOr(Schema.NumberFromString),
+  max_weight: Schema.NullOr(Schema.NumberFromString),
+  avg_weight: Schema.NullOr(Schema.NumberFromString),
+  std_dev: Schema.NullOr(Schema.NumberFromString),
+  entry_count: Schema.NumberFromString,
+})
+const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
+
+// Weight trend row schema
+const WeightTrendRow = Schema.Struct({
+  datetime: Schema.DateFromSelf,
+  weight: Schema.NumberFromString,
+})
+const decodeWeightTrendRow = Schema.decodeUnknown(WeightTrendRow)
+
+// Injection site count row schema
+const InjectionSiteRow = Schema.Struct({
+  injection_site: Schema.NullOr(Schema.String),
+  count: Schema.NumberFromString,
+})
+const decodeInjectionSiteRow = Schema.decodeUnknown(InjectionSiteRow)
+
+// Dosage history row schema
+const DosageHistoryRow = Schema.Struct({
+  datetime: Schema.DateFromSelf,
+  dosage: Schema.String,
+})
+const decodeDosageHistoryRow = Schema.decodeUnknown(DosageHistoryRow)
+
+// Injection frequency row schema
+const InjectionFrequencyRow = Schema.Struct({
+  total_injections: Schema.NumberFromString,
+  avg_days_between: Schema.NullOr(Schema.NumberFromString),
+  most_frequent_dow: Schema.NullOr(Schema.NumberFromString),
+  weeks_in_period: Schema.NullOr(Schema.NumberFromString),
+})
+const decodeInjectionFrequencyRow = Schema.decodeUnknown(InjectionFrequencyRow)
+
+// Drug count row schema
+const DrugCountRow = Schema.Struct({
+  drug: Schema.String,
+  count: Schema.NumberFromString,
+})
+const decodeDrugCountRow = Schema.decodeUnknown(DrugCountRow)
+
 // ============================================
 // Stats Service Definition
 // ============================================
@@ -24,6 +85,12 @@ export class StatsService extends Effect.Tag('StatsService')<
   StatsService,
   {
     readonly getDashboardStats: (params: DashboardStatsParams) => Effect.Effect<DashboardStats | null>
+    readonly getWeightStats: (params: StatsParams) => Effect.Effect<WeightStats | null>
+    readonly getWeightTrend: (params: StatsParams) => Effect.Effect<WeightTrendStats>
+    readonly getInjectionSiteStats: (params: StatsParams) => Effect.Effect<InjectionSiteStats>
+    readonly getDosageHistory: (params: StatsParams) => Effect.Effect<DosageHistoryStats>
+    readonly getInjectionFrequency: (params: StatsParams) => Effect.Effect<InjectionFrequencyStats | null>
+    readonly getDrugBreakdown: (params: StatsParams) => Effect.Effect<DrugBreakdownStats>
   }
 >() {}
 
@@ -92,6 +159,172 @@ export const StatsServiceLive = Layer.effect(
             periodStart: decoded.start_date,
             periodEnd: decoded.end_date,
           })
+        }).pipe(Effect.orDie),
+
+      getWeightStats: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT
+              MIN(weight)::text as min_weight,
+              MAX(weight)::text as max_weight,
+              AVG(weight)::text as avg_weight,
+              COALESCE(STDDEV(weight), 0)::text as std_dev,
+              COUNT(*)::text as entry_count
+            FROM weight_logs
+            WHERE 1=1
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+          `
+          if (rows.length === 0) return null
+
+          const decoded = yield* decodeWeightStatsRow(rows[0])
+          if (!decoded.min_weight || !decoded.max_weight || !decoded.avg_weight) {
+            return null
+          }
+
+          return new WeightStats({
+            minWeight: decoded.min_weight,
+            maxWeight: decoded.max_weight,
+            avgWeight: decoded.avg_weight,
+            stdDev: decoded.std_dev ?? 0,
+            entryCount: Number(decoded.entry_count),
+          })
+        }).pipe(Effect.orDie),
+
+      getWeightTrend: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT datetime, weight::text
+            FROM weight_logs
+            WHERE 1=1
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ORDER BY datetime ASC
+          `
+          const points: WeightTrendPoint[] = []
+          for (const row of rows) {
+            const decoded = yield* decodeWeightTrendRow(row)
+            points.push(new WeightTrendPoint({ date: decoded.datetime, weight: decoded.weight }))
+          }
+          return new WeightTrendStats({ points })
+        }).pipe(Effect.orDie),
+
+      getInjectionSiteStats: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT 
+              COALESCE(injection_site, 'Unknown') as injection_site,
+              COUNT(*)::text as count
+            FROM injection_logs
+            WHERE 1=1
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            GROUP BY injection_site
+            ORDER BY count DESC
+          `
+          const sites: InjectionSiteCount[] = []
+          let total = 0
+          for (const row of rows) {
+            const decoded = yield* decodeInjectionSiteRow(row)
+            const count = Number(decoded.count)
+            sites.push(new InjectionSiteCount({ site: decoded.injection_site ?? 'Unknown', count }))
+            total += count
+          }
+          return new InjectionSiteStats({ sites, totalInjections: total })
+        }).pipe(Effect.orDie),
+
+      getDosageHistory: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT datetime, dosage
+            FROM injection_logs
+            WHERE 1=1
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ORDER BY datetime ASC
+          `
+          const points: DosageHistoryPoint[] = []
+          for (const row of rows) {
+            const decoded = yield* decodeDosageHistoryRow(row)
+            // Extract numeric value from dosage string (e.g., "5mg" -> 5)
+            const match = decoded.dosage.match(/(\d+(?:\.\d+)?)/)
+            const dosageValue = match ? Number.parseFloat(match[1]!) : 0
+            points.push(
+              new DosageHistoryPoint({
+                date: decoded.datetime,
+                dosage: decoded.dosage,
+                dosageValue,
+              }),
+            )
+          }
+          return new DosageHistoryStats({ points })
+        }).pipe(Effect.orDie),
+
+      getInjectionFrequency: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            WITH injection_data AS (
+              SELECT 
+                datetime,
+                LAG(datetime) OVER (ORDER BY datetime) as prev_datetime,
+                EXTRACT(DOW FROM datetime)::int as day_of_week
+              FROM injection_logs
+              WHERE 1=1
+              ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+              ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ),
+            day_counts AS (
+              SELECT day_of_week, COUNT(*) as cnt
+              FROM injection_data
+              GROUP BY day_of_week
+              ORDER BY cnt DESC
+              LIMIT 1
+            )
+            SELECT
+              (SELECT COUNT(*) FROM injection_data)::text as total_injections,
+              (SELECT AVG(EXTRACT(EPOCH FROM (datetime - prev_datetime)) / 86400) 
+               FROM injection_data WHERE prev_datetime IS NOT NULL)::text as avg_days_between,
+              (SELECT day_of_week FROM day_counts)::text as most_frequent_dow,
+              (SELECT EXTRACT(EPOCH FROM (MAX(datetime) - MIN(datetime))) / (7 * 86400)
+               FROM injection_data)::text as weeks_in_period
+          `
+          if (rows.length === 0) return null
+
+          const decoded = yield* decodeInjectionFrequencyRow(rows[0])
+          const totalInjections = Number(decoded.total_injections)
+          if (totalInjections === 0) return null
+
+          const weeks = decoded.weeks_in_period ?? 1
+          const injectionsPerWeek = weeks > 0 ? totalInjections / weeks : totalInjections
+
+          return new InjectionFrequencyStats({
+            totalInjections,
+            avgDaysBetween: decoded.avg_days_between ?? 0,
+            mostFrequentDayOfWeek: decoded.most_frequent_dow,
+            injectionsPerWeek,
+          })
+        }).pipe(Effect.orDie),
+
+      getDrugBreakdown: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT drug, COUNT(*)::text as count
+            FROM injection_logs
+            WHERE 1=1
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            GROUP BY drug
+            ORDER BY count DESC
+          `
+          const drugs: DrugCount[] = []
+          let total = 0
+          for (const row of rows) {
+            const decoded = yield* decodeDrugCountRow(row)
+            const count = Number(decoded.count)
+            drugs.push(new DrugCount({ drug: decoded.drug, count }))
+            total += count
+          }
+          return new DrugBreakdownStats({ drugs, totalInjections: total })
         }).pipe(Effect.orDie),
     }
   }),

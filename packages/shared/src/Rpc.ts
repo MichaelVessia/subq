@@ -13,6 +13,13 @@ import {
   InjectionLogListParams,
   DashboardStats,
   DashboardStatsParams,
+  StatsParams,
+  WeightStats,
+  WeightTrendStats,
+  InjectionSiteStats,
+  DosageHistoryStats,
+  InjectionFrequencyStats,
+  DrugBreakdownStats,
 } from './domain/index.js'
 
 // ============================================
@@ -80,5 +87,31 @@ export const AppRpcs = RpcGroup.make(
   Rpc.make('GetDashboardStats', {
     payload: DashboardStatsParams,
     success: Schema.NullOr(DashboardStats),
+  }),
+
+  // Stats Page RPCs
+  Rpc.make('GetWeightStats', {
+    payload: StatsParams,
+    success: Schema.NullOr(WeightStats),
+  }),
+  Rpc.make('GetWeightTrend', {
+    payload: StatsParams,
+    success: WeightTrendStats,
+  }),
+  Rpc.make('GetInjectionSiteStats', {
+    payload: StatsParams,
+    success: InjectionSiteStats,
+  }),
+  Rpc.make('GetDosageHistory', {
+    payload: StatsParams,
+    success: DosageHistoryStats,
+  }),
+  Rpc.make('GetInjectionFrequency', {
+    payload: StatsParams,
+    success: Schema.NullOr(InjectionFrequencyStats),
+  }),
+  Rpc.make('GetDrugBreakdown', {
+    payload: StatsParams,
+    success: DrugBreakdownStats,
   }),
 )
