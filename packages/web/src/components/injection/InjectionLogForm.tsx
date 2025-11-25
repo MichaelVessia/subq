@@ -3,6 +3,16 @@ import { Option } from 'effect'
 import { InjectionLogCreate } from '@scale/shared'
 import { rpcClient } from '../../rpc.js'
 
+/** Format a Date to datetime-local input value in local timezone */
+function toLocalDatetimeString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 interface InjectionLogFormProps {
   onSubmit: (data: InjectionLogCreate) => Promise<void>
   onCancel: () => void
@@ -17,9 +27,7 @@ interface InjectionLogFormProps {
 }
 
 export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionLogFormProps) {
-  const [datetime, setDatetime] = useState(
-    initialData?.datetime?.toISOString().slice(0, 16) ?? new Date().toISOString().slice(0, 16),
-  )
+  const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
   const [drug, setDrug] = useState(initialData?.drug ?? '')
   const [source, setSource] = useState(initialData?.source ?? '')
   const [dosage, setDosage] = useState(initialData?.dosage ?? '')

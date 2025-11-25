@@ -2,6 +2,16 @@ import { useState } from 'react'
 import { Option } from 'effect'
 import { WeightLogCreate, type WeightUnit } from '@scale/shared'
 
+/** Format a Date to datetime-local input value in local timezone */
+function toLocalDatetimeString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 interface WeightLogFormProps {
   onSubmit: (data: WeightLogCreate) => Promise<void>
   onCancel: () => void
@@ -14,9 +24,7 @@ interface WeightLogFormProps {
 }
 
 export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogFormProps) {
-  const [datetime, setDatetime] = useState(
-    initialData?.datetime?.toISOString().slice(0, 16) ?? new Date().toISOString().slice(0, 16),
-  )
+  const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
   const [weight, setWeight] = useState(initialData?.weight?.toString() ?? '')
   const [unit, setUnit] = useState<WeightUnit>(initialData?.unit ?? 'lbs')
   const [notes, setNotes] = useState(initialData?.notes ?? '')
