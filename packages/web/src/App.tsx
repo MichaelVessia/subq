@@ -24,7 +24,7 @@ export function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'system-ui' }}>
-      <h1>GLP-1 Tracker</h1>
+      <h1>Scalability</h1>
       <div style={{ marginBottom: '1rem' }}>
         <input
           type="text"
@@ -33,7 +33,7 @@ export function App() {
           placeholder="Enter your name"
           style={{ padding: '0.5rem', marginRight: '0.5rem' }}
         />
-        <button type="button" onClick={handleGreet} style={{ padding: '0.5rem 1rem' }}>
+        <button type="button" onClick={handleGreet} disabled={!name.trim()} style={{ padding: '0.5rem 1rem' }}>
           Greet
         </button>
       </div>

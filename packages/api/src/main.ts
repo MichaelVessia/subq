@@ -1,4 +1,4 @@
-import { HttpRouter } from '@effect/platform'
+import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@scale/shared'
@@ -8,7 +8,7 @@ import { RpcHandlersLive } from './RpcHandlers.js'
 
 const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive))
 
-const HttpLive = HttpRouter.Default.serve().pipe(
+const HttpLive = HttpRouter.Default.serve(HttpMiddleware.cors()).pipe(
   Layer.provide(RpcLive),
   Layer.provide(RpcServer.layerProtocolHttp({ path: '/rpc' })),
   Layer.provide(RpcSerialization.layerNdjson),
