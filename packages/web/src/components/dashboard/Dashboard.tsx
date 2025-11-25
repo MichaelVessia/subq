@@ -144,9 +144,11 @@ interface TooltipState {
 interface ChartProps {
   weightData: DataPoint[]
   injectionData: InjectionPoint[]
+  zoomRange: { start: Date; end: Date } | null
+  onZoom: (range: { start: Date; end: Date }) => void
 }
 
-function WeightChart({ weightData, injectionData }: ChartProps) {
+function WeightChart({ weightData, injectionData, zoomRange, onZoom }: ChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
@@ -160,8 +162,18 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
     const containerWidth = containerRef.current.clientWidth
 
     // Sort data first (needed to calculate pill rows for dynamic margin)
-    const sortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
-    const sortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
+    const allSortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
+    const allSortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
+
+    // Filter to zoom range if set
+    const sortedWeight = zoomRange
+      ? allSortedWeight.filter((d) => d.date >= zoomRange.start && d.date <= zoomRange.end)
+      : allSortedWeight
+    const sortedInjections = zoomRange
+      ? allSortedInjections.filter((d) => d.date >= zoomRange.start && d.date <= zoomRange.end)
+      : allSortedInjections
+
+    if (sortedWeight.length === 0) return
 
     // Pre-calculate how many rows of pills we need
     const PILL_WIDTH_SINGLE = 44
@@ -357,10 +369,69 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
       item: InjectionPointType
       x: number
       row: number
+      isContext?: boolean // true if this is showing context from before zoom window
     }
 
     const dosageChanges: DosageChange[] = []
-    let prevDosage = ''
+
+    // When zoomed, find the active dosage at the start of the window
+    // by looking at all injections (not just filtered ones)
+    if (zoomRange && injectionPointsOnLine.length === 0) {
+      // No injections in view - find the most recent one before the zoom start
+      const priorInjection = allSortedInjections.filter((inj) => inj.date < zoomRange.start).pop()
+
+      if (priorInjection && sortedWeight.length > 0) {
+        const firstWeight = sortedWeight[0]!
+        dosageChanges.push({
+          item: {
+            ...priorInjection,
+            weight: firstWeight.weight,
+            displayDate: zoomRange.start,
+            color: getDosageColor(priorInjection.dosage),
+          },
+          x: xScale(zoomRange.start),
+          row: 0,
+          isContext: true,
+        })
+      }
+    } else if (zoomRange && injectionPointsOnLine.length > 0) {
+      // There are injections in view - check if first one is a "change" or if we need context
+      const firstInView = injectionPointsOnLine[0]!
+      const priorInjection = allSortedInjections.filter((inj) => inj.date < zoomRange.start).pop()
+
+      // If there's a prior injection with same dosage as first in view, no context needed
+      // If prior injection has different dosage, show it as context
+      if (priorInjection && priorInjection.dosage !== firstInView.dosage) {
+        const firstWeight = sortedWeight[0]!
+        dosageChanges.push({
+          item: {
+            ...priorInjection,
+            weight: firstWeight.weight,
+            displayDate: zoomRange.start,
+            color: getDosageColor(priorInjection.dosage),
+          },
+          x: xScale(zoomRange.start),
+          row: 0,
+          isContext: true,
+        })
+      } else if (priorInjection && priorInjection.dosage === firstInView.dosage) {
+        // Same dosage continues - show context pill at start
+        const firstWeight = sortedWeight[0]!
+        dosageChanges.push({
+          item: {
+            ...priorInjection,
+            weight: firstWeight.weight,
+            displayDate: zoomRange.start,
+            color: getDosageColor(priorInjection.dosage),
+          },
+          x: xScale(zoomRange.start),
+          row: 0,
+          isContext: true,
+        })
+      }
+    }
+
+    let prevDosage = dosageChanges.length > 0 ? dosageChanges[0]!.item.dosage : ''
     for (const inj of injectionPointsOnLine) {
       if (inj.dosage !== prevDosage) {
         dosageChanges.push({
@@ -481,12 +552,52 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
       .attr('fill', '#9ca3af')
       .attr('font-size', '11px')
       .text('Weight (lbs)')
-  }, [weightData, injectionData])
+
+    // Brush for zoom selection
+    const brush = d3
+      .brushX()
+      .extent([
+        [0, 0],
+        [width, height],
+      ])
+      .on('end', (event) => {
+        if (!event.selection) return
+        const [x0, x1] = event.selection as [number, number]
+        const newStart = xScale.invert(x0)
+        const newEnd = xScale.invert(x1)
+        // Clear the brush selection visually
+        svg.select('.brush').call(brush.move as any, null)
+        onZoom({ start: newStart, end: newEnd })
+      })
+
+    g.append('g').attr('class', 'brush').call(brush).selectAll('rect').attr('rx', 3).attr('ry', 3)
+
+    // Style the brush selection
+    g.select('.brush .selection')
+      .attr('fill', 'var(--color-text)')
+      .attr('fill-opacity', 0.1)
+      .attr('stroke', 'var(--color-text)')
+      .attr('stroke-opacity', 0.3)
+  }, [weightData, injectionData, zoomRange, onZoom])
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      <svg ref={svgRef} style={{ display: 'block' }} />
+      <svg ref={svgRef} style={{ display: 'block', cursor: 'crosshair' }} />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
+      {!zoomRange && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            right: '8px',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-text-muted)',
+            opacity: 0.6,
+          }}
+        >
+          Drag to zoom
+        </div>
+      )}
     </div>
   )
 }
@@ -534,7 +645,6 @@ function TimeRangeSelector({ selected, onChange }: { selected: TimeRangeKey; onC
       style={{
         display: 'flex',
         gap: 'var(--space-2)',
-        marginBottom: 'var(--space-6)',
       }}
     >
       {keys.map((key) => (
@@ -567,9 +677,16 @@ function TimeRangeSelector({ selected, onChange }: { selected: TimeRangeKey; onC
 
 export function Dashboard() {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('3m')
+  const [zoomRange, setZoomRange] = useState<{ start: Date; end: Date } | null>(null)
 
   // Create atoms based on selected time range
   const { startDate, endDate } = useMemo(() => TIME_RANGES[timeRange].getRange(), [timeRange])
+
+  // Reset zoom when time range changes
+  const handleTimeRangeChange = (key: TimeRangeKey) => {
+    setTimeRange(key)
+    setZoomRange(null)
+  }
 
   const weightAtom = useMemo(() => createWeightLogListAtom(startDate, endDate), [startDate, endDate])
   const injectionAtom = useMemo(() => createInjectionLogListAtom(startDate, endDate), [startDate, endDate])
@@ -578,7 +695,16 @@ export function Dashboard() {
   const injectionResult = useAtomValue(injectionAtom)
 
   const stats = useMemo(() => {
-    const weights = Result.getOrElse(weightResult, () => [] as WeightLog[])
+    const allWeights = Result.getOrElse(weightResult, () => [] as WeightLog[])
+
+    // Filter by zoom range if set
+    const weights = zoomRange
+      ? allWeights.filter((w) => {
+          const d = new Date(w.datetime)
+          return d >= zoomRange.start && d <= zoomRange.end
+        })
+      : allWeights
+
     if (weights.length < 2) return null
 
     const sorted = [...weights].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
@@ -599,7 +725,7 @@ export function Dashboard() {
       weeklyAvg: weeklyAvg.toFixed(1),
       currentWeight: last.weight.toFixed(1),
     }
-  }, [weightResult])
+  }, [weightResult, zoomRange])
 
   const weightData = useMemo((): DataPoint[] => {
     const weights = Result.getOrElse(weightResult, () => [] as WeightLog[])
@@ -631,7 +757,27 @@ export function Dashboard() {
 
   return (
     <div>
-      <TimeRangeSelector selected={timeRange} onChange={setTimeRange} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} />
+        {zoomRange && (
+          <button
+            type="button"
+            onClick={() => setZoomRange(null)}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              backgroundColor: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              fontSize: 'var(--text-sm)',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Reset Zoom
+          </button>
+        )}
+      </div>
 
       {stats && (
         <div
@@ -652,7 +798,12 @@ export function Dashboard() {
       )}
 
       {weightData.length > 0 ? (
-        <WeightChart weightData={weightData} injectionData={injectionData} />
+        <WeightChart
+          weightData={weightData}
+          injectionData={injectionData}
+          zoomRange={zoomRange}
+          onZoom={setZoomRange}
+        />
       ) : (
         <div className="empty-state">No weight data yet. Add some entries to see your progress.</div>
       )}
