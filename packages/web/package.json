@@ -1,0 +1,26 @@
+{
+  "name": "@scale/web",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bunx vite",
+    "build": "bunx vite build"
+  },
+  "dependencies": {
+    "@effect-atom/atom": "^0.3.0",
+    "@effect-atom/atom-react": "^0.3.0",
+    "@effect/platform": "^0.82.0",
+    "@effect/platform-browser": "^0.62.0",
+    "@effect/rpc": "^0.56.0",
+    "@scale/shared": "workspace:*",
+    "effect": "^3.17.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^6.0.0"
+  }
+}

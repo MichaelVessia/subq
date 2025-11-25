@@ -1,0 +1,17 @@
+{
+  "name": "@scale/api",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/main.ts"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.82.0",
+    "@effect/platform-node": "^0.77.0",
+    "@effect/rpc": "^0.56.0",
+    "@effect/sql": "^0.37.0",
+    "@effect/sql-pg": "^0.28.0",
+    "@scale/shared": "workspace:*",
+    "effect": "^3.17.7"
+  }
+}

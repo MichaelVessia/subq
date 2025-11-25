@@ -1,16 +1,18 @@
 {
-  "name": "scalability",
+  "name": "glp1-tracker",
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "packageManager": "bun@1.2.13",
   "license": "MIT",
-  "description": "",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun run src/main.ts",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs",
-    "build-esm": "tsc -b tsconfig.build.json",
-    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "dev": "bun run --filter '@scale/*' dev",
+    "dev:api": "bun run --filter @scale/api dev",
+    "dev:web": "bun run --filter @scale/web dev",
+    "build": "bun run --filter '*' build",
     "typecheck": "tsc -b tsconfig.json",
     "check": "bun run typecheck && bun run lint && bun run format && bun run test",
     "lint": "biome lint . || nix develop --command biome lint .",
@@ -20,9 +22,6 @@
     "test": "bun test",
     "coverage": "bun test --coverage",
     "prepare": "effect-language-service patch"
-  },
-  "dependencies": {
-    "effect": "^3.17.7"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",

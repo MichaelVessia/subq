@@ -1,0 +1,12 @@
+{
+  "name": "@scale/shared",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@effect/rpc": "^0.56.0",
+    "effect": "^3.17.7"
+  }
+}
