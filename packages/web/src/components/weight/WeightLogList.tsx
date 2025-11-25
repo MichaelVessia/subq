@@ -1,11 +1,12 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { WeightLogCreate } from '@scale/shared'
-import { useState } from 'react'
-import { ApiClient, ReactivityKeys, WeightLogListAtom } from '../../rpc.js'
+import { useMemo, useState } from 'react'
+import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { WeightLogForm } from './WeightLogForm.js'
 
-export function WeightLogList() {
-  const logsResult = useAtomValue(WeightLogListAtom)
+export function WeightLogList({ userId }: { userId: string }) {
+  const weightLogAtom = useMemo(() => createWeightLogListAtom(userId), [userId])
+  const logsResult = useAtomValue(weightLogAtom)
   const [showForm, setShowForm] = useState(false)
 
   const createLog = useAtomSet(ApiClient.mutation('WeightLogCreate'), { mode: 'promise' })

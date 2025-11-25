@@ -844,7 +844,7 @@ function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
 // Stats Page Component
 // ============================================
 
-export function StatsPage() {
+export function StatsPage({ userId }: { userId: string }) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('all')
   const [zoomRange, setZoomRange] = useState<{ start: Date; end: Date } | null>(null)
 
@@ -865,7 +865,10 @@ export function StatsPage() {
     [effectiveStartDate, effectiveEndDate],
   )
   const weightTrendAtom = useMemo(() => createWeightTrendAtom(startDate, endDate), [startDate, endDate])
-  const injectionAtom = useMemo(() => createInjectionLogListAtom(startDate, endDate), [startDate, endDate])
+  const injectionAtom = useMemo(
+    () => createInjectionLogListAtom(userId, startDate, endDate),
+    [userId, startDate, endDate],
+  )
   const injectionSiteStatsAtom = useMemo(
     () => createInjectionSiteStatsAtom(effectiveStartDate, effectiveEndDate),
     [effectiveStartDate, effectiveEndDate],

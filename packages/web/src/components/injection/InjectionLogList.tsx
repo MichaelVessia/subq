@@ -1,11 +1,12 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { InjectionLogCreate } from '@scale/shared'
-import { useState } from 'react'
-import { ApiClient, InjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
+import { useMemo, useState } from 'react'
+import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
 
-export function InjectionLogList() {
-  const logsResult = useAtomValue(InjectionLogListAtom)
+export function InjectionLogList({ userId }: { userId: string }) {
+  const injectionLogAtom = useMemo(() => createInjectionLogListAtom(userId), [userId])
+  const logsResult = useAtomValue(injectionLogAtom)
   const [showForm, setShowForm] = useState(false)
 
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })

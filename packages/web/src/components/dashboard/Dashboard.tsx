@@ -517,7 +517,7 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // Dashboard Component
 // ============================================
 
-export function Dashboard() {
+export function Dashboard({ userId }: { userId: string }) {
   const [timeRange, setTimeRange] = useState<TimeRangeKey>('3m')
   const [zoomRange, setZoomRange] = useState<{ start: Date; end: Date } | null>(null)
 
@@ -530,8 +530,11 @@ export function Dashboard() {
     setZoomRange(null)
   }
 
-  const weightAtom = useMemo(() => createWeightLogListAtom(startDate, endDate), [startDate, endDate])
-  const injectionAtom = useMemo(() => createInjectionLogListAtom(startDate, endDate), [startDate, endDate])
+  const weightAtom = useMemo(() => createWeightLogListAtom(userId, startDate, endDate), [userId, startDate, endDate])
+  const injectionAtom = useMemo(
+    () => createInjectionLogListAtom(userId, startDate, endDate),
+    [userId, startDate, endDate],
+  )
 
   // Stats computed server-side - use zoom range if set, otherwise time range
   const effectiveStartDate = zoomRange?.start ?? startDate

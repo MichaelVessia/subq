@@ -65,7 +65,7 @@ export const WeightLogRepoLive = Layer.effect(
           const rows = yield* sql`
             SELECT id, datetime, weight, unit, notes, created_at, updated_at
             FROM weight_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime DESC

@@ -72,7 +72,7 @@ export const InjectionLogRepoLive = Layer.effect(
           const rows = yield* sql`
             SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
             FROM injection_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ${params.drug ? sql`AND drug = ${params.drug}` : sql``}

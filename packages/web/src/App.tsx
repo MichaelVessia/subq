@@ -174,10 +174,10 @@ export function App() {
       </header>
 
       <main>
-        {page === 'dashboard' && <Dashboard />}
-        {page === 'stats' && <StatsPage />}
-        {page === 'weight' && <WeightLogList />}
-        {page === 'injection' && <InjectionLogList />}
+        {page === 'dashboard' && <Dashboard userId={session.user.id} />}
+        {page === 'stats' && <StatsPage userId={session.user.id} />}
+        {page === 'weight' && <WeightLogList userId={session.user.id} />}
+        {page === 'injection' && <InjectionLogList userId={session.user.id} />}
       </main>
     </div>
   )

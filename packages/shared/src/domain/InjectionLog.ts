@@ -72,6 +72,7 @@ export class InjectionLogDelete extends Schema.Class<InjectionLogDelete>('Inject
  * Parameters for listing injection logs.
  */
 export class InjectionLogListParams extends Schema.Class<InjectionLogListParams>('InjectionLogListParams')({
+  userId: Schema.String,
   limit: Schema.optionalWith(Schema.Number, { default: () => 50 }),
   offset: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   startDate: Schema.optional(Schema.Date),

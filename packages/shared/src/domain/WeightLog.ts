@@ -80,6 +80,7 @@ export class WeightLogDelete extends Schema.Class<WeightLogDelete>('WeightLogDel
  * Supports pagination and date filtering.
  */
 export class WeightLogListParams extends Schema.Class<WeightLogListParams>('WeightLogListParams')({
+  userId: Schema.String,
   limit: Schema.optionalWith(Schema.Number, { default: () => 50 }),
   offset: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   startDate: Schema.optional(Schema.Date),
