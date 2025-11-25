@@ -1,37 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { InjectionLog, InjectionLogCreate } from '@scale/shared'
-import { rpcClient } from '../../rpc.js'
+import { useState } from 'react'
+import { Result, useAtomValue, useAtomSet } from '@effect-atom/atom-react'
+import type { InjectionLogCreate } from '@scale/shared'
+import { InjectionLogListAtom, ApiClient, ReactivityKeys } from '../../rpc.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
 
 export function InjectionLogList() {
-  const [logs, setLogs] = useState<readonly InjectionLog[]>([])
-  const [loading, setLoading] = useState(true)
+  const logsResult = useAtomValue(InjectionLogListAtom)
   const [showForm, setShowForm] = useState(false)
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await rpcClient.injectionLog.list({})
-      setLogs(data)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadLogs()
-  }, [loadLogs])
+  // Mutations
+  const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
+  const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
 
   const handleCreate = async (data: InjectionLogCreate) => {
-    await rpcClient.injectionLog.create(data)
+    await createLog({
+      payload: data,
+      reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
+    })
     setShowForm(false)
-    loadLogs()
   }
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this entry?')) {
-      await rpcClient.injectionLog.delete(id)
-      loadLogs()
+      await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.injectionLogs] })
     }
   }
 
@@ -41,9 +32,12 @@ export function InjectionLogList() {
       timeStyle: 'short',
     }).format(new Date(date))
 
-  if (loading) {
+  // Handle loading state using Result
+  if (Result.isWaiting(logsResult)) {
     return <div>Loading...</div>
   }
+
+  const logs = Result.getOrElse(logsResult, () => [])
 
   return (
     <div>

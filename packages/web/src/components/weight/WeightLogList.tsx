@@ -1,37 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { WeightLog, WeightLogCreate } from '@scale/shared'
-import { rpcClient } from '../../rpc.js'
+import { useState } from 'react'
+import { Result, useAtomValue, useAtomSet } from '@effect-atom/atom-react'
+import type { WeightLogCreate } from '@scale/shared'
+import { WeightLogListAtom, ApiClient, ReactivityKeys } from '../../rpc.js'
 import { WeightLogForm } from './WeightLogForm.js'
 
 export function WeightLogList() {
-  const [logs, setLogs] = useState<readonly WeightLog[]>([])
-  const [loading, setLoading] = useState(true)
+  const logsResult = useAtomValue(WeightLogListAtom)
   const [showForm, setShowForm] = useState(false)
 
-  const loadLogs = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await rpcClient.weightLog.list({})
-      setLogs(data)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadLogs()
-  }, [loadLogs])
+  // Mutations
+  const createLog = useAtomSet(ApiClient.mutation('WeightLogCreate'), { mode: 'promise' })
+  const deleteLog = useAtomSet(ApiClient.mutation('WeightLogDelete'), { mode: 'promise' })
 
   const handleCreate = async (data: WeightLogCreate) => {
-    await rpcClient.weightLog.create(data)
+    await createLog({ payload: data, reactivityKeys: [ReactivityKeys.weightLogs] })
     setShowForm(false)
-    loadLogs()
   }
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this entry?')) {
-      await rpcClient.weightLog.delete(id)
-      loadLogs()
+      await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.weightLogs] })
     }
   }
 
@@ -41,9 +29,12 @@ export function WeightLogList() {
       timeStyle: 'short',
     }).format(new Date(date))
 
-  if (loading) {
+  // Handle loading and error states using Result
+  if (Result.isWaiting(logsResult)) {
     return <div>Loading...</div>
   }
+
+  const logs = Result.getOrElse(logsResult, () => [])
 
   return (
     <div>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Option } from 'effect'
+import { Result, useAtomValue } from '@effect-atom/atom-react'
 import { InjectionLogCreate } from '@scale/shared'
-import { rpcClient } from '../../rpc.js'
+import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
 
 /** Format a Date to datetime-local input value in local timezone */
 function toLocalDatetimeString(date: Date): string {
@@ -35,14 +36,12 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [loading, setLoading] = useState(false)
 
-  // Autocomplete suggestions
-  const [drugSuggestions, setDrugSuggestions] = useState<readonly string[]>([])
-  const [siteSuggestions, setSiteSuggestions] = useState<readonly string[]>([])
+  // Autocomplete suggestions via atoms
+  const drugsResult = useAtomValue(InjectionDrugsAtom)
+  const sitesResult = useAtomValue(InjectionSitesAtom)
 
-  useEffect(() => {
-    rpcClient.injectionLog.getDrugs().then(setDrugSuggestions)
-    rpcClient.injectionLog.getSites().then(setSiteSuggestions)
-  }, [])
+  const drugSuggestions = Result.getOrElse(drugsResult, () => [])
+  const siteSuggestions = Result.getOrElse(sitesResult, () => [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

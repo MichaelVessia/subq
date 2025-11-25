@@ -7,12 +7,12 @@
     "migrate": "bun run scripts/migrate.ts"
   },
   "dependencies": {
-    "@effect/platform": "^0.82.0",
-    "@effect/platform-node": "^0.77.0",
-    "@effect/rpc": "^0.56.0",
-    "@effect/sql": "^0.37.0",
-    "@effect/sql-pg": "^0.28.0",
+    "@effect/platform": "^0.92.1",
+    "@effect/platform-node": "^0.87.0",
+    "@effect/rpc": "^0.71.0",
+    "@effect/sql": "^0.47.0",
+    "@effect/sql-pg": "^0.38.0",
     "@scale/shared": "workspace:*",
-    "effect": "^3.17.7"
+    "effect": "^3.18.4"
   }
 }

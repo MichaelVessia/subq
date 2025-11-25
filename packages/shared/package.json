@@ -6,7 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@effect/rpc": "^0.56.0",
-    "effect": "^3.17.7"
+    "@effect/rpc": "^0.71.0",
+    "effect": "^3.18.4"
   }
 }
