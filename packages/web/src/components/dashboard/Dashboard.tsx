@@ -158,17 +158,70 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
     svg.selectAll('*').remove()
 
     const containerWidth = containerRef.current.clientWidth
-    const margin = { top: 40, right: 20, bottom: 40, left: 50 }
-    const width = containerWidth - margin.left - margin.right
-    const height = 320 - margin.top - margin.bottom
 
-    svg.attr('width', containerWidth).attr('height', 320)
-
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
-
-    // Sort data
+    // Sort data first (needed to calculate pill rows for dynamic margin)
     const sortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
     const sortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
+
+    // Pre-calculate how many rows of pills we need
+    const PILL_WIDTH_SINGLE = 44
+    const PILL_HEIGHT = 18
+    const MIN_GAP_X = 4
+
+    // Create temporary x scale to calculate pill positions
+    const tempXScale = d3
+      .scaleTime()
+      .domain(d3.extent(sortedWeight, (d) => d.date) as [Date, Date])
+      .range([0, containerWidth - 90]) // approximate width
+
+    // Pre-calculate dosage changes only
+    interface TempChange {
+      x: number
+      row: number
+    }
+    const tempChanges: TempChange[] = []
+    let tempPrevDosage = ''
+    for (const inj of sortedInjections) {
+      const dateRange = tempXScale.domain()
+      const [start, end] = dateRange
+      if (start && end && inj.date >= start && inj.date <= end) {
+        if (inj.dosage !== tempPrevDosage) {
+          tempChanges.push({ x: tempXScale(inj.date), row: 0 })
+          tempPrevDosage = inj.dosage
+        }
+      }
+    }
+
+    // Calculate rows needed
+    let maxRow = 0
+    for (let i = 0; i < tempChanges.length; i++) {
+      const change = tempChanges[i]!
+      const occupiedRows: number[] = []
+
+      for (let j = 0; j < i; j++) {
+        const prev = tempChanges[j]!
+        if (Math.abs(change.x - prev.x) < PILL_WIDTH_SINGLE + MIN_GAP_X) {
+          occupiedRows.push(prev.row)
+        }
+      }
+
+      let row = 0
+      while (occupiedRows.includes(row)) row++
+      change.row = row
+      maxRow = Math.max(maxRow, row)
+    }
+
+    // Dynamic top margin based on pill rows, extra left margin for pills
+    const baseTopMargin = 40
+    const extraMarginPerRow = PILL_HEIGHT + 2
+    const margin = { top: baseTopMargin + maxRow * extraMarginPerRow, right: 30, bottom: 40, left: 60 }
+    const width = containerWidth - margin.left - margin.right
+    const totalHeight = 320 + maxRow * extraMarginPerRow
+    const height = totalHeight - margin.top - margin.bottom
+
+    svg.attr('width', containerWidth).attr('height', totalHeight)
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
     // Scales
     const xScale = d3
@@ -298,39 +351,62 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
         return inj.displayDate >= start && inj.displayDate <= end
       })
 
-    // Injection vertical lines (subtle)
-    g.selectAll('.injection-line')
-      .data(injectionPointsOnLine)
-      .enter()
-      .append('line')
-      .attr('class', 'injection-line')
-      .attr('x1', (d) => xScale(d.displayDate))
-      .attr('x2', (d) => xScale(d.displayDate))
-      .attr('y1', -20)
-      .attr('y2', (d) => yScale(d.weight))
-      .attr('stroke', (d) => d.color)
-      .attr('stroke-width', 1)
-      .attr('stroke-dasharray', '3,3')
-      .attr('opacity', 0.4)
+    // Only show pills for dosage CHANGES (when dosage differs from previous)
+    type InjectionPointType = (typeof injectionPointsOnLine)[0]
+    interface DosageChange {
+      item: InjectionPointType
+      x: number
+      row: number
+    }
 
-    // Injection labels at top
+    const dosageChanges: DosageChange[] = []
+    let prevDosage = ''
+    for (const inj of injectionPointsOnLine) {
+      if (inj.dosage !== prevDosage) {
+        dosageChanges.push({
+          item: inj,
+          x: xScale(inj.displayDate),
+          row: 0,
+        })
+        prevDosage = inj.dosage
+      }
+    }
+
+    // Assign rows to avoid overlap
+    for (let i = 0; i < dosageChanges.length; i++) {
+      const change = dosageChanges[i]!
+      const occupiedRows: number[] = []
+
+      for (let j = 0; j < i; j++) {
+        const prev = dosageChanges[j]!
+        if (Math.abs(change.x - prev.x) < PILL_WIDTH_SINGLE + MIN_GAP_X) {
+          occupiedRows.push(prev.row)
+        }
+      }
+
+      let row = 0
+      while (occupiedRows.includes(row)) row++
+      change.row = row
+    }
+
+    const rowOffset = (row: number) => row * (PILL_HEIGHT + 2)
+
+    // Injection labels at top - only dosage changes
     const injectionGroup = g
       .selectAll('.injection-group')
-      .data(injectionPointsOnLine)
+      .data(dosageChanges)
       .enter()
       .append('g')
       .attr('class', 'injection-group')
-      .attr('transform', (d) => `translate(${xScale(d.displayDate)},-28)`)
+      .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${-28 - rowOffset(d.row)})`)
       .style('cursor', 'pointer')
       .on('mouseenter', (event, d) => {
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.drug}</div>
-              <div>{d.dosage}</div>
-              <div style={{ opacity: 0.7 }}>{formatDate(d.displayDate)}</div>
-              {d.injectionSite && <div style={{ marginTop: '2px' }}>Site: {d.injectionSite}</div>}
-              {d.notes && <div style={{ marginTop: '4px', opacity: 0.8 }}>{d.notes}</div>}
+              <div style={{ fontWeight: 600, marginBottom: '2px' }}>Started {d.item.dosage}</div>
+              <div style={{ opacity: 0.7 }}>{formatDate(d.item.displayDate)}</div>
+              <div style={{ marginTop: '4px', fontSize: '9px', opacity: 0.6 }}>{d.item.drug}</div>
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -346,11 +422,11 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
       .append('rect')
       .attr('rx', 10)
       .attr('ry', 10)
-      .attr('x', -22)
+      .attr('x', -PILL_WIDTH_SINGLE / 2)
       .attr('y', -10)
-      .attr('width', 44)
-      .attr('height', 18)
-      .attr('fill', (d) => d.color)
+      .attr('width', PILL_WIDTH_SINGLE)
+      .attr('height', PILL_HEIGHT)
+      .attr('fill', (d) => d.item.color)
 
     // Dosage text
     injectionGroup
@@ -360,7 +436,22 @@ function WeightChart({ weightData, injectionData }: ChartProps) {
       .attr('fill', '#fff')
       .attr('font-size', '10px')
       .attr('font-weight', '600')
-      .text((d) => d.dosage)
+      .text((d) => d.item.dosage)
+
+    // Single vertical line per dosage change
+    g.selectAll('.injection-line')
+      .data(dosageChanges)
+      .enter()
+      .append('line')
+      .attr('class', 'injection-line')
+      .attr('x1', (d) => Math.max(PILL_WIDTH_SINGLE / 2, d.x))
+      .attr('x2', (d) => Math.max(PILL_WIDTH_SINGLE / 2, d.x))
+      .attr('y1', (d) => -20 - rowOffset(d.row))
+      .attr('y2', (d) => yScale(d.item.weight))
+      .attr('stroke', (d) => d.item.color)
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+      .attr('opacity', 0.4)
 
     // Axes - minimal styling
     g.append('g')
