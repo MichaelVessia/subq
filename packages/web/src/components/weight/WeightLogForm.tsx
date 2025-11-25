@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Option } from 'effect'
 import { WeightLogCreate, type WeightUnit } from '@scale/shared'
 
-/** Format a Date to datetime-local input value in local timezone */
 function toLocalDatetimeString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -49,26 +48,28 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginBottom: '1rem' }}>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="datetime" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Date & Time
-        </label>
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <label htmlFor="datetime">Date & Time</label>
         <input
           type="datetime-local"
           id="datetime"
           value={datetime}
           onChange={(e) => setDatetime(e.target.value)}
           required
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="weight" style={{ display: 'block', marginBottom: '0.25rem' }}>
-            Weight
-          </label>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto',
+          gap: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+        }}
+      >
+        <div>
+          <label htmlFor="weight">Weight</label>
           <input
             type="number"
             id="weight"
@@ -77,59 +78,28 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
             step="0.1"
             min="0"
             required
-            style={{
-              padding: '0.5rem',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
           />
         </div>
 
         <div>
-          <label htmlFor="unit" style={{ display: 'block', marginBottom: '0.25rem' }}>
-            Unit
-          </label>
-          <select
-            id="unit"
-            value={unit}
-            onChange={(e) => setUnit(e.target.value as WeightUnit)}
-            style={{ padding: '0.5rem' }}
-          >
+          <label htmlFor="unit">Unit</label>
+          <select id="unit" value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)}>
             <option value="lbs">lbs</option>
             <option value="kg">kg</option>
           </select>
         </div>
       </div>
 
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="notes" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Notes (optional)
-        </label>
-        <textarea
-          id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
-        />
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <label htmlFor="notes">Notes (optional)</label>
+        <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-        <button type="button" onClick={onCancel} style={{ padding: '0.5rem 1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
+        <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? 'Saving...' : 'Save'}
         </button>
       </div>

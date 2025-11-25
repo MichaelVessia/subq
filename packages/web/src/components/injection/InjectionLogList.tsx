@@ -8,7 +8,6 @@ export function InjectionLogList() {
   const logsResult = useAtomValue(InjectionLogListAtom)
   const [showForm, setShowForm] = useState(false)
 
-  // Mutations
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
 
@@ -32,9 +31,8 @@ export function InjectionLogList() {
       timeStyle: 'short',
     }).format(new Date(date))
 
-  // Handle loading state using Result
   if (Result.isWaiting(logsResult)) {
-    return <div>Loading...</div>
+    return <div className="loading">Loading...</div>
   }
 
   const logs = Result.getOrElse(logsResult, () => [])
@@ -46,77 +44,54 @@ export function InjectionLogList() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1rem',
+          marginBottom: 'var(--space-6)',
         }}
       >
-        <h2 style={{ margin: 0 }}>Injection Log</h2>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
+        <h2>Injection Log</h2>
+        <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
           Add Entry
         </button>
       </div>
 
       {showForm && (
-        <div
-          style={{
-            border: '1px solid #ccc',
-            padding: '1rem',
-            marginBottom: '1rem',
-          }}
-        >
+        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
           <InjectionLogForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
         </div>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Date</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Drug</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Dosage</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Site</th>
-            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '0.5rem' }}>{formatDate(log.datetime)}</td>
-              <td style={{ padding: '0.5rem' }}>{log.drug}</td>
-              <td style={{ padding: '0.5rem' }}>{log.dosage}</td>
-              <td style={{ padding: '0.5rem', color: '#666' }}>{log.injectionSite ?? '-'}</td>
-              <td style={{ padding: '0.5rem', textAlign: 'right' }}>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(log.id)}
-                  style={{
-                    color: '#dc2626',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {logs.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>
-          No entries yet. Add your first injection log!
-        </p>
+      {logs.length > 0 ? (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Drug</th>
+                <th>Dosage</th>
+                <th>Site</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+                    {formatDate(log.datetime)}
+                  </td>
+                  <td style={{ fontWeight: 500 }}>{log.drug}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)' }}>{log.dosage}</td>
+                  <td className="text-secondary text-sm">{log.injectionSite ?? '-'}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">No entries yet. Add your first injection log.</div>
       )}
     </div>
   )

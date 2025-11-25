@@ -5,29 +5,25 @@ import { WeightLogListAtom, InjectionLogListAtom } from '../../rpc.js'
 import type { WeightLog, InjectionLog } from '@scale/shared'
 
 // ============================================
-// Configurable color palette for dosages
+// Color palette for dosages - muted tones
 // ============================================
 
-/** Default color palette - maps dosage strings to colors */
-const DEFAULT_DOSAGE_COLORS: Record<string, string> = {
-  '2.5mg': '#06b6d4', // cyan
-  '5mg': '#8b5cf6', // violet
-  '7.5mg': '#f59e0b', // amber
-  '10mg': '#ef4444', // red
-  '12.5mg': '#ec4899', // pink
-  '15mg': '#14b8a6', // teal
+const DOSAGE_COLORS: Record<string, string> = {
+  '2.5mg': '#64748b', // slate
+  '5mg': '#0891b2', // cyan
+  '7.5mg': '#0d9488', // teal
+  '10mg': '#059669', // emerald
+  '12.5mg': '#7c3aed', // violet
+  '15mg': '#be185d', // pink
 }
 
-/** Fallback colors for unknown dosages */
-const FALLBACK_COLORS = ['#6366f1', '#84cc16', '#f97316', '#0ea5e9', '#a855f7', '#22c55e']
+const FALLBACK_COLORS = ['#64748b', '#475569', '#334155', '#1e293b', '#0f172a']
 
-/** Get color for a dosage, with fallback */
-function getDosageColor(dosage: string, colorMap: Record<string, string> = DEFAULT_DOSAGE_COLORS): string {
-  const mapped = colorMap[dosage]
+function getDosageColor(dosage: string): string {
+  const mapped = DOSAGE_COLORS[dosage]
   if (mapped) return mapped
-  // Generate consistent color for unknown dosages based on hash
   const hash = dosage.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length] ?? '#6366f1'
+  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length] ?? '#64748b'
 }
 
 // ============================================
@@ -63,29 +59,23 @@ function Tooltip({ content, position }: { content: React.ReactNode; position: { 
     <div
       style={{
         position: 'fixed',
-        left: position.x + 10,
-        top: position.y - 10,
-        backgroundColor: '#1f2937',
-        color: '#fff',
-        padding: '8px 12px',
-        borderRadius: '6px',
-        fontSize: '12px',
-        lineHeight: '1.4',
+        left: position.x + 12,
+        top: position.y - 12,
+        backgroundColor: 'var(--color-text)',
+        color: 'var(--color-surface)',
+        padding: '10px 14px',
+        borderRadius: 'var(--radius-md)',
+        fontSize: 'var(--text-xs)',
+        lineHeight: '1.5',
         pointerEvents: 'none',
         zIndex: 1000,
-        maxWidth: '250px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        maxWidth: '220px',
+        boxShadow: 'var(--shadow-md)',
       }}
     >
       {content}
     </div>
   )
-}
-
-interface ChartProps {
-  weightData: DataPoint[]
-  injectionData: InjectionPoint[]
-  dosageColors?: Record<string, string>
 }
 
 // ============================================
@@ -97,64 +87,68 @@ interface TooltipState {
   position: { x: number; y: number }
 }
 
-function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_COLORS }: ChartProps) {
+interface ChartProps {
+  weightData: DataPoint[]
+  injectionData: InjectionPoint[]
+}
+
+function WeightChart({ weightData, injectionData }: ChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   useEffect(() => {
-    if (!svgRef.current || weightData.length === 0) return
+    if (!svgRef.current || !containerRef.current || weightData.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    const margin = { top: 30, right: 30, bottom: 40, left: 50 }
-    const width = 800 - margin.left - margin.right
-    const height = 400 - margin.top - margin.bottom
+    const containerWidth = containerRef.current.clientWidth
+    const margin = { top: 40, right: 20, bottom: 40, left: 50 }
+    const width = containerWidth - margin.left - margin.right
+    const height = 320 - margin.top - margin.bottom
 
-    const g = svg
-      .attr('width', width + margin.left + margin.right)
-      .attr('height', height + margin.top + margin.bottom)
-      .append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`)
+    svg.attr('width', containerWidth).attr('height', 320)
 
-    // Sort data by date
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+    // Sort data
     const sortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
     const sortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
 
-    // X scale - time
+    // Scales
     const xScale = d3
       .scaleTime()
       .domain(d3.extent(sortedWeight, (d) => d.date) as [Date, Date])
       .range([0, width])
 
-    // Y scale - weight with some padding
     const weightExtent = d3.extent(sortedWeight, (d) => d.weight) as [number, number]
-    const yPadding = (weightExtent[1] - weightExtent[0]) * 0.1 || 5
+    const yPadding = (weightExtent[1] - weightExtent[0]) * 0.15 || 5
     const yScale = d3
       .scaleLinear()
       .domain([weightExtent[0] - yPadding, weightExtent[1] + yPadding])
       .range([height, 0])
 
-    // Grid lines
+    // Grid lines - very subtle
     g.append('g')
       .attr('class', 'grid')
-      .attr('opacity', 0.15)
+      .attr('opacity', 0.08)
       .call(
         d3
           .axisLeft(yScale)
           .tickSize(-width)
           .tickFormat(() => ''),
       )
+      .call((g) => g.select('.domain').remove())
 
-    // Assign colors to weight points based on most recent injection
+    // Color points by current dosage
     const weightPointsWithColors: WeightPointWithColor[] = sortedWeight.map((wp) => {
-      // Find most recent injection before this weight point
       const recentInjection = sortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
-      const color = recentInjection ? getDosageColor(recentInjection.dosage, dosageColors) : '#9ca3af' // gray for points before any injection
+      const color = recentInjection ? getDosageColor(recentInjection.dosage) : '#94a3b8'
       return { ...wp, color }
     })
 
-    // Group consecutive points by color to draw line segments
+    // Group by color for line segments
     const segments: { points: WeightPointWithColor[]; color: string }[] = []
     let currentSegment: WeightPointWithColor[] = []
     let currentColor = ''
@@ -163,7 +157,6 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       if (point.color !== currentColor) {
         if (currentSegment.length > 0) {
           segments.push({ points: currentSegment, color: currentColor })
-          // Start new segment with last point of previous (for continuity)
           const lastPoint = currentSegment[currentSegment.length - 1]
           if (lastPoint) currentSegment = [lastPoint]
         }
@@ -182,21 +175,20 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .y((d) => yScale(d.weight))
       .curve(d3.curveMonotoneX)
 
-    // Draw line segments with different colors
+    // Draw segments
     for (const segment of segments) {
       if (segment.points.length < 2) continue
       g.append('path')
         .datum(segment.points)
         .attr('fill', 'none')
         .attr('stroke', segment.color)
-        .attr('stroke-width', 3)
+        .attr('stroke-width', 2)
         .attr('d', line)
     }
 
-    // Format date for tooltip
     const formatDate = d3.timeFormat('%b %d, %Y')
 
-    // Draw weight points with colors
+    // Weight points
     g.selectAll('.weight-point')
       .data(weightPointsWithColors)
       .enter()
@@ -204,19 +196,19 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .attr('class', 'weight-point')
       .attr('cx', (d) => xScale(d.date))
       .attr('cy', (d) => yScale(d.weight))
-      .attr('r', 5)
+      .attr('r', 4)
       .attr('fill', (d) => d.color)
-      .attr('stroke', '#fff')
+      .attr('stroke', 'var(--color-surface)')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
-        d3.select(this).attr('r', 7)
+        d3.select(this).attr('r', 6)
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{d.weight} lbs</div>
-              <div style={{ color: '#9ca3af' }}>{formatDate(d.date)}</div>
-              {d.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{d.notes}</div>}
+              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.weight} lbs</div>
+              <div style={{ opacity: 0.7 }}>{formatDate(d.date)}</div>
+              {d.notes && <div style={{ marginTop: '4px', opacity: 0.8 }}>{d.notes}</div>}
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -226,14 +218,13 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
         setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
       })
       .on('mouseleave', function () {
-        d3.select(this).attr('r', 5)
+        d3.select(this).attr('r', 4)
         setTooltip(null)
       })
 
-    // Draw injection markers
+    // Injection markers - positioned above chart, not overlapping data
     const injectionPointsOnLine = sortedInjections
       .map((inj) => {
-        // Find closest weight for this injection date
         const closestWeight = sortedWeight.reduce((prev, curr) =>
           Math.abs(curr.date.getTime() - inj.date.getTime()) < Math.abs(prev.date.getTime() - inj.date.getTime())
             ? curr
@@ -243,7 +234,7 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
           ...inj,
           weight: closestWeight.weight,
           displayDate: inj.date,
-          color: getDosageColor(inj.dosage, dosageColors),
+          color: getDosageColor(inj.dosage),
         }
       })
       .filter((inj) => {
@@ -253,25 +244,39 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
         return inj.displayDate >= start && inj.displayDate <= end
       })
 
-    // Injection markers
+    // Injection vertical lines (subtle)
+    g.selectAll('.injection-line')
+      .data(injectionPointsOnLine)
+      .enter()
+      .append('line')
+      .attr('class', 'injection-line')
+      .attr('x1', (d) => xScale(d.displayDate))
+      .attr('x2', (d) => xScale(d.displayDate))
+      .attr('y1', -20)
+      .attr('y2', (d) => yScale(d.weight))
+      .attr('stroke', (d) => d.color)
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '3,3')
+      .attr('opacity', 0.4)
+
+    // Injection labels at top
     const injectionGroup = g
       .selectAll('.injection-group')
       .data(injectionPointsOnLine)
       .enter()
       .append('g')
       .attr('class', 'injection-group')
-      .attr('transform', (d) => `translate(${xScale(d.displayDate)},${yScale(d.weight) - 18})`)
+      .attr('transform', (d) => `translate(${xScale(d.displayDate)},-28)`)
       .style('cursor', 'pointer')
-      .on('mouseenter', function (event, d) {
-        d3.select(this).select('rect').attr('transform', 'scale(1.1)')
+      .on('mouseenter', (event, d) => {
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{d.drug}</div>
-              <div>Dosage: {d.dosage}</div>
-              <div style={{ color: '#9ca3af' }}>{formatDate(d.displayDate)}</div>
-              {d.injectionSite && <div>Site: {d.injectionSite}</div>}
-              {d.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{d.notes}</div>}
+              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.drug}</div>
+              <div>{d.dosage}</div>
+              <div style={{ opacity: 0.7 }}>{formatDate(d.displayDate)}</div>
+              {d.injectionSite && <div style={{ marginTop: '2px' }}>Site: {d.injectionSite}</div>}
+              {d.notes && <div style={{ marginTop: '4px', opacity: 0.8 }}>{d.notes}</div>}
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -280,45 +285,47 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .on('mousemove', (event) => {
         setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
       })
-      .on('mouseleave', function () {
-        d3.select(this).select('rect').attr('transform', 'scale(1)')
-        setTooltip(null)
-      })
+      .on('mouseleave', () => setTooltip(null))
 
-    // Injection pill background
+    // Pill background
     injectionGroup
       .append('rect')
       .attr('rx', 10)
       .attr('ry', 10)
-      .attr('x', -25)
-      .attr('y', -12)
-      .attr('width', 50)
-      .attr('height', 20)
+      .attr('x', -22)
+      .attr('y', -10)
+      .attr('width', 44)
+      .attr('height', 18)
       .attr('fill', (d) => d.color)
 
-    // Injection dosage text
+    // Dosage text
     injectionGroup
       .append('text')
       .attr('text-anchor', 'middle')
-      .attr('dy', '0.35em')
+      .attr('dy', '0.3em')
       .attr('fill', '#fff')
-      .attr('font-size', '11px')
-      .attr('font-weight', 'bold')
+      .attr('font-size', '10px')
+      .attr('font-weight', '600')
       .text((d) => d.dosage)
 
-    // X axis
+    // Axes - minimal styling
     g.append('g')
       .attr('transform', `translate(0,${height})`)
       .call(
         d3
           .axisBottom(xScale)
-          .ticks(6)
+          .ticks(5)
           .tickFormat(d3.timeFormat('%b %d') as (d: d3.NumberValue) => string),
       )
-      .attr('color', '#666')
+      .call((g) => g.select('.domain').attr('stroke', '#e5e7eb'))
+      .call((g) => g.selectAll('.tick line').attr('stroke', '#e5e7eb'))
+      .call((g) => g.selectAll('.tick text').attr('fill', '#9ca3af').attr('font-size', '11px'))
 
-    // Y axis
-    g.append('g').call(d3.axisLeft(yScale).ticks(5)).attr('color', '#666')
+    g.append('g')
+      .call(d3.axisLeft(yScale).ticks(5))
+      .call((g) => g.select('.domain').remove())
+      .call((g) => g.selectAll('.tick line').remove())
+      .call((g) => g.selectAll('.tick text').attr('fill', '#9ca3af').attr('font-size', '11px'))
 
     // Y axis label
     g.append('text')
@@ -326,37 +333,47 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .attr('y', -40)
       .attr('x', -height / 2)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#666')
+      .attr('fill', '#9ca3af')
+      .attr('font-size', '11px')
       .text('Weight (lbs)')
-  }, [weightData, injectionData, dosageColors])
+  }, [weightData, injectionData])
 
   return (
-    <div style={{ position: 'relative' }}>
-      <svg ref={svgRef} style={{ width: '100%', maxWidth: '800px' }} />
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+      <svg ref={svgRef} style={{ display: 'block' }} />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
     </div>
   )
 }
 
 // ============================================
-// Stats Card Component
+// Stat Item - minimal design
 // ============================================
 
-function StatsCard({ label, value, icon }: { label: string; value: string; icon: string }) {
+function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      style={{
-        backgroundColor: '#f3f4f6',
-        borderRadius: '8px',
-        padding: '1rem',
-        minWidth: '120px',
-        border: '1px solid #e5e7eb',
-      }}
-    >
-      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
-        {icon} {label}
+    <div>
+      <div
+        style={{
+          fontSize: 'var(--text-xs)',
+          color: 'var(--color-text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          marginBottom: '4px',
+        }}
+      >
+        {label}
       </div>
-      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827' }}>{value}</div>
+      <div
+        style={{
+          fontSize: 'var(--text-xl)',
+          fontWeight: 600,
+          color: 'var(--color-text)',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
+        {value}
+      </div>
     </div>
   )
 }
@@ -381,7 +398,6 @@ export function Dashboard() {
     const totalChange = last.weight - first.weight
     const percentChange = (totalChange / first.weight) * 100
 
-    // Calculate weekly average (if we have enough data)
     const daysDiff = (new Date(last.datetime).getTime() - new Date(first.datetime).getTime()) / (1000 * 60 * 60 * 24)
     const weeks = daysDiff / 7
     const weeklyAvg = weeks > 0 ? totalChange / weeks : 0
@@ -410,7 +426,7 @@ export function Dashboard() {
 
     return injections.map((inj) => ({
       date: new Date(inj.datetime),
-      weight: 0, // Will be calculated based on closest weight
+      weight: 0,
       dosage: inj.dosage,
       drug: inj.drug,
       injectionSite: inj.injectionSite,
@@ -419,33 +435,33 @@ export function Dashboard() {
   }, [injectionResult, weightResult])
 
   if (Result.isWaiting(weightResult) || Result.isWaiting(injectionResult)) {
-    return <div style={{ padding: '2rem' }}>Loading...</div>
+    return <div className="loading">Loading...</div>
   }
 
   return (
     <div>
-      <h2 style={{ marginBottom: '1rem' }}>Weight Change</h2>
-
       {stats && (
         <div
           style={{
-            display: 'flex',
-            gap: '1rem',
-            marginBottom: '2rem',
-            flexWrap: 'wrap',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 'var(--space-6)',
+            marginBottom: 'var(--space-8)',
+            paddingBottom: 'var(--space-6)',
+            borderBottom: '1px solid var(--color-border)',
           }}
         >
-          <StatsCard label="Total change" value={`${stats.totalChange}lbs`} icon="^" />
-          <StatsCard label="Current" value={`${stats.currentWeight}lbs`} icon="*" />
-          <StatsCard label="Percent" value={`${stats.percentChange}%`} icon="%" />
-          <StatsCard label="Weekly avg" value={`${stats.weeklyAvg}lbs/wk`} icon="~" />
+          <StatItem label="Current" value={`${stats.currentWeight} lbs`} />
+          <StatItem label="Total Change" value={`${stats.totalChange} lbs`} />
+          <StatItem label="Change %" value={`${stats.percentChange}%`} />
+          <StatItem label="Weekly Avg" value={`${stats.weeklyAvg} lbs/wk`} />
         </div>
       )}
 
       {weightData.length > 0 ? (
         <WeightChart weightData={weightData} injectionData={injectionData} />
       ) : (
-        <p style={{ color: '#6b7280' }}>No weight data yet. Add some entries to see your progress!</p>
+        <div className="empty-state">No weight data yet. Add some entries to see your progress.</div>
       )}
     </div>
   )

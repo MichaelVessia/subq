@@ -8,7 +8,6 @@ export function WeightLogList() {
   const logsResult = useAtomValue(WeightLogListAtom)
   const [showForm, setShowForm] = useState(false)
 
-  // Mutations
   const createLog = useAtomSet(ApiClient.mutation('WeightLogCreate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('WeightLogDelete'), { mode: 'promise' })
 
@@ -29,9 +28,8 @@ export function WeightLogList() {
       timeStyle: 'short',
     }).format(new Date(date))
 
-  // Handle loading and error states using Result
   if (Result.isWaiting(logsResult)) {
-    return <div>Loading...</div>
+    return <div className="loading">Loading...</div>
   }
 
   const logs = Result.getOrElse(logsResult, () => [])
@@ -43,77 +41,54 @@ export function WeightLogList() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1rem',
+          marginBottom: 'var(--space-6)',
         }}
       >
-        <h2 style={{ margin: 0 }}>Weight Log</h2>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
+        <h2>Weight Log</h2>
+        <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
           Add Entry
         </button>
       </div>
 
       {showForm && (
-        <div
-          style={{
-            border: '1px solid #ccc',
-            padding: '1rem',
-            marginBottom: '1rem',
-          }}
-        >
+        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
           <WeightLogForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
         </div>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #ccc' }}>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Date</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Weight</th>
-            <th style={{ textAlign: 'left', padding: '0.5rem' }}>Notes</th>
-            <th style={{ textAlign: 'right', padding: '0.5rem' }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '0.5rem' }}>{formatDate(log.datetime)}</td>
-              <td style={{ padding: '0.5rem' }}>
-                {log.weight} {log.unit}
-              </td>
-              <td style={{ padding: '0.5rem', color: '#666' }}>{log.notes ?? '-'}</td>
-              <td style={{ padding: '0.5rem', textAlign: 'right' }}>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(log.id)}
-                  style={{
-                    color: '#dc2626',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {logs.length === 0 && (
-        <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>
-          No entries yet. Add your first weight log!
-        </p>
+      {logs.length > 0 ? (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Weight</th>
+                <th>Notes</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+                    {formatDate(log.datetime)}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+                    {log.weight} {log.unit}
+                  </td>
+                  <td className="text-secondary text-sm">{log.notes ?? '-'}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">No entries yet. Add your first weight log.</div>
       )}
     </div>
   )

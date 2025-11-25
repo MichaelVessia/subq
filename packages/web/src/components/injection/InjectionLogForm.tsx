@@ -4,7 +4,6 @@ import { Result, useAtomValue } from '@effect-atom/atom-react'
 import { InjectionLogCreate } from '@scale/shared'
 import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
 
-/** Format a Date to datetime-local input value in local timezone */
 function toLocalDatetimeString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -36,7 +35,6 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [loading, setLoading] = useState(false)
 
-  // Autocomplete suggestions via atoms
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
 
@@ -64,25 +62,20 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginBottom: '1rem' }}>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="datetime" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Date & Time
-        </label>
+    <form onSubmit={handleSubmit}>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <label htmlFor="datetime">Date & Time</label>
         <input
           type="datetime-local"
           id="datetime"
           value={datetime}
           onChange={(e) => setDatetime(e.target.value)}
           required
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
       </div>
 
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="drug" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Drug
-        </label>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <label htmlFor="drug">Drug</label>
         <input
           type="text"
           id="drug"
@@ -91,7 +84,6 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
           list="drug-suggestions"
           required
           placeholder="e.g., Semaglutide"
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
         <datalist id="drug-suggestions">
           {drugSuggestions.map((d) => (
@@ -100,49 +92,40 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
         </datalist>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="dosage" style={{ display: 'block', marginBottom: '0.25rem' }}>
-            Dosage
-          </label>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+        }}
+      >
+        <div>
+          <label htmlFor="dosage">Dosage</label>
           <input
             type="text"
             id="dosage"
             value={dosage}
             onChange={(e) => setDosage(e.target.value)}
             required
-            placeholder="e.g., 200mg"
-            style={{
-              padding: '0.5rem',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
+            placeholder="e.g., 2.5mg"
           />
         </div>
 
-        <div style={{ flex: 1 }}>
-          <label htmlFor="source" style={{ display: 'block', marginBottom: '0.25rem' }}>
-            Source (optional)
-          </label>
+        <div>
+          <label htmlFor="source">Source (optional)</label>
           <input
             type="text"
             id="source"
             value={source}
             onChange={(e) => setSource(e.target.value)}
             placeholder="e.g., CVS"
-            style={{
-              padding: '0.5rem',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
           />
         </div>
       </div>
 
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="injectionSite" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Injection Site (optional)
-        </label>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <label htmlFor="injectionSite">Injection Site (optional)</label>
         <input
           type="text"
           id="injectionSite"
@@ -150,7 +133,6 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
           onChange={(e) => setInjectionSite(e.target.value)}
           list="site-suggestions"
           placeholder="e.g., left ventrogluteal"
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
         <datalist id="site-suggestions">
           {siteSuggestions.map((s) => (
@@ -159,35 +141,16 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
         </datalist>
       </div>
 
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label htmlFor="notes" style={{ display: 'block', marginBottom: '0.25rem' }}>
-          Notes (optional)
-        </label>
-        <textarea
-          id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
-        />
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <label htmlFor="notes">Notes (optional)</label>
+        <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-        <button type="button" onClick={onCancel} style={{ padding: '0.5rem 1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
+        <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? 'Saving...' : 'Save'}
         </button>
       </div>

@@ -9,45 +9,67 @@ function getPage(): Page {
   if (path === '/injection') return 'injection'
   if (path === '/weight') return 'weight'
   if (path === '/dashboard') return 'dashboard'
-  return 'dashboard' // default to dashboard
+  return 'dashboard'
 }
+
+const navLinkStyle = (active: boolean): React.CSSProperties => ({
+  padding: '0.5rem 0',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
+  color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
+  borderBottom: active ? '2px solid var(--color-text)' : '2px solid transparent',
+  transition: 'color var(--transition-fast)',
+})
 
 export function App() {
   const page = getPage()
 
-  const linkStyle = (active: boolean) => ({
-    padding: '0.5rem 1rem',
-    textDecoration: 'none',
-    borderBottom: active ? '2px solid #2563eb' : '2px solid transparent',
-    color: active ? '#2563eb' : '#666',
-  })
-
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', fontFamily: 'system-ui' }}>
-      <h1 style={{ marginBottom: '1rem' }}>Health Tracker</h1>
-
-      <nav
+    <div
+      style={{
+        maxWidth: '860px',
+        margin: '0 auto',
+        padding: 'var(--space-6) var(--space-5)',
+      }}
+    >
+      <header
         style={{
           display: 'flex',
-          gap: '0.5rem',
-          marginBottom: '1rem',
-          borderBottom: '1px solid #ccc',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 'var(--space-8)',
+          paddingBottom: 'var(--space-5)',
+          borderBottom: '1px solid var(--color-border)',
         }}
       >
-        <a href="/dashboard" style={linkStyle(page === 'dashboard')}>
-          Dashboard
-        </a>
-        <a href="/weight" style={linkStyle(page === 'weight')}>
-          Weight
-        </a>
-        <a href="/injection" style={linkStyle(page === 'injection')}>
-          Injections
-        </a>
-      </nav>
+        <h1
+          style={{
+            fontSize: 'var(--text-lg)',
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Health Tracker
+        </h1>
 
-      {page === 'dashboard' && <Dashboard />}
-      {page === 'weight' && <WeightLogList />}
-      {page === 'injection' && <InjectionLogList />}
+        <nav style={{ display: 'flex', gap: 'var(--space-6)' }}>
+          <a href="/dashboard" style={navLinkStyle(page === 'dashboard')}>
+            Dashboard
+          </a>
+          <a href="/weight" style={navLinkStyle(page === 'weight')}>
+            Weight
+          </a>
+          <a href="/injection" style={navLinkStyle(page === 'injection')}>
+            Injections
+          </a>
+        </nav>
+      </header>
+
+      <main>
+        {page === 'dashboard' && <Dashboard />}
+        {page === 'weight' && <WeightLogList />}
+        {page === 'injection' && <InjectionLogList />}
+      </main>
     </div>
   )
 }
