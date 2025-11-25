@@ -1,0 +1,12 @@
+pre-commit:
+  commands:
+    format-fix:
+      glob: "*.{ts,mjs}"
+      run: bun run format-fix {staged_files}
+      stage_fixed: true
+    lint-fix:
+      glob: "*.{ts,mjs}"
+      run: bun run lint-fix {staged_files}
+      stage_fixed: true
+    check:
+      run: bun run check
