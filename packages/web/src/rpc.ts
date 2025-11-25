@@ -29,10 +29,18 @@ export const InjectionLogListAtom = ApiClient.query('InjectionLogList', new Inje
   reactivityKeys: [ReactivityKeys.injectionLogs],
 })
 
-export const InjectionDrugsAtom = ApiClient.query('InjectionLogGetDrugs', undefined, {
-  reactivityKeys: [ReactivityKeys.injectionDrugs],
-})
+export const InjectionDrugsAtom = ApiClient.query(
+  'InjectionLogGetDrugs',
+  {},
+  {
+    reactivityKeys: [ReactivityKeys.injectionDrugs],
+  },
+)
 
-export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefined, {
-  reactivityKeys: [ReactivityKeys.injectionSites],
-})
+export const InjectionSitesAtom = ApiClient.query(
+  'InjectionLogGetSites',
+  {},
+  {
+    reactivityKeys: [ReactivityKeys.injectionSites],
+  },
+)

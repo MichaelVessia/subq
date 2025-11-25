@@ -90,7 +90,7 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
           onChange={(e) => setDrug(e.target.value)}
           list="drug-suggestions"
           required
-          placeholder="e.g., Testosterone Cypionate"
+          placeholder="e.g., Semaglutide"
           style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
         <datalist id="drug-suggestions">

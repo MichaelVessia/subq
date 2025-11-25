@@ -1,11 +1,19 @@
-import { useState } from 'react'
 import { WeightLogList } from './components/weight/WeightLogList.js'
 import { InjectionLogList } from './components/injection/InjectionLogList.js'
 
 type Tab = 'weight' | 'injection'
 
+function getTabFromHash(): Tab {
+  const hash = window.location.hash.slice(1)
+  return hash === 'injection' ? 'injection' : 'weight'
+}
+
 export function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('weight')
+  const activeTab = getTabFromHash()
+
+  const changeTab = (tab: Tab) => {
+    window.location.hash = tab
+  }
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', fontFamily: 'system-ui' }}>
@@ -21,7 +29,7 @@ export function App() {
       >
         <button
           type="button"
-          onClick={() => setActiveTab('weight')}
+          onClick={() => changeTab('weight')}
           style={{
             padding: '0.5rem 1rem',
             border: 'none',
@@ -35,7 +43,7 @@ export function App() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('injection')}
+          onClick={() => changeTab('injection')}
           style={{
             padding: '0.5rem 1rem',
             border: 'none',
