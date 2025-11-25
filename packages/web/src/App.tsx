@@ -1,13 +1,15 @@
 import { WeightLogList } from './components/weight/WeightLogList.js'
 import { InjectionLogList } from './components/injection/InjectionLogList.js'
+import { Dashboard } from './components/dashboard/Dashboard.js'
 
-type Page = 'weight' | 'injection'
+type Page = 'weight' | 'injection' | 'dashboard'
 
 function getPage(): Page {
   const path = window.location.pathname
   if (path === '/injection') return 'injection'
   if (path === '/weight') return 'weight'
-  return 'weight' // default fallback
+  if (path === '/dashboard') return 'dashboard'
+  return 'dashboard' // default to dashboard
 }
 
 export function App() {
@@ -32,6 +34,9 @@ export function App() {
           borderBottom: '1px solid #ccc',
         }}
       >
+        <a href="/dashboard" style={linkStyle(page === 'dashboard')}>
+          Dashboard
+        </a>
         <a href="/weight" style={linkStyle(page === 'weight')}>
           Weight
         </a>
@@ -40,6 +45,7 @@ export function App() {
         </a>
       </nav>
 
+      {page === 'dashboard' && <Dashboard />}
       {page === 'weight' && <WeightLogList />}
       {page === 'injection' && <InjectionLogList />}
     </div>
