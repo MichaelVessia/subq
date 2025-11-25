@@ -294,6 +294,32 @@ function WeightChart({ weightData, injectionData, zoomRange, onZoom }: ChartProp
       .y((d) => yScale(d.weight))
       .curve(d3.curveMonotoneX)
 
+    // Brush for zoom selection - add BEFORE data points so points receive mouse events
+    const brush = d3
+      .brushX()
+      .extent([
+        [0, 0],
+        [width, height],
+      ])
+      .on('end', (event) => {
+        if (!event.selection) return
+        const [x0, x1] = event.selection as [number, number]
+        const newStart = xScale.invert(x0)
+        const newEnd = xScale.invert(x1)
+        // Clear the brush selection visually
+        svg.select('.brush').call(brush.move as any, null)
+        onZoom({ start: newStart, end: newEnd })
+      })
+
+    g.append('g').attr('class', 'brush').call(brush).selectAll('rect').attr('rx', 3).attr('ry', 3)
+
+    // Style the brush selection
+    g.select('.brush .selection')
+      .attr('fill', 'var(--color-text)')
+      .attr('fill-opacity', 0.1)
+      .attr('stroke', 'var(--color-text)')
+      .attr('stroke-opacity', 0.3)
+
     // Draw segments
     for (const segment of segments) {
       if (segment.points.length < 2) continue
@@ -552,32 +578,6 @@ function WeightChart({ weightData, injectionData, zoomRange, onZoom }: ChartProp
       .attr('fill', '#9ca3af')
       .attr('font-size', '11px')
       .text('Weight (lbs)')
-
-    // Brush for zoom selection
-    const brush = d3
-      .brushX()
-      .extent([
-        [0, 0],
-        [width, height],
-      ])
-      .on('end', (event) => {
-        if (!event.selection) return
-        const [x0, x1] = event.selection as [number, number]
-        const newStart = xScale.invert(x0)
-        const newEnd = xScale.invert(x1)
-        // Clear the brush selection visually
-        svg.select('.brush').call(brush.move as any, null)
-        onZoom({ start: newStart, end: newEnd })
-      })
-
-    g.append('g').attr('class', 'brush').call(brush).selectAll('rect').attr('rx', 3).attr('ry', 3)
-
-    // Style the brush selection
-    g.select('.brush .selection')
-      .attr('fill', 'var(--color-text)')
-      .attr('fill-opacity', 0.1)
-      .attr('stroke', 'var(--color-text)')
-      .attr('stroke-opacity', 0.3)
   }, [weightData, injectionData, zoomRange, onZoom])
 
   return (
