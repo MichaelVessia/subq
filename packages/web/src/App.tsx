@@ -6,7 +6,8 @@ type Page = 'weight' | 'injection'
 function getPage(): Page {
   const path = window.location.pathname
   if (path === '/injection') return 'injection'
-  return 'weight'
+  if (path === '/weight') return 'weight'
+  return 'weight' // default fallback
 }
 
 export function App() {
@@ -31,7 +32,7 @@ export function App() {
           borderBottom: '1px solid #ccc',
         }}
       >
-        <a href="/" style={linkStyle(page === 'weight')}>
+        <a href="/weight" style={linkStyle(page === 'weight')}>
           Weight
         </a>
         <a href="/injection" style={linkStyle(page === 'injection')}>
