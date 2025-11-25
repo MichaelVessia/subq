@@ -4,12 +4,17 @@ import { AtomRpc } from '@effect-atom/atom-react'
 import { AppRpcs, DashboardStatsParams, InjectionLogListParams, StatsParams, WeightLogListParams } from '@scale/shared'
 import { Layer } from 'effect'
 
+// FetchHttpClient layer with credentials for auth cookies
+const FetchWithCredentials = FetchHttpClient.layer.pipe(
+  Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { credentials: 'include' })),
+)
+
 // Use AtomRpc.Tag for automatic atom integration
 export class ApiClient extends AtomRpc.Tag<ApiClient>()('@scale/ApiClient', {
   group: AppRpcs,
   protocol: RpcClient.layerProtocolHttp({
     url: 'http://localhost:3001/rpc',
-  }).pipe(Layer.provide(RpcSerialization.layerNdjson), Layer.provide(FetchHttpClient.layer)),
+  }).pipe(Layer.provide(RpcSerialization.layerNdjson), Layer.provide(FetchWithCredentials)),
 }) {}
 
 // Reactivity keys for cache invalidation
@@ -40,38 +45,38 @@ export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefi
 })
 
 // Factory function for dashboard stats
-export const createDashboardStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ startDate, endDate }), {
+export const createDashboardStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
 // Stats page atoms
-export const createWeightStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightStats', new StatsParams({ startDate, endDate }), {
+export const createWeightStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetWeightStats', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
-export const createWeightTrendAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightTrend', new StatsParams({ startDate, endDate }), {
+export const createWeightTrendAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetWeightTrend', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
-export const createInjectionSiteStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionSiteStats', new StatsParams({ startDate, endDate }), {
+export const createInjectionSiteStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionSiteStats', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createDosageHistoryAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDosageHistory', new StatsParams({ startDate, endDate }), {
+export const createDosageHistoryAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDosageHistory', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createInjectionFrequencyAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionFrequency', new StatsParams({ startDate, endDate }), {
+export const createInjectionFrequencyAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionFrequency', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createDrugBreakdownAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDrugBreakdown', new StatsParams({ startDate, endDate }), {
+export const createDrugBreakdownAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDrugBreakdown', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })

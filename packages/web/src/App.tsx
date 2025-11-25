@@ -161,7 +161,7 @@ export function App() {
             style={{
               padding: 'var(--space-2) var(--space-3)',
               fontSize: 'var(--text-xs)',
-              color: 'var(--color-text-muted)',
+              color: 'var(--color-text)',
               background: 'none',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm)',

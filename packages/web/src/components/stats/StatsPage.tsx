@@ -861,29 +861,29 @@ export function StatsPage({ userId }: { userId: string }) {
   const effectiveEndDate = zoomRange?.end ?? endDate
 
   const weightStatsAtom = useMemo(
-    () => createWeightStatsAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createWeightStatsAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
-  const weightTrendAtom = useMemo(() => createWeightTrendAtom(startDate, endDate), [startDate, endDate])
+  const weightTrendAtom = useMemo(() => createWeightTrendAtom(userId, startDate, endDate), [userId, startDate, endDate])
   const injectionAtom = useMemo(
     () => createInjectionLogListAtom(userId, startDate, endDate),
     [userId, startDate, endDate],
   )
   const injectionSiteStatsAtom = useMemo(
-    () => createInjectionSiteStatsAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createInjectionSiteStatsAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
   const dosageHistoryAtom = useMemo(
-    () => createDosageHistoryAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createDosageHistoryAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
   const injectionFrequencyAtom = useMemo(
-    () => createInjectionFrequencyAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createInjectionFrequencyAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
   const drugBreakdownAtom = useMemo(
-    () => createDrugBreakdownAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createDrugBreakdownAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
 
   const weightStatsResult = useAtomValue(weightStatsAtom)

@@ -540,8 +540,8 @@ export function Dashboard({ userId }: { userId: string }) {
   const effectiveStartDate = zoomRange?.start ?? startDate
   const effectiveEndDate = zoomRange?.end ?? endDate
   const statsAtom = useMemo(
-    () => createDashboardStatsAtom(effectiveStartDate, effectiveEndDate),
-    [effectiveStartDate, effectiveEndDate],
+    () => createDashboardStatsAtom(userId, effectiveStartDate, effectiveEndDate),
+    [userId, effectiveStartDate, effectiveEndDate],
   )
 
   const weightResult = useAtomValue(weightAtom)

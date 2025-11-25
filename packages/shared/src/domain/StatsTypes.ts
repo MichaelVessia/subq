@@ -5,6 +5,7 @@ import { Schema } from 'effect'
 // ============================================
 
 export class StatsParams extends Schema.Class<StatsParams>('StatsParams')({
+  userId: Schema.String,
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
 }) {}

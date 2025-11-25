@@ -114,7 +114,7 @@ export const StatsServiceLive = Layer.effect(
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
-              WHERE 1=1
+              WHERE user_id = ${params.userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
               ORDER BY datetime
@@ -169,7 +169,7 @@ export const StatsServiceLive = Layer.effect(
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
-              WHERE 1=1
+              WHERE user_id = ${params.userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
               ORDER BY datetime
@@ -211,7 +211,7 @@ export const StatsServiceLive = Layer.effect(
           const rows = yield* sql`
             SELECT datetime, weight::text
             FROM weight_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime ASC
@@ -231,7 +231,7 @@ export const StatsServiceLive = Layer.effect(
               COALESCE(injection_site, 'Unknown') as injection_site,
               COUNT(*)::text as count
             FROM injection_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             GROUP BY injection_site
@@ -253,7 +253,7 @@ export const StatsServiceLive = Layer.effect(
           const rows = yield* sql`
             SELECT datetime, dosage
             FROM injection_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime ASC
@@ -284,7 +284,7 @@ export const StatsServiceLive = Layer.effect(
                 LAG(datetime) OVER (ORDER BY datetime) as prev_datetime,
                 EXTRACT(DOW FROM datetime)::int as day_of_week
               FROM injection_logs
-              WHERE 1=1
+              WHERE user_id = ${params.userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ),
@@ -325,7 +325,7 @@ export const StatsServiceLive = Layer.effect(
           const rows = yield* sql`
             SELECT drug, COUNT(*)::text as count
             FROM injection_logs
-            WHERE 1=1
+            WHERE user_id = ${params.userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             GROUP BY drug
