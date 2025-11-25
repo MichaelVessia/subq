@@ -608,28 +608,25 @@ function WeightChart({ weightData, injectionData, zoomRange, onZoom }: ChartProp
 
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+      <span
         style={{
-          fontSize: 'var(--text-xs)',
+          fontSize: 'var(--text-sm)',
           color: 'var(--color-text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          marginBottom: '4px',
         }}
       >
         {label}
-      </div>
-      <div
+      </span>
+      <span
         style={{
-          fontSize: 'var(--text-xl)',
+          fontSize: 'var(--text-base)',
           fontWeight: 600,
           color: 'var(--color-text)',
           fontFamily: 'var(--font-mono)',
         }}
       >
         {value}
-      </div>
+      </span>
     </div>
   )
 }
@@ -720,10 +717,11 @@ export function Dashboard() {
     const weeklyAvg = weeks > 0 ? totalChange / weeks : 0
 
     return {
+      startWeight: first.weight.toFixed(1),
+      endWeight: last.weight.toFixed(1),
       totalChange: totalChange.toFixed(1),
       percentChange: percentChange.toFixed(1),
       weeklyAvg: weeklyAvg.toFixed(1),
-      currentWeight: last.weight.toFixed(1),
     }
   }, [weightResult, zoomRange])
 
@@ -782,18 +780,18 @@ export function Dashboard() {
       {stats && (
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: 'var(--space-6)',
-            marginBottom: 'var(--space-8)',
-            paddingBottom: 'var(--space-6)',
+            marginBottom: 'var(--space-6)',
+            paddingBottom: 'var(--space-4)',
             borderBottom: '1px solid var(--color-border)',
           }}
         >
-          <StatItem label="Current" value={`${stats.currentWeight} lbs`} />
-          <StatItem label="Total Change" value={`${stats.totalChange} lbs`} />
-          <StatItem label="Change %" value={`${stats.percentChange}%`} />
-          <StatItem label="Weekly Avg" value={`${stats.weeklyAvg} lbs/wk`} />
+          <StatItem label="Start" value={`${stats.startWeight} lbs`} />
+          <StatItem label="End" value={`${stats.endWeight} lbs`} />
+          <StatItem label="Change" value={`${stats.totalChange} lbs (${stats.percentChange}%)`} />
+          <StatItem label="Avg" value={`${stats.weeklyAvg} lbs/wk`} />
         </div>
       )}
 
