@@ -24,7 +24,7 @@ const AuthLive = Layer.unwrapEffect(
       database: pool,
       secret: authSecret,
       baseURL: authUrl,
-      trustedOrigins: [authUrl, 'http://localhost:5173'],
+      trustedOrigins: [authUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
       emailAndPassword: {
         enabled: true,
       },
@@ -32,31 +32,38 @@ const AuthLive = Layer.unwrapEffect(
   }),
 )
 
+// RPC handler layer
+const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive))
+
+// CORS configuration - allow both localhost and 127.0.0.1
+const corsMiddleware = HttpMiddleware.cors({
+  allowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true,
+  allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  // Include tracing headers (traceparent, b3) that Effect RPC client sends
+  allowedHeaders: ['Content-Type', 'Authorization', 'traceparent', 'b3'],
+})
+
 // Auth routes layer - adds auth routes to the default router
-const AuthRoutesLive = HttpRouter.Default.use((routerService) =>
+const AuthRoutesLive = HttpRouter.Default.use((router) =>
   Effect.gen(function* () {
     const { auth } = yield* AuthService
-    yield* routerService.all('/api/auth/*', toEffectHandler(auth))
+    yield* router.all('/api/auth/*', toEffectHandler(auth))
   }),
 )
 
-const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive))
+// RPC Protocol + routes layer
+// Uses layerProtocolHttp but we'll merge it differently to share the router
+const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(RpcSerialization.layerNdjson))
 
-// CORS configuration for auth (needs credentials)
-const corsMiddleware = HttpMiddleware.cors({
-  allowedOrigins: ['http://localhost:5173'],
-  credentials: true,
-  allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-})
+// Merge all route layers so they share the same Default router
+const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive)
 
 // HTTP server with all dependencies
 const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(RpcLive),
-  Layer.provide(RpcServer.layerProtocolHttp({ path: '/rpc' })),
+  Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
-  // Mount auth routes
-  Layer.provide(AuthRoutesLive),
   Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
   // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
