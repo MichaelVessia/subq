@@ -35,7 +35,9 @@ const WeightStatsRow = Schema.Struct({
   min_weight: Schema.NullOr(Schema.NumberFromString),
   max_weight: Schema.NullOr(Schema.NumberFromString),
   avg_weight: Schema.NullOr(Schema.NumberFromString),
-  std_dev: Schema.NullOr(Schema.NumberFromString),
+  start_weight: Schema.NullOr(Schema.NumberFromString),
+  end_weight: Schema.NullOr(Schema.NumberFromString),
+  days_span: Schema.NullOr(Schema.NumberFromString),
   entry_count: Schema.NumberFromString,
 })
 const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
@@ -164,16 +166,23 @@ export const StatsServiceLive = Layer.effect(
       getWeightStats: (params) =>
         Effect.gen(function* () {
           const rows = yield* sql`
+            WITH filtered AS (
+              SELECT datetime, weight
+              FROM weight_logs
+              WHERE 1=1
+              ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+              ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+              ORDER BY datetime
+            )
             SELECT
               MIN(weight)::text as min_weight,
               MAX(weight)::text as max_weight,
               AVG(weight)::text as avg_weight,
-              COALESCE(STDDEV(weight), 0)::text as std_dev,
+              (SELECT weight FROM filtered ORDER BY datetime ASC LIMIT 1)::text as start_weight,
+              (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1)::text as end_weight,
+              (EXTRACT(EPOCH FROM (MAX(datetime) - MIN(datetime))) / 86400)::text as days_span,
               COUNT(*)::text as entry_count
-            FROM weight_logs
-            WHERE 1=1
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            FROM filtered
           `
           if (rows.length === 0) return null
 
@@ -182,11 +191,17 @@ export const StatsServiceLive = Layer.effect(
             return null
           }
 
+          // Calculate rate of change (lbs per week)
+          const daysSpan = decoded.days_span ?? 0
+          const weeks = daysSpan / 7
+          const weightChange = (decoded.end_weight ?? 0) - (decoded.start_weight ?? 0)
+          const rateOfChange = weeks > 0 ? weightChange / weeks : 0
+
           return new WeightStats({
             minWeight: decoded.min_weight,
             maxWeight: decoded.max_weight,
             avgWeight: decoded.avg_weight,
-            stdDev: decoded.std_dev ?? 0,
+            rateOfChange,
             entryCount: Number(decoded.entry_count),
           })
         }).pipe(Effect.orDie),

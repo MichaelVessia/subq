@@ -20,8 +20,8 @@ export class WeightStats extends Schema.Class<WeightStats>('WeightStats')({
   maxWeight: Schema.Number,
   /** Average weight in period */
   avgWeight: Schema.Number,
-  /** Standard deviation */
-  stdDev: Schema.Number,
+  /** Rate of change in lbs per week (negative = losing weight) */
+  rateOfChange: Schema.Number,
   /** Total number of weight entries */
   entryCount: Schema.Number,
 }) {}

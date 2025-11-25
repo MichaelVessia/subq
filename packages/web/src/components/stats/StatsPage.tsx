@@ -71,11 +71,12 @@ function WeightSummary({ stats }: { stats: WeightStats | null }) {
     return <div style={{ color: 'var(--color-text-muted)' }}>No weight data available</div>
   }
 
+  const rateSign = stats.rateOfChange >= 0 ? '+' : ''
   const items = [
     { label: 'Min', value: `${stats.minWeight.toFixed(1)} lbs` },
     { label: 'Max', value: `${stats.maxWeight.toFixed(1)} lbs` },
     { label: 'Average', value: `${stats.avgWeight.toFixed(1)} lbs` },
-    { label: 'Std Dev', value: `${stats.stdDev.toFixed(2)} lbs` },
+    { label: 'Rate', value: `${rateSign}${stats.rateOfChange.toFixed(2)} lbs/wk` },
     { label: 'Entries', value: stats.entryCount.toString() },
   ]
 
