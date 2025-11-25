@@ -518,7 +518,7 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // ============================================
 
 export function Dashboard({ userId }: { userId: string }) {
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>('3m')
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('all')
   const [zoomRange, setZoomRange] = useState<{ start: Date; end: Date } | null>(null)
 
   // Create atoms based on selected time range
