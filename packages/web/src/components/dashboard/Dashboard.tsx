@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import * as d3 from 'd3'
 import { WeightLogListAtom, InjectionLogListAtom } from '../../rpc.js'
@@ -37,6 +37,7 @@ function getDosageColor(dosage: string, colorMap: Record<string, string> = DEFAU
 interface DataPoint {
   date: Date
   weight: number
+  notes?: string | null
 }
 
 interface InjectionPoint {
@@ -44,10 +45,41 @@ interface InjectionPoint {
   weight: number
   dosage: string
   drug: string
+  injectionSite?: string | null
+  notes?: string | null
 }
 
 interface WeightPointWithColor extends DataPoint {
   color: string
+}
+
+// ============================================
+// Tooltip Component
+// ============================================
+
+function Tooltip({ content, position }: { content: React.ReactNode; position: { x: number; y: number } | null }) {
+  if (!position) return null
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: position.x + 10,
+        top: position.y - 10,
+        backgroundColor: '#1f2937',
+        color: '#fff',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        fontSize: '12px',
+        lineHeight: '1.4',
+        pointerEvents: 'none',
+        zIndex: 1000,
+        maxWidth: '250px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      }}
+    >
+      {content}
+    </div>
+  )
 }
 
 interface ChartProps {
@@ -60,8 +92,14 @@ interface ChartProps {
 // Chart Component
 // ============================================
 
+interface TooltipState {
+  content: React.ReactNode
+  position: { x: number; y: number }
+}
+
 function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_COLORS }: ChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   useEffect(() => {
     if (!svgRef.current || weightData.length === 0) return
@@ -155,6 +193,9 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
         .attr('d', line)
     }
 
+    // Format date for tooltip
+    const formatDate = d3.timeFormat('%b %d, %Y')
+
     // Draw weight points with colors
     g.selectAll('.weight-point')
       .data(weightPointsWithColors)
@@ -167,6 +208,27 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .attr('fill', (d) => d.color)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .on('mouseenter', function (event, d) {
+        d3.select(this).attr('r', 7)
+        setTooltip({
+          content: (
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{d.weight} lbs</div>
+              <div style={{ color: '#9ca3af' }}>{formatDate(d.date)}</div>
+              {d.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{d.notes}</div>}
+            </div>
+          ),
+          position: { x: event.clientX, y: event.clientY },
+        })
+      })
+      .on('mousemove', (event) => {
+        setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
+      })
+      .on('mouseleave', function () {
+        d3.select(this).attr('r', 5)
+        setTooltip(null)
+      })
 
     // Draw injection markers
     const injectionPointsOnLine = sortedInjections
@@ -199,6 +261,29 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .append('g')
       .attr('class', 'injection-group')
       .attr('transform', (d) => `translate(${xScale(d.displayDate)},${yScale(d.weight) - 18})`)
+      .style('cursor', 'pointer')
+      .on('mouseenter', function (event, d) {
+        d3.select(this).select('rect').attr('transform', 'scale(1.1)')
+        setTooltip({
+          content: (
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{d.drug}</div>
+              <div>Dosage: {d.dosage}</div>
+              <div style={{ color: '#9ca3af' }}>{formatDate(d.displayDate)}</div>
+              {d.injectionSite && <div>Site: {d.injectionSite}</div>}
+              {d.notes && <div style={{ marginTop: '4px', fontStyle: 'italic' }}>{d.notes}</div>}
+            </div>
+          ),
+          position: { x: event.clientX, y: event.clientY },
+        })
+      })
+      .on('mousemove', (event) => {
+        setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
+      })
+      .on('mouseleave', function () {
+        d3.select(this).select('rect').attr('transform', 'scale(1)')
+        setTooltip(null)
+      })
 
     // Injection pill background
     injectionGroup
@@ -245,7 +330,12 @@ function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_
       .text('Weight (lbs)')
   }, [weightData, injectionData, dosageColors])
 
-  return <svg ref={svgRef} style={{ width: '100%', maxWidth: '800px' }} />
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg ref={svgRef} style={{ width: '100%', maxWidth: '800px' }} />
+      <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
+    </div>
+  )
 }
 
 // ============================================
@@ -309,6 +399,7 @@ export function Dashboard() {
     return weights.map((w) => ({
       date: new Date(w.datetime),
       weight: w.weight,
+      notes: w.notes,
     }))
   }, [weightResult])
 
@@ -322,6 +413,8 @@ export function Dashboard() {
       weight: 0, // Will be calculated based on closest weight
       dosage: inj.dosage,
       drug: inj.drug,
+      injectionSite: inj.injectionSite,
+      notes: inj.notes,
     }))
   }, [injectionResult, weightResult])
 
