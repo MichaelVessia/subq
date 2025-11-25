@@ -1,25 +1,29 @@
 import { WeightLogList } from './components/weight/WeightLogList.js'
 import { InjectionLogList } from './components/injection/InjectionLogList.js'
 
-type Tab = 'weight' | 'injection'
+type Page = 'weight' | 'injection'
 
-function getTabFromHash(): Tab {
-  const hash = window.location.hash.slice(1)
-  return hash === 'injection' ? 'injection' : 'weight'
+function getPage(): Page {
+  const path = window.location.pathname
+  if (path === '/injection') return 'injection'
+  return 'weight'
 }
 
 export function App() {
-  const activeTab = getTabFromHash()
+  const page = getPage()
 
-  const changeTab = (tab: Tab) => {
-    window.location.hash = tab
-  }
+  const linkStyle = (active: boolean) => ({
+    padding: '0.5rem 1rem',
+    textDecoration: 'none',
+    borderBottom: active ? '2px solid #2563eb' : '2px solid transparent',
+    color: active ? '#2563eb' : '#666',
+  })
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', fontFamily: 'system-ui' }}>
       <h1 style={{ marginBottom: '1rem' }}>Health Tracker</h1>
 
-      <div
+      <nav
         style={{
           display: 'flex',
           gap: '0.5rem',
@@ -27,38 +31,16 @@ export function App() {
           borderBottom: '1px solid #ccc',
         }}
       >
-        <button
-          type="button"
-          onClick={() => changeTab('weight')}
-          style={{
-            padding: '0.5rem 1rem',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'weight' ? '2px solid #2563eb' : '2px solid transparent',
-            color: activeTab === 'weight' ? '#2563eb' : '#666',
-          }}
-        >
+        <a href="/" style={linkStyle(page === 'weight')}>
           Weight
-        </button>
-        <button
-          type="button"
-          onClick={() => changeTab('injection')}
-          style={{
-            padding: '0.5rem 1rem',
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            borderBottom: activeTab === 'injection' ? '2px solid #2563eb' : '2px solid transparent',
-            color: activeTab === 'injection' ? '#2563eb' : '#666',
-          }}
-        >
+        </a>
+        <a href="/injection" style={linkStyle(page === 'injection')}>
           Injections
-        </button>
-      </div>
+        </a>
+      </nav>
 
-      {activeTab === 'weight' && <WeightLogList />}
-      {activeTab === 'injection' && <InjectionLogList />}
+      {page === 'weight' && <WeightLogList />}
+      {page === 'injection' && <InjectionLogList />}
     </div>
   )
 }
