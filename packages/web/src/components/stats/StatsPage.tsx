@@ -939,7 +939,7 @@ export function StatsPage() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} />
+        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} hasCustomZoom={!!zoomRange} />
         {zoomRange && (
           <button
             type="button"

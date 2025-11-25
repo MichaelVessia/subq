@@ -635,7 +635,15 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // Time Range Selector
 // ============================================
 
-function TimeRangeSelector({ selected, onChange }: { selected: TimeRangeKey; onChange: (key: TimeRangeKey) => void }) {
+function TimeRangeSelector({
+  selected,
+  onChange,
+  hasCustomZoom,
+}: {
+  selected: TimeRangeKey
+  onChange: (key: TimeRangeKey) => void
+  hasCustomZoom?: boolean
+}) {
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
   return (
     <div
@@ -644,26 +652,29 @@ function TimeRangeSelector({ selected, onChange }: { selected: TimeRangeKey; onC
         gap: 'var(--space-2)',
       }}
     >
-      {keys.map((key) => (
-        <button
-          key={key}
-          onClick={() => onChange(key)}
-          type="button"
-          style={{
-            padding: 'var(--space-2) var(--space-4)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--color-border)',
-            backgroundColor: selected === key ? 'var(--color-text)' : 'var(--color-surface)',
-            color: selected === key ? 'var(--color-surface)' : 'var(--color-text)',
-            fontSize: 'var(--text-sm)',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          {TIME_RANGES[key].label}
-        </button>
-      ))}
+      {keys.map((key) => {
+        const isSelected = selected === key && !hasCustomZoom
+        return (
+          <button
+            key={key}
+            onClick={() => onChange(key)}
+            type="button"
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
+              color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
+              fontSize: 'var(--text-sm)',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {TIME_RANGES[key].label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -745,7 +756,7 @@ export function Dashboard() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} />
+        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} hasCustomZoom={!!zoomRange} />
         {zoomRange && (
           <button
             type="button"
