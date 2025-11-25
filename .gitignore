@@ -5,7 +5,7 @@ node_modules/
 tmp/
 dist/
 build/
-docs/
+# docs/ - now tracking plans
 .direnv/
 .idea/
 .env
