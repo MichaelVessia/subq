@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { RpcHandlersLive } from './RpcHandlers.js'
 import { SqlLive } from './Sql.js'
 import { RepositoriesLive } from './repositories/index.js'
+import { StatsServiceLive } from './services/StatsService.js'
 
 const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive))
 
@@ -16,9 +17,10 @@ const HttpLive = HttpRouter.Default.serve(HttpMiddleware.cors()).pipe(
   Layer.provide(RpcServer.layerProtocolHttp({ path: '/rpc' })),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
-  // Provide repositories to handlers
+  // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
-  // Provide SQL client to repositories
+  Layer.provide(StatsServiceLive),
+  // Provide SQL client to repositories and services
   Layer.provide(SqlLive),
 )
 

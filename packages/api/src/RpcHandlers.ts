@@ -1,14 +1,16 @@
-import { AppRpcs } from '@scale/shared'
+import { AppRpcs, type DashboardStatsParams } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
 import { Greeter } from './Greeter.js'
 import { WeightLogRepo } from './repositories/WeightLogRepo.js'
 import { InjectionLogRepo } from './repositories/InjectionLogRepo.js'
+import { StatsService } from './services/StatsService.js'
 
 export const RpcHandlersLive = AppRpcs.toLayer(
   Effect.gen(function* () {
     const greeter = yield* Greeter
     const weightLogRepo = yield* WeightLogRepo
     const injectionLogRepo = yield* InjectionLogRepo
+    const statsService = yield* StatsService
 
     return {
       // Existing
@@ -29,6 +31,9 @@ export const RpcHandlersLive = AppRpcs.toLayer(
       InjectionLogDelete: ({ id }: { id: string }) => injectionLogRepo.delete(id),
       InjectionLogGetDrugs: () => injectionLogRepo.getUniqueDrugs(),
       InjectionLogGetSites: () => injectionLogRepo.getUniqueSites(),
+
+      // Dashboard stats
+      GetDashboardStats: (params: DashboardStatsParams) => statsService.getDashboardStats(params),
     }
   }),
 ).pipe(Layer.provide(Greeter.layer))

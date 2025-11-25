@@ -1,7 +1,7 @@
 import { FetchHttpClient } from '@effect/platform'
 import { RpcClient, RpcSerialization } from '@effect/rpc'
 import { AtomRpc } from '@effect-atom/atom-react'
-import { AppRpcs, WeightLogListParams, InjectionLogListParams } from '@scale/shared'
+import { AppRpcs, WeightLogListParams, InjectionLogListParams, DashboardStatsParams } from '@scale/shared'
 import { Layer } from 'effect'
 
 // Use AtomRpc.Tag for automatic atom integration
@@ -40,18 +40,16 @@ export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const InjectionDrugsAtom = ApiClient.query(
-  'InjectionLogGetDrugs',
-  {},
-  {
-    reactivityKeys: [ReactivityKeys.injectionDrugs],
-  },
-)
+export const InjectionDrugsAtom = ApiClient.query('InjectionLogGetDrugs', undefined, {
+  reactivityKeys: [ReactivityKeys.injectionDrugs],
+})
 
-export const InjectionSitesAtom = ApiClient.query(
-  'InjectionLogGetSites',
-  {},
-  {
-    reactivityKeys: [ReactivityKeys.injectionSites],
-  },
-)
+export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefined, {
+  reactivityKeys: [ReactivityKeys.injectionSites],
+})
+
+// Factory function for dashboard stats
+export const createDashboardStatsAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ startDate, endDate }), {
+    reactivityKeys: [ReactivityKeys.weightLogs],
+  })

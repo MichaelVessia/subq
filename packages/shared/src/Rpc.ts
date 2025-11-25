@@ -11,6 +11,8 @@ import {
   InjectionLogUpdate,
   InjectionLogDelete,
   InjectionLogListParams,
+  DashboardStats,
+  DashboardStatsParams,
 } from './domain/index.js'
 
 // ============================================
@@ -72,5 +74,11 @@ export const AppRpcs = RpcGroup.make(
   }),
   Rpc.make('InjectionLogGetSites', {
     success: Schema.Array(Schema.String),
+  }),
+
+  // Dashboard Stats RPC
+  Rpc.make('GetDashboardStats', {
+    payload: DashboardStatsParams,
+    success: Schema.NullOr(DashboardStats),
   }),
 )

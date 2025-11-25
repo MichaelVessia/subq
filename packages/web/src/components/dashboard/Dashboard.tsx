@@ -1,8 +1,8 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import * as d3 from 'd3'
-import { createWeightLogListAtom, createInjectionLogListAtom } from '../../rpc.js'
-import type { WeightLog, InjectionLog } from '@scale/shared'
+import { createWeightLogListAtom, createInjectionLogListAtom, createDashboardStatsAtom } from '../../rpc.js'
+import type { WeightLog, InjectionLog, DashboardStats } from '@scale/shared'
 
 // ============================================
 // Time Range Options
@@ -688,42 +688,31 @@ export function Dashboard() {
   const weightAtom = useMemo(() => createWeightLogListAtom(startDate, endDate), [startDate, endDate])
   const injectionAtom = useMemo(() => createInjectionLogListAtom(startDate, endDate), [startDate, endDate])
 
+  // Stats computed server-side - use zoom range if set, otherwise time range
+  const effectiveStartDate = zoomRange?.start ?? startDate
+  const effectiveEndDate = zoomRange?.end ?? endDate
+  const statsAtom = useMemo(
+    () => createDashboardStatsAtom(effectiveStartDate, effectiveEndDate),
+    [effectiveStartDate, effectiveEndDate],
+  )
+
   const weightResult = useAtomValue(weightAtom)
   const injectionResult = useAtomValue(injectionAtom)
+  const statsResult = useAtomValue(statsAtom)
 
+  // Format stats from server response
   const stats = useMemo(() => {
-    const allWeights = Result.getOrElse(weightResult, () => [] as WeightLog[])
-
-    // Filter by zoom range if set
-    const weights = zoomRange
-      ? allWeights.filter((w) => {
-          const d = new Date(w.datetime)
-          return d >= zoomRange.start && d <= zoomRange.end
-        })
-      : allWeights
-
-    if (weights.length < 2) return null
-
-    const sorted = [...weights].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-    const first = sorted[0]
-    const last = sorted[sorted.length - 1]
-    if (!first || !last) return null
-
-    const totalChange = last.weight - first.weight
-    const percentChange = (totalChange / first.weight) * 100
-
-    const daysDiff = (new Date(last.datetime).getTime() - new Date(first.datetime).getTime()) / (1000 * 60 * 60 * 24)
-    const weeks = daysDiff / 7
-    const weeklyAvg = weeks > 0 ? totalChange / weeks : 0
+    const serverStats = Result.getOrElse(statsResult, () => null as DashboardStats | null)
+    if (!serverStats) return null
 
     return {
-      startWeight: first.weight.toFixed(1),
-      endWeight: last.weight.toFixed(1),
-      totalChange: totalChange.toFixed(1),
-      percentChange: percentChange.toFixed(1),
-      weeklyAvg: weeklyAvg.toFixed(1),
+      startWeight: serverStats.startWeight.toFixed(1),
+      endWeight: serverStats.endWeight.toFixed(1),
+      totalChange: serverStats.totalChange.toFixed(1),
+      percentChange: serverStats.percentChange.toFixed(1),
+      weeklyAvg: serverStats.weeklyAvg.toFixed(1),
     }
-  }, [weightResult, zoomRange])
+  }, [statsResult])
 
   const weightData = useMemo((): DataPoint[] => {
     const weights = Result.getOrElse(weightResult, () => [] as WeightLog[])
@@ -749,7 +738,7 @@ export function Dashboard() {
     }))
   }, [injectionResult, weightResult])
 
-  if (Result.isWaiting(weightResult) || Result.isWaiting(injectionResult)) {
+  if (Result.isWaiting(weightResult) || Result.isWaiting(injectionResult) || Result.isWaiting(statsResult)) {
     return <div className="loading">Loading...</div>
   }
 
