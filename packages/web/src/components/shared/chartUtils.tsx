@@ -151,38 +151,81 @@ export function Tooltip({
 export function TimeRangeSelector({
   selected,
   onChange,
-  hasCustomZoom,
+  zoomRange,
+  onResetZoom,
 }: {
   selected: TimeRangeKey
   onChange: (key: TimeRangeKey) => void
-  hasCustomZoom?: boolean
+  zoomRange?: { start: Date; end: Date } | null
+  onResetZoom?: () => void
 }) {
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
   return (
-    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-      {keys.map((key) => {
-        const isSelected = selected === key && !hasCustomZoom
-        return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        {keys.map((key) => {
+          const isSelected = selected === key && !zoomRange
+          return (
+            <button
+              key={key}
+              onClick={() => onChange(key)}
+              type="button"
+              style={{
+                padding: 'var(--space-2) var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
+                color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {TIME_RANGES[key].label}
+            </button>
+          )
+        })}
+      </div>
+      {zoomRange && onResetZoom && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              backgroundColor: 'var(--color-surface)',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text)',
+            }}
+          >
+            <span style={{ color: 'var(--color-text-muted)' }}>From</span>
+            <span>{zoomRange.start.toLocaleDateString()}</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>to</span>
+            <span>{zoomRange.end.toLocaleDateString()}</span>
+          </div>
           <button
-            key={key}
-            onClick={() => onChange(key)}
             type="button"
+            onClick={onResetZoom}
             style={{
               padding: 'var(--space-2) var(--space-4)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--color-border)',
-              backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
-              color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
+              backgroundColor: 'var(--color-surface)',
+              color: 'var(--color-text)',
               fontSize: 'var(--text-sm)',
               fontWeight: 500,
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
             }}
           >
-            {TIME_RANGES[key].label}
+            Reset
           </button>
-        )
-      })}
+        </div>
+      )}
     </div>
   )
 }

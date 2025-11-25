@@ -1,7 +1,6 @@
 import { SqlClient } from '@effect/sql'
-import { Effect, Layer, Option } from 'effect'
-import { Schema } from 'effect'
-import { WeightLog, type WeightLogCreate, type WeightLogUpdate, type WeightLogListParams } from '@scale/shared'
+import { WeightLog, type WeightLogCreate, type WeightLogListParams, type WeightLogUpdate } from '@scale/shared'
+import { Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema

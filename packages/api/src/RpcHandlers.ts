@@ -1,8 +1,8 @@
 import { AppRpcs, type DashboardStatsParams, type StatsParams } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
 import { Greeter } from './Greeter.js'
-import { WeightLogRepo } from './repositories/WeightLogRepo.js'
 import { InjectionLogRepo } from './repositories/InjectionLogRepo.js'
+import { WeightLogRepo } from './repositories/WeightLogRepo.js'
 import { StatsService } from './services/StatsService.js'
 
 export const RpcHandlersLive = AppRpcs.toLayer(

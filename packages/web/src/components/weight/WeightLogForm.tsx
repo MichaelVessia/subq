@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Option } from 'effect'
 import { WeightLogCreate, type WeightUnit } from '@scale/shared'
+import { Option } from 'effect'
+import { useState } from 'react'
 
 function toLocalDatetimeString(date: Date): string {
   const year = date.getFullYear()

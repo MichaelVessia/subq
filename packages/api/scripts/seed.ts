@@ -1,6 +1,14 @@
 import { SqlClient } from '@effect/sql'
-import { Effect } from 'effect'
+import { betterAuth } from 'better-auth'
+import { getMigrations } from 'better-auth/db'
+import { Config, Effect } from 'effect'
+import { Pool } from 'pg'
 import { SqlLive } from '../src/Sql.js'
+
+// Test user credentials
+const TEST_USER_EMAIL = 'test@example.com'
+const TEST_USER_PASSWORD = 'testpassword123'
+const TEST_USER_NAME = 'Test User'
 
 // 1 year of realistic GLP-1 weight loss journey
 // - Weekly injections ramping from 2.5mg to 15mg
@@ -9,10 +17,59 @@ import { SqlLive } from '../src/Sql.js'
 
 const seedData = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
+  const databaseUrl = yield* Config.string('DATABASE_URL')
+  const authSecret = yield* Config.string('BETTER_AUTH_SECRET')
+  const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
-  // Clear existing data
-  yield* sql`TRUNCATE TABLE weight_logs CASCADE`
-  yield* sql`TRUNCATE TABLE injection_logs CASCADE`
+  // Create better-auth instance to manage test user
+  const pool = new Pool({ connectionString: databaseUrl })
+  const authOptions = {
+    database: pool,
+    secret: authSecret,
+    baseURL: authUrl,
+    emailAndPassword: {
+      enabled: true,
+    },
+  }
+
+  // Run better-auth migrations first
+  console.log('Running better-auth migrations...')
+  const { runMigrations } = yield* Effect.promise(() => getMigrations(authOptions))
+  yield* Effect.promise(runMigrations)
+
+  const auth = betterAuth(authOptions)
+
+  // Create or get test user
+  console.log('Setting up test user...')
+
+  // Try to sign up the test user (will fail if already exists)
+  let userId: string
+  try {
+    const signUpResult = yield* Effect.tryPromise(() =>
+      auth.api.signUpEmail({
+        body: {
+          email: TEST_USER_EMAIL,
+          password: TEST_USER_PASSWORD,
+          name: TEST_USER_NAME,
+        },
+      }),
+    )
+    userId = signUpResult.user.id
+    console.log(`Created test user: ${TEST_USER_EMAIL} (ID: ${userId})`)
+  } catch {
+    // User might already exist, try to find them
+    const existingUser = yield* sql`SELECT id FROM "user" WHERE email = ${TEST_USER_EMAIL}`
+    if (existingUser.length > 0) {
+      userId = existingUser[0].id as string
+      console.log(`Using existing test user: ${TEST_USER_EMAIL} (ID: ${userId})`)
+    } else {
+      return yield* Effect.die(new Error('Failed to create or find test user'))
+    }
+  }
+
+  // Clear existing data for this user
+  yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
+  yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
 
   console.log('Generating 1 year of data...')
 
@@ -92,14 +149,15 @@ const seedData = Effect.gen(function* () {
 
   for (const entry of injectionEntries) {
     yield* sql`
-      INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes)
+      INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes, user_id)
       VALUES (
         ${entry.datetime}::timestamptz,
         ${entry.drug},
         ${entry.source},
         ${entry.dosage},
         ${entry.injectionSite},
-        ${entry.notes}
+        ${entry.notes},
+        ${userId}
       )
     `
   }
@@ -198,14 +256,20 @@ const seedData = Effect.gen(function* () {
 
   for (const entry of weightEntries) {
     yield* sql`
-      INSERT INTO weight_logs (datetime, weight, unit, notes)
-      VALUES (${entry.datetime}::timestamptz, ${entry.weight}, ${entry.unit}, ${entry.notes})
+      INSERT INTO weight_logs (datetime, weight, unit, notes, user_id)
+      VALUES (${entry.datetime}::timestamptz, ${entry.weight}, ${entry.unit}, ${entry.notes}, ${userId})
     `
   }
 
   console.log(`Inserted ${weightEntries.length} weight logs`)
   console.log('\nSeed data complete!')
   console.log(`Date range: ${startDate.toLocaleDateString()} to ${new Date().toLocaleDateString()}`)
+  console.log(`\nTest user credentials:`)
+  console.log(`  Email: ${TEST_USER_EMAIL}`)
+  console.log(`  Password: ${TEST_USER_PASSWORD}`)
+
+  // Clean up the pool
+  yield* Effect.promise(() => pool.end())
 })
 
 // Run it

@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Option } from 'effect'
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import { InjectionLogCreate } from '@scale/shared'
+import { Option } from 'effect'
+import { useState } from 'react'
 import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
 
 function toLocalDatetimeString(date: Date): string {

@@ -1,9 +1,9 @@
+import { readdir, readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { SqlClient } from '@effect/sql'
 import { Effect } from 'effect'
 import { SqlLive } from '../src/Sql.js'
-import { readdir, readFile } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MIGRATIONS_DIR = join(__dirname, '../migrations')

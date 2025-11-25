@@ -1,7 +1,7 @@
 import { FetchHttpClient } from '@effect/platform'
 import { RpcClient, RpcSerialization } from '@effect/rpc'
 import { AtomRpc } from '@effect-atom/atom-react'
-import { AppRpcs, WeightLogListParams, InjectionLogListParams, DashboardStatsParams, StatsParams } from '@scale/shared'
+import { AppRpcs, DashboardStatsParams, InjectionLogListParams, StatsParams, WeightLogListParams } from '@scale/shared'
 import { Layer } from 'effect'
 
 // Use AtomRpc.Tag for automatic atom integration

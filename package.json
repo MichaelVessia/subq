@@ -13,7 +13,7 @@
     "dev:api": "bun run --filter @scale/api dev",
     "dev:web": "bun run --filter @scale/web dev",
     "build": "bun run --filter '*' build",
-    "typecheck": "tsc -b tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json && tsc -p packages/web --noEmit",
     "check": "bun run typecheck && bun run lint && bun run format && bun run test",
     "lint": "biome lint . || nix develop --command biome lint .",
     "lint-fix": "biome lint --write . || nix develop --command biome lint --write .",

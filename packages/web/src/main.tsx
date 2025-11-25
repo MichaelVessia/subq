@@ -1,6 +1,6 @@
+import { RegistryProvider } from '@effect-atom/atom-react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { RegistryProvider } from '@effect-atom/atom-react'
 import { App } from './App.js'
 import './styles.css'
 

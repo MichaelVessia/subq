@@ -1,20 +1,20 @@
 import { SqlClient } from '@effect/sql'
-import { Effect, Layer, Schema } from 'effect'
 import {
   DashboardStats,
   type DashboardStatsParams,
-  WeightStats,
-  WeightTrendStats,
-  WeightTrendPoint,
-  InjectionSiteStats,
-  InjectionSiteCount,
-  DosageHistoryStats,
   DosageHistoryPoint,
-  InjectionFrequencyStats,
+  DosageHistoryStats,
   DrugBreakdownStats,
   DrugCount,
+  InjectionFrequencyStats,
+  InjectionSiteCount,
+  InjectionSiteStats,
   type StatsParams,
+  WeightStats,
+  WeightTrendPoint,
+  WeightTrendStats,
 } from '@scale/shared'
+import { Effect, Layer, Schema } from 'effect'
 
 // ============================================
 // Raw SQL Result Schema

@@ -1,35 +1,35 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
 import { Result, useAtomValue } from '@effect-atom/atom-react'
-import * as d3 from 'd3'
-import {
-  createWeightStatsAtom,
-  createWeightTrendAtom,
-  createInjectionSiteStatsAtom,
-  createDosageHistoryAtom,
-  createInjectionFrequencyAtom,
-  createDrugBreakdownAtom,
-  createInjectionLogListAtom,
-} from '../../rpc.js'
-import {
-  TIME_RANGES,
-  TimeRangeSelector,
-  Tooltip,
-  CHART_COLORS,
-  getDosageColor,
-  type TimeRangeKey,
-  type DataPoint,
-  type InjectionPoint,
-  type WeightPointWithColor,
-} from '../shared/chartUtils.js'
 import type {
+  DosageHistoryStats,
+  DrugBreakdownStats,
+  InjectionFrequencyStats,
+  InjectionLog,
+  InjectionSiteStats,
   WeightStats,
   WeightTrendStats,
-  InjectionSiteStats,
-  DosageHistoryStats,
-  InjectionFrequencyStats,
-  DrugBreakdownStats,
-  InjectionLog,
 } from '@scale/shared'
+import * as d3 from 'd3'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createDosageHistoryAtom,
+  createDrugBreakdownAtom,
+  createInjectionFrequencyAtom,
+  createInjectionLogListAtom,
+  createInjectionSiteStatsAtom,
+  createWeightStatsAtom,
+  createWeightTrendAtom,
+} from '../../rpc.js'
+import {
+  CHART_COLORS,
+  type DataPoint,
+  getDosageColor,
+  type InjectionPoint,
+  TIME_RANGES,
+  type TimeRangeKey,
+  TimeRangeSelector,
+  Tooltip,
+  type WeightPointWithColor,
+} from '../shared/chartUtils.js'
 
 // ============================================
 // Stat Card Component
@@ -939,26 +939,13 @@ export function StatsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-        <TimeRangeSelector selected={timeRange} onChange={handleTimeRangeChange} hasCustomZoom={!!zoomRange} />
-        {zoomRange && (
-          <button
-            type="button"
-            onClick={() => setZoomRange(null)}
-            style={{
-              padding: 'var(--space-2) var(--space-4)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
-              color: 'var(--color-text)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Reset Zoom
-          </button>
-        )}
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <TimeRangeSelector
+          selected={timeRange}
+          onChange={handleTimeRangeChange}
+          zoomRange={zoomRange}
+          onResetZoom={() => setZoomRange(null)}
+        />
       </div>
 
       <div style={{ display: 'grid', gap: 'var(--space-5)' }}>

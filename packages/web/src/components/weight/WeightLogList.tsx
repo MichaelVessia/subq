@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Result, useAtomValue, useAtomSet } from '@effect-atom/atom-react'
+import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { WeightLogCreate } from '@scale/shared'
-import { WeightLogListAtom, ApiClient, ReactivityKeys } from '../../rpc.js'
+import { useState } from 'react'
+import { ApiClient, ReactivityKeys, WeightLogListAtom } from '../../rpc.js'
 import { WeightLogForm } from './WeightLogForm.js'
 
 export function WeightLogList() {

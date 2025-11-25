@@ -4,9 +4,14 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "outDir": "build",
     "tsBuildInfoFile": ".tsbuildinfo/tsconfig.tsbuildinfo",
-    "rootDir": "src"
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "composite": false,
+    "verbatimModuleSyntax": false
   },
   "references": [{ "path": "../shared" }]
 }

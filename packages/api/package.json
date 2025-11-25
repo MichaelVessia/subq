@@ -13,6 +13,11 @@
     "@effect/sql": "^0.37.0",
     "@effect/sql-pg": "^0.38.0",
     "@scale/shared": "workspace:*",
-    "effect": "^3.18.4"
+    "better-auth": "^1.4.2",
+    "effect": "^3.18.4",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.6"
   }
 }
