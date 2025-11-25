@@ -1,43 +1,56 @@
-import { Atom, useAtomValue, useAtomSet } from '@effect-atom/atom-react'
-import { Effect, ManagedRuntime } from 'effect'
-import { useCallback, useState } from 'react'
-import { ApiClient, RpcLive } from './rpc.js'
+import { useState } from 'react'
+import { WeightLogList } from './components/weight/WeightLogList.js'
+import { InjectionLogList } from './components/injection/InjectionLogList.js'
 
-const runtime = ManagedRuntime.make(RpcLive)
-
-const greetingAtom = Atom.make<string | null>(null).pipe(Atom.keepAlive)
+type Tab = 'weight' | 'injection'
 
 export function App() {
-  const [name, setName] = useState('')
-  const greeting = useAtomValue(greetingAtom)
-  const setGreeting = useAtomSet(greetingAtom)
-
-  const handleGreet = useCallback(() => {
-    const program = Effect.gen(function* () {
-      const client = yield* ApiClient
-      const result = yield* client.Greet({ name })
-      return result
-    })
-
-    runtime.runPromise(program).then(setGreeting)
-  }, [name, setGreeting])
+  const [activeTab, setActiveTab] = useState<Tab>('weight')
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'system-ui' }}>
-      <h1>Scalability</h1>
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
-          style={{ padding: '0.5rem', marginRight: '0.5rem' }}
-        />
-        <button type="button" onClick={handleGreet} disabled={!name.trim()} style={{ padding: '0.5rem 1rem' }}>
-          Greet
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1rem', fontFamily: 'system-ui' }}>
+      <h1 style={{ marginBottom: '1rem' }}>Health Tracker</h1>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          marginBottom: '1rem',
+          borderBottom: '1px solid #ccc',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('weight')}
+          style={{
+            padding: '0.5rem 1rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            borderBottom: activeTab === 'weight' ? '2px solid #2563eb' : '2px solid transparent',
+            color: activeTab === 'weight' ? '#2563eb' : '#666',
+          }}
+        >
+          Weight
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('injection')}
+          style={{
+            padding: '0.5rem 1rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            borderBottom: activeTab === 'injection' ? '2px solid #2563eb' : '2px solid transparent',
+            color: activeTab === 'injection' ? '#2563eb' : '#666',
+          }}
+        >
+          Injections
         </button>
       </div>
-      {greeting && <p style={{ fontSize: '1.5rem' }}>{greeting}</p>}
+
+      {activeTab === 'weight' && <WeightLogList />}
+      {activeTab === 'injection' && <InjectionLogList />}
     </div>
   )
 }

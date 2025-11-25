@@ -17,3 +17,6 @@ build/
 # Local LLM context (tracked folder, ignored contents)
 .context/*
 !.context/.gitkeep
+
+# PostgreSQL local data
+.postgres/
