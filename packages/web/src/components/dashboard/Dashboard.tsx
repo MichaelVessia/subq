@@ -4,6 +4,36 @@ import * as d3 from 'd3'
 import { WeightLogListAtom, InjectionLogListAtom } from '../../rpc.js'
 import type { WeightLog, InjectionLog } from '@scale/shared'
 
+// ============================================
+// Configurable color palette for dosages
+// ============================================
+
+/** Default color palette - maps dosage strings to colors */
+const DEFAULT_DOSAGE_COLORS: Record<string, string> = {
+  '2.5mg': '#06b6d4', // cyan
+  '5mg': '#8b5cf6', // violet
+  '7.5mg': '#f59e0b', // amber
+  '10mg': '#ef4444', // red
+  '12.5mg': '#ec4899', // pink
+  '15mg': '#14b8a6', // teal
+}
+
+/** Fallback colors for unknown dosages */
+const FALLBACK_COLORS = ['#6366f1', '#84cc16', '#f97316', '#0ea5e9', '#a855f7', '#22c55e']
+
+/** Get color for a dosage, with fallback */
+function getDosageColor(dosage: string, colorMap: Record<string, string> = DEFAULT_DOSAGE_COLORS): string {
+  const mapped = colorMap[dosage]
+  if (mapped) return mapped
+  // Generate consistent color for unknown dosages based on hash
+  const hash = dosage.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length] ?? '#6366f1'
+}
+
+// ============================================
+// Types
+// ============================================
+
 interface DataPoint {
   date: Date
   weight: number
@@ -16,7 +46,21 @@ interface InjectionPoint {
   drug: string
 }
 
-function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; injectionData: InjectionPoint[] }) {
+interface WeightPointWithColor extends DataPoint {
+  color: string
+}
+
+interface ChartProps {
+  weightData: DataPoint[]
+  injectionData: InjectionPoint[]
+  dosageColors?: Record<string, string>
+}
+
+// ============================================
+// Chart Component
+// ============================================
+
+function WeightChart({ weightData, injectionData, dosageColors = DEFAULT_DOSAGE_COLORS }: ChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
@@ -25,7 +69,7 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    const margin = { top: 20, right: 30, bottom: 40, left: 50 }
+    const margin = { top: 30, right: 30, bottom: 40, left: 50 }
     const width = 800 - margin.left - margin.right
     const height = 400 - margin.top - margin.bottom
 
@@ -36,16 +80,17 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
       .attr('transform', `translate(${margin.left},${margin.top})`)
 
     // Sort data by date
-    const sortedData = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
+    const sortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
+    const sortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
 
     // X scale - time
     const xScale = d3
       .scaleTime()
-      .domain(d3.extent(sortedData, (d) => d.date) as [Date, Date])
+      .domain(d3.extent(sortedWeight, (d) => d.date) as [Date, Date])
       .range([0, width])
 
     // Y scale - weight with some padding
-    const weightExtent = d3.extent(sortedData, (d) => d.weight) as [number, number]
+    const weightExtent = d3.extent(sortedWeight, (d) => d.weight) as [number, number]
     const yPadding = (weightExtent[1] - weightExtent[0]) * 0.1 || 5
     const yScale = d3
       .scaleLinear()
@@ -55,13 +100,42 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
     // Grid lines
     g.append('g')
       .attr('class', 'grid')
-      .attr('opacity', 0.1)
+      .attr('opacity', 0.15)
       .call(
         d3
           .axisLeft(yScale)
           .tickSize(-width)
           .tickFormat(() => ''),
       )
+
+    // Assign colors to weight points based on most recent injection
+    const weightPointsWithColors: WeightPointWithColor[] = sortedWeight.map((wp) => {
+      // Find most recent injection before this weight point
+      const recentInjection = sortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
+      const color = recentInjection ? getDosageColor(recentInjection.dosage, dosageColors) : '#9ca3af' // gray for points before any injection
+      return { ...wp, color }
+    })
+
+    // Group consecutive points by color to draw line segments
+    const segments: { points: WeightPointWithColor[]; color: string }[] = []
+    let currentSegment: WeightPointWithColor[] = []
+    let currentColor = ''
+
+    for (const point of weightPointsWithColors) {
+      if (point.color !== currentColor) {
+        if (currentSegment.length > 0) {
+          segments.push({ points: currentSegment, color: currentColor })
+          // Start new segment with last point of previous (for continuity)
+          const lastPoint = currentSegment[currentSegment.length - 1]
+          if (lastPoint) currentSegment = [lastPoint]
+        }
+        currentColor = point.color
+      }
+      currentSegment.push(point)
+    }
+    if (currentSegment.length > 0) {
+      segments.push({ points: currentSegment, color: currentColor })
+    }
 
     // Line generator
     const line = d3
@@ -70,46 +144,35 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
       .y((d) => yScale(d.weight))
       .curve(d3.curveMonotoneX)
 
-    // Add gradient
-    const gradient = svg
-      .append('defs')
-      .append('linearGradient')
-      .attr('id', 'line-gradient')
-      .attr('gradientUnits', 'userSpaceOnUse')
-      .attr('x1', 0)
-      .attr('y1', yScale(weightExtent[0]))
-      .attr('x2', 0)
-      .attr('y2', yScale(weightExtent[1]))
+    // Draw line segments with different colors
+    for (const segment of segments) {
+      if (segment.points.length < 2) continue
+      g.append('path')
+        .datum(segment.points)
+        .attr('fill', 'none')
+        .attr('stroke', segment.color)
+        .attr('stroke-width', 3)
+        .attr('d', line)
+    }
 
-    gradient.append('stop').attr('offset', '0%').attr('stop-color', '#22c55e')
-    gradient.append('stop').attr('offset', '100%').attr('stop-color', '#06b6d4')
-
-    // Draw line
-    g.append('path')
-      .datum(sortedData)
-      .attr('fill', 'none')
-      .attr('stroke', 'url(#line-gradient)')
-      .attr('stroke-width', 3)
-      .attr('d', line)
-
-    // Draw weight points
+    // Draw weight points with colors
     g.selectAll('.weight-point')
-      .data(sortedData)
+      .data(weightPointsWithColors)
       .enter()
       .append('circle')
       .attr('class', 'weight-point')
       .attr('cx', (d) => xScale(d.date))
       .attr('cy', (d) => yScale(d.weight))
       .attr('r', 5)
-      .attr('fill', '#06b6d4')
+      .attr('fill', (d) => d.color)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
 
-    // Draw injection points
-    const injectionPointsOnLine = injectionData
+    // Draw injection markers
+    const injectionPointsOnLine = sortedInjections
       .map((inj) => {
         // Find closest weight for this injection date
-        const closestWeight = sortedData.reduce((prev, curr) =>
+        const closestWeight = sortedWeight.reduce((prev, curr) =>
           Math.abs(curr.date.getTime() - inj.date.getTime()) < Math.abs(prev.date.getTime() - inj.date.getTime())
             ? curr
             : prev,
@@ -118,6 +181,7 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
           ...inj,
           weight: closestWeight.weight,
           displayDate: inj.date,
+          color: getDosageColor(inj.dosage, dosageColors),
         }
       })
       .filter((inj) => {
@@ -134,7 +198,7 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
       .enter()
       .append('g')
       .attr('class', 'injection-group')
-      .attr('transform', (d) => `translate(${xScale(d.displayDate)},${yScale(d.weight) - 15})`)
+      .attr('transform', (d) => `translate(${xScale(d.displayDate)},${yScale(d.weight) - 18})`)
 
     // Injection pill background
     injectionGroup
@@ -145,14 +209,14 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
       .attr('y', -12)
       .attr('width', 50)
       .attr('height', 20)
-      .attr('fill', '#eab308')
+      .attr('fill', (d) => d.color)
 
     // Injection dosage text
     injectionGroup
       .append('text')
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
-      .attr('fill', '#000')
+      .attr('fill', '#fff')
       .attr('font-size', '11px')
       .attr('font-weight', 'bold')
       .text((d) => d.dosage)
@@ -179,28 +243,37 @@ function WeightChart({ weightData, injectionData }: { weightData: DataPoint[]; i
       .attr('text-anchor', 'middle')
       .attr('fill', '#666')
       .text('Weight (lbs)')
-  }, [weightData, injectionData])
+  }, [weightData, injectionData, dosageColors])
 
   return <svg ref={svgRef} style={{ width: '100%', maxWidth: '800px' }} />
 }
+
+// ============================================
+// Stats Card Component
+// ============================================
 
 function StatsCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
     <div
       style={{
-        backgroundColor: '#1f2937',
+        backgroundColor: '#f3f4f6',
         borderRadius: '8px',
         padding: '1rem',
         minWidth: '120px',
+        border: '1px solid #e5e7eb',
       }}
     >
-      <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.25rem' }}>
+      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
         {icon} {label}
       </div>
-      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#fff' }}>{value}</div>
+      <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827' }}>{value}</div>
     </div>
   )
 }
+
+// ============================================
+// Dashboard Component
+// ============================================
 
 export function Dashboard() {
   const weightResult = useAtomValue(WeightLogListAtom)
@@ -253,19 +326,12 @@ export function Dashboard() {
   }, [injectionResult, weightResult])
 
   if (Result.isWaiting(weightResult) || Result.isWaiting(injectionResult)) {
-    return <div style={{ padding: '2rem', color: '#fff' }}>Loading...</div>
+    return <div style={{ padding: '2rem' }}>Loading...</div>
   }
 
   return (
-    <div
-      style={{
-        backgroundColor: '#111827',
-        minHeight: '100vh',
-        padding: '1.5rem',
-        color: '#fff',
-      }}
-    >
-      <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Weight Change</h1>
+    <div>
+      <h2 style={{ marginBottom: '1rem' }}>Weight Change</h2>
 
       {stats && (
         <div
@@ -286,7 +352,7 @@ export function Dashboard() {
       {weightData.length > 0 ? (
         <WeightChart weightData={weightData} injectionData={injectionData} />
       ) : (
-        <p style={{ color: '#9ca3af' }}>No weight data yet. Add some entries to see your progress!</p>
+        <p style={{ color: '#6b7280' }}>No weight data yet. Add some entries to see your progress!</p>
       )}
     </div>
   )
