@@ -1,8 +1,62 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import * as d3 from 'd3'
-import { WeightLogListAtom, InjectionLogListAtom } from '../../rpc.js'
+import { createWeightLogListAtom, createInjectionLogListAtom } from '../../rpc.js'
 import type { WeightLog, InjectionLog } from '@scale/shared'
+
+// ============================================
+// Time Range Options
+// ============================================
+
+type TimeRangeKey = '1m' | '3m' | '6m' | '1y' | 'all'
+
+interface TimeRangeOption {
+  label: string
+  getRange: () => { startDate?: Date; endDate?: Date }
+}
+
+const TIME_RANGES: Record<TimeRangeKey, TimeRangeOption> = {
+  '1m': {
+    label: '1 Month',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '3m': {
+    label: '3 Months',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '6m': {
+    label: '6 Months',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 6)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '1y': {
+    label: '1 Year',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setFullYear(start.getFullYear() - 1)
+      return { startDate: start, endDate: end }
+    },
+  },
+  all: {
+    label: 'All Time',
+    getRange: () => ({}),
+  },
+}
 
 // ============================================
 // Color palette for dosages - muted tones
@@ -379,12 +433,58 @@ function StatItem({ label, value }: { label: string; value: string }) {
 }
 
 // ============================================
+// Time Range Selector
+// ============================================
+
+function TimeRangeSelector({ selected, onChange }: { selected: TimeRangeKey; onChange: (key: TimeRangeKey) => void }) {
+  const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 'var(--space-2)',
+        marginBottom: 'var(--space-6)',
+      }}
+    >
+      {keys.map((key) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          type="button"
+          style={{
+            padding: 'var(--space-2) var(--space-4)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)',
+            backgroundColor: selected === key ? 'var(--color-text)' : 'var(--color-surface)',
+            color: selected === key ? 'var(--color-surface)' : 'var(--color-text)',
+            fontSize: 'var(--text-sm)',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          {TIME_RANGES[key].label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ============================================
 // Dashboard Component
 // ============================================
 
 export function Dashboard() {
-  const weightResult = useAtomValue(WeightLogListAtom)
-  const injectionResult = useAtomValue(InjectionLogListAtom)
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('3m')
+
+  // Create atoms based on selected time range
+  const { startDate, endDate } = useMemo(() => TIME_RANGES[timeRange].getRange(), [timeRange])
+
+  const weightAtom = useMemo(() => createWeightLogListAtom(startDate, endDate), [startDate, endDate])
+  const injectionAtom = useMemo(() => createInjectionLogListAtom(startDate, endDate), [startDate, endDate])
+
+  const weightResult = useAtomValue(weightAtom)
+  const injectionResult = useAtomValue(injectionAtom)
 
   const stats = useMemo(() => {
     const weights = Result.getOrElse(weightResult, () => [] as WeightLog[])
@@ -440,6 +540,8 @@ export function Dashboard() {
 
   return (
     <div>
+      <TimeRangeSelector selected={timeRange} onChange={setTimeRange} />
+
       {stats && (
         <div
           style={{

@@ -20,7 +20,7 @@ export const ReactivityKeys = {
   injectionSites: 'injection-sites',
 } as const
 
-// Pre-built query atoms for common use cases
+// Pre-built query atoms for common use cases (all data, no date filter)
 export const WeightLogListAtom = ApiClient.query('WeightLogList', new WeightLogListParams({}), {
   reactivityKeys: [ReactivityKeys.weightLogs],
 })
@@ -28,6 +28,17 @@ export const WeightLogListAtom = ApiClient.query('WeightLogList', new WeightLogL
 export const InjectionLogListAtom = ApiClient.query('InjectionLogList', new InjectionLogListParams({}), {
   reactivityKeys: [ReactivityKeys.injectionLogs],
 })
+
+// Factory functions for date-filtered queries
+export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('WeightLogList', new WeightLogListParams({ startDate, endDate, limit: 10000 }), {
+    reactivityKeys: [ReactivityKeys.weightLogs],
+  })
+
+export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('InjectionLogList', new InjectionLogListParams({ startDate, endDate, limit: 10000 }), {
+    reactivityKeys: [ReactivityKeys.injectionLogs],
+  })
 
 export const InjectionDrugsAtom = ApiClient.query(
   'InjectionLogGetDrugs',
