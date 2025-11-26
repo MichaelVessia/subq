@@ -24,6 +24,7 @@ import {
   createWeightTrendAtom,
 } from '../../rpc.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
+import { type BarChartData, type PieChartData, SimpleHorizontalBarChart, SimplePieChart } from '../ui/chart.js'
 import {
   CHART_COLORS,
   type DataPoint,
@@ -474,84 +475,12 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 // ============================================
 
 function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
+  const chartData: PieChartData[] = data.sites.map((site) => ({
+    name: site.site,
+    value: site.count,
+  }))
 
-  useEffect(() => {
-    if (!svgRef.current || containerWidth === 0 || data.sites.length === 0) return
-
-    const svg = d3.select(svgRef.current)
-    svg.selectAll('*').remove()
-    const size = Math.min(containerWidth, 250)
-    const radius = size / 2 - 10
-
-    svg.attr('width', size).attr('height', size)
-
-    const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`)
-
-    const pie = d3
-      .pie<(typeof data.sites)[0]>()
-      .value((d) => d.count)
-      .sort(null)
-
-    const arc = d3
-      .arc<d3.PieArcDatum<(typeof data.sites)[0]>>()
-      .innerRadius(radius * 0.5)
-      .outerRadius(radius)
-
-    const color = d3
-      .scaleOrdinal<string>()
-      .domain(data.sites.map((d) => d.site))
-      .range(CHART_COLORS)
-
-    const arcs = g
-      .selectAll('.arc')
-      .data(pie([...data.sites]))
-      .enter()
-      .append('g')
-      .attr('class', 'arc')
-
-    arcs
-      .append('path')
-      .attr('d', arc)
-      .attr('fill', (d) => color(d.data.site))
-      .attr('stroke', 'rgb(var(--card))')
-      .attr('stroke-width', 2)
-
-    arcs
-      .append('text')
-      .attr('transform', (d) => `translate(${arc.centroid(d)})`)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '10px')
-      .attr('fill', '#fff')
-      .attr('font-weight', 600)
-      .text((d) => (d.data.count > 0 ? d.data.count.toString() : ''))
-  }, [data, containerWidth])
-
-  if (data.sites.length === 0) {
-    return <div className="text-muted-foreground h-[150px]">No injection data available</div>
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-      <div ref={containerRef} className="flex-1 min-w-[120px] w-full">
-        <svg ref={svgRef} />
-      </div>
-      <div className="flex flex-row flex-wrap gap-2 justify-center sm:flex-col sm:flex-nowrap">
-        {data.sites.map((site, i) => (
-          <div key={site.site} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-sm shrink-0"
-              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-            />
-            <span className="text-xs text-muted-foreground">
-              {site.site} ({site.count})
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <SimplePieChart data={chartData} colors={CHART_COLORS} />
 }
 
 // ============================================
@@ -755,77 +684,12 @@ function InjectionFrequencySummary({ stats }: { stats: InjectionFrequencyStats |
 // ============================================
 
 function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
+  const chartData: BarChartData[] = data.drugs.map((drug) => ({
+    name: drug.drug,
+    value: drug.count,
+  }))
 
-  useEffect(() => {
-    if (!svgRef.current || containerWidth === 0 || data.drugs.length === 0) return
-
-    const svg = d3.select(svgRef.current)
-    svg.selectAll('*').remove()
-    const margin = { top: 10, right: 20, bottom: 30, left: 100 }
-    const barHeight = 30
-    const height = data.drugs.length * barHeight + margin.top + margin.bottom
-    const width = containerWidth - margin.left - margin.right
-
-    svg.attr('width', containerWidth).attr('height', height)
-
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
-
-    const xScale = d3
-      .scaleLinear()
-      .domain([0, d3.max(data.drugs, (d) => d.count) ?? 1])
-      .range([0, width])
-
-    const yScale = d3
-      .scaleBand()
-      .domain(data.drugs.map((d) => d.drug))
-      .range([0, data.drugs.length * barHeight])
-      .padding(0.2)
-
-    const color = d3
-      .scaleOrdinal<string>()
-      .domain(data.drugs.map((d) => d.drug))
-      .range(CHART_COLORS)
-
-    g.selectAll('.bar')
-      .data(data.drugs)
-      .enter()
-      .append('rect')
-      .attr('x', 0)
-      .attr('y', (d) => yScale(d.drug) ?? 0)
-      .attr('width', (d) => xScale(d.count))
-      .attr('height', yScale.bandwidth())
-      .attr('fill', (d) => color(d.drug))
-      .attr('rx', 4)
-
-    g.selectAll('.label')
-      .data(data.drugs)
-      .enter()
-      .append('text')
-      .attr('x', (d) => xScale(d.count) + 8)
-      .attr('y', (d) => (yScale(d.drug) ?? 0) + yScale.bandwidth() / 2)
-      .attr('dy', '0.35em')
-      .attr('font-size', '12px')
-      .attr('fill', 'rgb(var(--muted-foreground))')
-      .text((d) => d.count.toString())
-
-    g.append('g')
-      .call(d3.axisLeft(yScale))
-      .call((sel) => sel.select('.domain').remove())
-      .call((sel) => sel.selectAll('.tick line').remove())
-      .call((sel) => sel.selectAll('.tick text').attr('fill', 'rgb(var(--foreground))').attr('font-size', '12px'))
-  }, [data, containerWidth])
-
-  if (data.drugs.length === 0) {
-    return <div className="text-muted-foreground h-[100px]">No drug data available</div>
-  }
-
-  return (
-    <div ref={containerRef} className="w-full">
-      <svg ref={svgRef} />
-    </div>
-  )
+  return <SimpleHorizontalBarChart data={chartData} colors={CHART_COLORS} />
 }
 
 // ============================================
@@ -835,84 +699,12 @@ function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats }) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
+  const chartData: PieChartData[] = data.days.map((day) => ({
+    name: DAY_NAMES[day.dayOfWeek] ?? 'Unknown',
+    value: day.count,
+  }))
 
-  useEffect(() => {
-    if (!svgRef.current || containerWidth === 0 || data.days.length === 0) return
-
-    const svg = d3.select(svgRef.current)
-    svg.selectAll('*').remove()
-    const size = Math.min(containerWidth, 250)
-    const radius = size / 2 - 10
-
-    svg.attr('width', size).attr('height', size)
-
-    const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`)
-
-    const pie = d3
-      .pie<(typeof data.days)[0]>()
-      .value((d) => d.count)
-      .sort(null)
-
-    const arc = d3
-      .arc<d3.PieArcDatum<(typeof data.days)[0]>>()
-      .innerRadius(radius * 0.5)
-      .outerRadius(radius)
-
-    const color = d3
-      .scaleOrdinal<string>()
-      .domain(data.days.map((d) => d.dayOfWeek.toString()))
-      .range(CHART_COLORS)
-
-    const arcs = g
-      .selectAll('.arc')
-      .data(pie([...data.days]))
-      .enter()
-      .append('g')
-      .attr('class', 'arc')
-
-    arcs
-      .append('path')
-      .attr('d', arc)
-      .attr('fill', (d) => color(d.data.dayOfWeek.toString()))
-      .attr('stroke', 'rgb(var(--card))')
-      .attr('stroke-width', 2)
-
-    arcs
-      .append('text')
-      .attr('transform', (d) => `translate(${arc.centroid(d)})`)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '10px')
-      .attr('fill', '#fff')
-      .attr('font-weight', 600)
-      .text((d) => (d.data.count > 0 ? d.data.count.toString() : ''))
-  }, [data, containerWidth])
-
-  if (data.days.length === 0) {
-    return <div className="text-muted-foreground h-[150px]">No injection data available</div>
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-      <div ref={containerRef} className="flex-1 min-w-[120px] w-full">
-        <svg ref={svgRef} />
-      </div>
-      <div className="flex flex-row flex-wrap gap-2 justify-center sm:flex-col sm:flex-nowrap">
-        {data.days.map((day, i) => (
-          <div key={day.dayOfWeek} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-sm shrink-0"
-              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-            />
-            <span className="text-xs text-muted-foreground">
-              {DAY_NAMES[day.dayOfWeek]} ({day.count})
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <SimplePieChart data={chartData} colors={CHART_COLORS} />
 }
 
 // ============================================
