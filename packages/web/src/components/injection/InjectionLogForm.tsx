@@ -7,11 +7,12 @@ import {
   type InjectionLogId,
   InjectionLogUpdate,
   InjectionSite,
+  type InventoryId,
   Notes,
 } from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
-import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
+import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
@@ -49,6 +50,7 @@ interface InjectionLogFormProps {
   onSubmit: (data: InjectionLogCreate) => Promise<void>
   onUpdate?: (data: InjectionLogUpdate) => Promise<void>
   onCancel: () => void
+  onMarkFinished?: (inventoryId: InventoryId) => Promise<void>
   initialData?: {
     id?: InjectionLogId
     datetime?: Date
@@ -66,7 +68,7 @@ interface FormErrors {
   dosage?: string | undefined
 }
 
-export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: InjectionLogFormProps) {
+export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished, initialData }: InjectionLogFormProps) {
   const isEditing = !!initialData?.id
   const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
   const [drug, setDrug] = useState(initialData?.drug ?? '')
@@ -77,12 +79,19 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [finishVial, setFinishVial] = useState(false)
+  const [selectedInventoryId, setSelectedInventoryId] = useState<string>('')
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
+  const inventoryResult = useAtomValue(ActiveInventoryAtom)
 
   const userDrugs = Result.getOrElse(drugsResult, () => [])
   const userSites = Result.getOrElse(sitesResult, () => [])
+  const inventory = Result.getOrElse(inventoryResult, () => [])
+
+  // Get active (non-finished) inventory items for current drug
+  const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
 
   const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS.map((d) => d.name)])]
   const allSites = [...new Set([...userSites, ...INJECTION_SITES])]
@@ -163,6 +172,10 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
           }),
         )
+        // Mark inventory as finished if requested
+        if (finishVial && selectedInventoryId && onMarkFinished) {
+          await onMarkFinished(selectedInventoryId as InventoryId)
+        }
       }
     } finally {
       setLoading(false)
@@ -281,7 +294,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
         <p className="text-xs text-muted-foreground mt-1">Rotating injection sites helps prevent lipodystrophy</p>
       </div>
 
-      <div className="mb-5">
+      <div className="mb-4">
         <Label htmlFor="notes" className="mb-2 block">
           Notes
         </Label>
@@ -293,6 +306,40 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
           placeholder="Any side effects, observations, or reminders..."
         />
       </div>
+
+      {!isEditing && activeInventory.length > 0 && (
+        <div className="mb-5 p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="checkbox"
+              id="finishVial"
+              checked={finishVial}
+              onChange={(e) => {
+                setFinishVial(e.target.checked)
+                if (!e.target.checked) setSelectedInventoryId('')
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="finishVial" className="text-sm font-medium cursor-pointer">
+              Finished a vial/pen with this injection?
+            </Label>
+          </div>
+          {finishVial && (
+            <Select
+              id="inventorySelect"
+              value={selectedInventoryId}
+              onChange={(e) => setSelectedInventoryId(e.target.value)}
+            >
+              <option value="">Select inventory item to mark finished</option>
+              {activeInventory.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.drug} - {item.totalAmount} ({item.source}) - {item.status}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onCancel}>

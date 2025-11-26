@@ -1,6 +1,6 @@
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
-import { Dashboard } from './components/dashboard/Dashboard.js'
 import { InjectionLogList } from './components/injection/InjectionLogList.js'
+import { InventoryList } from './components/inventory/InventoryList.js'
 import { StatsPage } from './components/stats/StatsPage.js'
 import { WeightLogList } from './components/weight/WeightLogList.js'
 import { RootLayout } from './components/layout/RootLayout.js'
@@ -19,18 +19,8 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: () => {
-    throw redirect({ to: '/dashboard' })
+    throw redirect({ to: '/stats' })
   },
-})
-
-const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dashboard',
-  component: Dashboard,
-  validateSearch: (search: Record<string, unknown>): DateRangeSearchParams => ({
-    start: typeof search.start === 'string' ? search.start : undefined,
-    end: typeof search.end === 'string' ? search.end : undefined,
-  }),
 })
 
 const statsRoute = createRoute({
@@ -55,7 +45,13 @@ const injectionRoute = createRoute({
   component: InjectionLogList,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, dashboardRoute, statsRoute, weightRoute, injectionRoute])
+const inventoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/inventory',
+  component: InventoryList,
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, statsRoute, weightRoute, injectionRoute, inventoryRoute])
 
 export const router = createRouter({ routeTree })
 

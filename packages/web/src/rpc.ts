@@ -3,8 +3,8 @@ import { RpcClient, RpcSerialization } from '@effect/rpc'
 import { AtomRpc } from '@effect-atom/atom-react'
 import {
   AppRpcs,
-  DashboardStatsParams,
   InjectionLogListParams,
+  InventoryListParams,
   Limit,
   StatsParams,
   WeightLogListParams,
@@ -30,6 +30,7 @@ export const ReactivityKeys = {
   injectionLogs: 'injection-logs',
   injectionDrugs: 'injection-drugs',
   injectionSites: 'injection-sites',
+  inventory: 'inventory',
 } as const
 
 // Factory functions for queries (no longer need userId - server gets it from session)
@@ -50,12 +51,6 @@ export const InjectionDrugsAtom = ApiClient.query('InjectionLogGetDrugs', undefi
 export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefined, {
   reactivityKeys: [ReactivityKeys.injectionSites],
 })
-
-// Factory function for dashboard stats
-export const createDashboardStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ startDate, endDate }), {
-    reactivityKeys: [ReactivityKeys.weightLogs],
-  })
 
 // Stats page atoms
 export const createWeightStatsAtom = (startDate?: Date, endDate?: Date) =>
@@ -92,3 +87,14 @@ export const createInjectionByDayOfWeekAtom = (startDate?: Date, endDate?: Date)
   ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
+
+// Inventory atoms
+export const createInventoryListAtom = (status?: 'new' | 'opened' | 'finished') =>
+  ApiClient.query('InventoryList', new InventoryListParams({ status }), {
+    reactivityKeys: [ReactivityKeys.inventory],
+  })
+
+// Active inventory (new or opened) for use in injection form
+export const ActiveInventoryAtom = ApiClient.query('InventoryList', new InventoryListParams({}), {
+  reactivityKeys: [ReactivityKeys.inventory],
+})

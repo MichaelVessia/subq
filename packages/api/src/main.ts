@@ -7,6 +7,7 @@ import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
+import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { SqlLive } from './Sql.js'
@@ -43,12 +44,15 @@ const AuthLive = Layer.unwrapEffect(
 )
 
 // Combine all domain RPC handlers
-const RpcHandlersLive = Layer.mergeAll(WeightRpcHandlersLive, InjectionRpcHandlersLive, StatsRpcHandlersLive).pipe(
-  Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')),
-)
+const RpcHandlersLive = Layer.mergeAll(
+  WeightRpcHandlersLive,
+  InjectionRpcHandlersLive,
+  InventoryRpcHandlersLive,
+  StatsRpcHandlersLive,
+).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
-const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive).pipe(
+const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive, InventoryRepoLive).pipe(
   Layer.tap(() => Effect.logInfo('Repository layer initialized')),
 )
 

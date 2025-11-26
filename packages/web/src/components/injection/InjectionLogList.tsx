@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate } from '@scale/shared'
+import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate, InventoryId } from '@scale/shared'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
@@ -32,6 +32,7 @@ export function InjectionLogList() {
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const updateLog = useAtomSet(ApiClient.mutation('InjectionLogUpdate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
+  const markFinished = useAtomSet(ApiClient.mutation('InventoryMarkFinished'), { mode: 'promise' })
 
   const handleCreate = async (data: InjectionLogCreate) => {
     await createLog({
@@ -39,6 +40,10 @@ export function InjectionLogList() {
       reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
     })
     setShowForm(false)
+  }
+
+  const handleMarkFinished = async (inventoryId: InventoryId) => {
+    await markFinished({ payload: { id: inventoryId }, reactivityKeys: [ReactivityKeys.inventory] })
   }
 
   const handleUpdate = async (data: InjectionLogUpdate) => {
@@ -144,7 +149,11 @@ export function InjectionLogList() {
 
       {showForm && (
         <Card className="mb-6 p-6">
-          <InjectionLogForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
+          <InjectionLogForm
+            onSubmit={handleCreate}
+            onCancel={() => setShowForm(false)}
+            onMarkFinished={handleMarkFinished}
+          />
         </Card>
       )}
 
