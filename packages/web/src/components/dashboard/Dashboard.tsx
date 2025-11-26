@@ -3,7 +3,6 @@ import type { DashboardStats, InjectionLog, WeightLog } from '@scale/shared'
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
-import { useUserId } from '../../hooks/useUserId.js'
 import { createDashboardStatsAtom, createInjectionLogListAtom, createWeightLogListAtom } from '../../rpc.js'
 import {
   type DataPoint,
@@ -518,14 +517,6 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // ============================================
 
 export function Dashboard() {
-  const userId = useUserId()
-  if (!userId) {
-    return <div className="loading">Loading...</div>
-  }
-  return <DashboardInner userId={userId} />
-}
-
-function DashboardInner({ userId }: { userId: string }) {
   const { range, setRange, setPreset, activePreset } = useDateRangeParams()
 
   const handleZoom = useCallback(
@@ -535,18 +526,9 @@ function DashboardInner({ userId }: { userId: string }) {
     [setRange],
   )
 
-  const weightAtom = useMemo(
-    () => createWeightLogListAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
-  const injectionAtom = useMemo(
-    () => createInjectionLogListAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
-  const statsAtom = useMemo(
-    () => createDashboardStatsAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
+  const weightAtom = useMemo(() => createWeightLogListAtom(range.start, range.end), [range.start, range.end])
+  const injectionAtom = useMemo(() => createInjectionLogListAtom(range.start, range.end), [range.start, range.end])
+  const statsAtom = useMemo(() => createDashboardStatsAtom(range.start, range.end), [range.start, range.end])
 
   const weightResult = useAtomValue(weightAtom)
   const injectionResult = useAtomValue(injectionAtom)

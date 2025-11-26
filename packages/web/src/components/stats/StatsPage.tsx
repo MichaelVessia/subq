@@ -12,7 +12,6 @@ import type {
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
-import { useUserId } from '../../hooks/useUserId.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
@@ -1002,14 +1001,6 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
 // ============================================
 
 export function StatsPage() {
-  const userId = useUserId()
-  if (!userId) {
-    return <div className="loading">Loading...</div>
-  }
-  return <StatsPageInner userId={userId} />
-}
-
-function StatsPageInner({ userId }: { userId: string }) {
   const { range, setRange, setPreset, activePreset } = useDateRangeParams()
 
   const handleZoom = useCallback(
@@ -1019,37 +1010,22 @@ function StatsPageInner({ userId }: { userId: string }) {
     [setRange],
   )
 
-  const weightStatsAtom = useMemo(
-    () => createWeightStatsAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
-  const weightTrendAtom = useMemo(
-    () => createWeightTrendAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
-  const injectionAtom = useMemo(
-    () => createInjectionLogListAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
+  const weightStatsAtom = useMemo(() => createWeightStatsAtom(range.start, range.end), [range.start, range.end])
+  const weightTrendAtom = useMemo(() => createWeightTrendAtom(range.start, range.end), [range.start, range.end])
+  const injectionAtom = useMemo(() => createInjectionLogListAtom(range.start, range.end), [range.start, range.end])
   const injectionSiteStatsAtom = useMemo(
-    () => createInjectionSiteStatsAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
+    () => createInjectionSiteStatsAtom(range.start, range.end),
+    [range.start, range.end],
   )
-  const dosageHistoryAtom = useMemo(
-    () => createDosageHistoryAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
+  const dosageHistoryAtom = useMemo(() => createDosageHistoryAtom(range.start, range.end), [range.start, range.end])
   const injectionFrequencyAtom = useMemo(
-    () => createInjectionFrequencyAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
+    () => createInjectionFrequencyAtom(range.start, range.end),
+    [range.start, range.end],
   )
-  const drugBreakdownAtom = useMemo(
-    () => createDrugBreakdownAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
-  )
+  const drugBreakdownAtom = useMemo(() => createDrugBreakdownAtom(range.start, range.end), [range.start, range.end])
   const injectionByDayOfWeekAtom = useMemo(
-    () => createInjectionByDayOfWeekAtom(userId, range.start, range.end),
-    [userId, range.start, range.end],
+    () => createInjectionByDayOfWeekAtom(range.start, range.end),
+    [range.start, range.end],
   )
 
   const weightStatsResult = useAtomValue(weightStatsAtom)

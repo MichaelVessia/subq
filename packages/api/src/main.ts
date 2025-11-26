@@ -5,7 +5,7 @@ import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@scale/shared'
 import { Config, Effect, Layer } from 'effect'
 import { Pool } from 'pg'
-import { AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { RpcHandlersLive } from './RpcHandlers.js'
 import { RepositoriesLive } from './repositories/index.js'
 import { SqlLive } from './Sql.js'
@@ -32,8 +32,8 @@ const AuthLive = Layer.unwrapEffect(
   }),
 )
 
-// RPC handler layer
-const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive))
+// RPC handler layer with auth middleware
+const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive), Layer.provide(AuthRpcMiddlewareLive))
 
 // CORS configuration - allow both localhost and 127.0.0.1
 const corsMiddleware = HttpMiddleware.cors({

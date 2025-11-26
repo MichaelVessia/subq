@@ -9,7 +9,6 @@ import { Schema } from 'effect'
  * Mirrors the time range and zoom capabilities of the frontend.
  */
 export class DashboardStatsParams extends Schema.Class<DashboardStatsParams>('DashboardStatsParams')({
-  userId: Schema.String,
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
 }) {}

@@ -47,13 +47,13 @@ const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDom
 export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
   InjectionLogRepo,
   {
-    readonly list: (params: InjectionLogListParams) => Effect.Effect<InjectionLog[]>
+    readonly list: (params: InjectionLogListParams, userId: string) => Effect.Effect<InjectionLog[]>
     readonly findById: (id: string) => Effect.Effect<Option.Option<InjectionLog>>
     readonly create: (data: InjectionLogCreate, userId: string) => Effect.Effect<InjectionLog>
     readonly update: (data: InjectionLogUpdate) => Effect.Effect<InjectionLog>
     readonly delete: (id: string) => Effect.Effect<boolean>
-    readonly getUniqueDrugs: () => Effect.Effect<string[]>
-    readonly getUniqueSites: () => Effect.Effect<string[]>
+    readonly getUniqueDrugs: (userId: string) => Effect.Effect<string[]>
+    readonly getUniqueSites: (userId: string) => Effect.Effect<string[]>
   }
 >() {}
 
@@ -67,12 +67,12 @@ export const InjectionLogRepoLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     return {
-      list: (params) =>
+      list: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
             FROM injection_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
@@ -151,20 +151,20 @@ export const InjectionLogRepoLive = Layer.effect(
           return result.length > 0
         }).pipe(Effect.orDie),
 
-      getUniqueDrugs: () =>
+      getUniqueDrugs: (userId) =>
         Effect.gen(function* () {
           const rows = yield* sql<{ drug: string }>`
-            SELECT DISTINCT drug FROM injection_logs ORDER BY drug
+            SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
           `
           return rows.map((r) => r.drug)
         }).pipe(Effect.orDie),
 
-      getUniqueSites: () =>
+      getUniqueSites: (userId) =>
         Effect.gen(function* () {
           const rows = yield* sql<{ injection_site: string }>`
             SELECT DISTINCT injection_site 
             FROM injection_logs 
-            WHERE injection_site IS NOT NULL 
+            WHERE user_id = ${userId} AND injection_site IS NOT NULL 
             ORDER BY injection_site
           `
           return rows.map((r) => r.injection_site)

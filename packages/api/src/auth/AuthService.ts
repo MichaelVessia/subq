@@ -1,9 +1,8 @@
-import { type BetterAuthOptions, betterAuth, type Session, type User } from 'better-auth'
+import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'
-import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import * as Schema from 'effect/Schema'
+import * as Context from 'effect/Context'
 
 export type AuthInstance = ReturnType<typeof betterAuth>
 
@@ -20,14 +19,3 @@ export const AuthServiceLive = (options: BetterAuthOptions) =>
       return { auth: betterAuth(options) }
     }),
   )
-
-// Auth context for authenticated requests
-export class AuthContext extends Context.Tag('AuthContext')<
-  AuthContext,
-  { readonly user: User; readonly session: Session }
->() {}
-
-// Error for unauthorized access
-export class Unauthorized extends Schema.TaggedError<Unauthorized>()('Unauthorized', {
-  details: Schema.String,
-}) {}

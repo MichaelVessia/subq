@@ -1,20 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { WeightLogCreate } from '@scale/shared'
 import { useMemo, useState } from 'react'
-import { useUserId } from '../../hooks/useUserId.js'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { WeightLogForm } from './WeightLogForm.js'
 
 export function WeightLogList() {
-  const userId = useUserId()
-  if (!userId) {
-    return <div className="loading">Loading...</div>
-  }
-  return <WeightLogListInner userId={userId} />
-}
-
-function WeightLogListInner({ userId }: { userId: string }) {
-  const weightLogAtom = useMemo(() => createWeightLogListAtom(userId), [userId])
+  const weightLogAtom = useMemo(() => createWeightLogListAtom(), [])
   const logsResult = useAtomValue(weightLogAtom)
   const [showForm, setShowForm] = useState(false)
 

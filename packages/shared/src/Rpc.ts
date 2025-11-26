@@ -1,5 +1,6 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
+import { AuthRpcMiddleware } from './AuthMiddleware.js'
 import {
   DashboardStats,
   DashboardStatsParams,
@@ -28,12 +29,6 @@ import {
 // ============================================
 
 export const AppRpcs = RpcGroup.make(
-  // Greet (existing)
-  Rpc.make('Greet', {
-    success: Schema.String,
-    payload: { name: Schema.String },
-  }),
-
   // Weight Log RPCs
   Rpc.make('WeightLogList', {
     payload: WeightLogListParams,
@@ -119,4 +114,4 @@ export const AppRpcs = RpcGroup.make(
     payload: StatsParams,
     success: InjectionDayOfWeekStats,
   }),
-)
+).middleware(AuthRpcMiddleware)

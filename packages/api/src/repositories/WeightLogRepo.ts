@@ -42,7 +42,7 @@ const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDom
 export class WeightLogRepo extends Effect.Tag('WeightLogRepo')<
   WeightLogRepo,
   {
-    readonly list: (params: WeightLogListParams) => Effect.Effect<WeightLog[]>
+    readonly list: (params: WeightLogListParams, userId: string) => Effect.Effect<WeightLog[]>
     readonly findById: (id: string) => Effect.Effect<Option.Option<WeightLog>>
     readonly create: (data: WeightLogCreate, userId: string) => Effect.Effect<WeightLog>
     readonly update: (data: WeightLogUpdate) => Effect.Effect<WeightLog>
@@ -60,12 +60,12 @@ export const WeightLogRepoLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     return {
-      list: (params) =>
+      list: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT id, datetime, weight, unit, notes, created_at, updated_at
             FROM weight_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime DESC

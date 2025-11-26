@@ -95,14 +95,17 @@ const decodeDayOfWeekCountRow = Schema.decodeUnknown(DayOfWeekCountRow)
 export class StatsService extends Effect.Tag('StatsService')<
   StatsService,
   {
-    readonly getDashboardStats: (params: DashboardStatsParams) => Effect.Effect<DashboardStats | null>
-    readonly getWeightStats: (params: StatsParams) => Effect.Effect<WeightStats | null>
-    readonly getWeightTrend: (params: StatsParams) => Effect.Effect<WeightTrendStats>
-    readonly getInjectionSiteStats: (params: StatsParams) => Effect.Effect<InjectionSiteStats>
-    readonly getDosageHistory: (params: StatsParams) => Effect.Effect<DosageHistoryStats>
-    readonly getInjectionFrequency: (params: StatsParams) => Effect.Effect<InjectionFrequencyStats | null>
-    readonly getDrugBreakdown: (params: StatsParams) => Effect.Effect<DrugBreakdownStats>
-    readonly getInjectionByDayOfWeek: (params: StatsParams) => Effect.Effect<InjectionDayOfWeekStats>
+    readonly getDashboardStats: (params: DashboardStatsParams, userId: string) => Effect.Effect<DashboardStats | null>
+    readonly getWeightStats: (params: StatsParams, userId: string) => Effect.Effect<WeightStats | null>
+    readonly getWeightTrend: (params: StatsParams, userId: string) => Effect.Effect<WeightTrendStats>
+    readonly getInjectionSiteStats: (params: StatsParams, userId: string) => Effect.Effect<InjectionSiteStats>
+    readonly getDosageHistory: (params: StatsParams, userId: string) => Effect.Effect<DosageHistoryStats>
+    readonly getInjectionFrequency: (
+      params: StatsParams,
+      userId: string,
+    ) => Effect.Effect<InjectionFrequencyStats | null>
+    readonly getDrugBreakdown: (params: StatsParams, userId: string) => Effect.Effect<DrugBreakdownStats>
+    readonly getInjectionByDayOfWeek: (params: StatsParams, userId: string) => Effect.Effect<InjectionDayOfWeekStats>
   }
 >() {}
 
@@ -116,7 +119,7 @@ export const StatsServiceLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     return {
-      getDashboardStats: (params) =>
+      getDashboardStats: (params, userId) =>
         Effect.gen(function* () {
           // Single query to get first/last weights and count within date range
           // This is more efficient than fetching all data to the client
@@ -124,7 +127,7 @@ export const StatsServiceLive = Layer.effect(
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
-              WHERE user_id = ${params.userId}
+              WHERE user_id = ${userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
               ORDER BY datetime
@@ -173,13 +176,13 @@ export const StatsServiceLive = Layer.effect(
           })
         }).pipe(Effect.orDie),
 
-      getWeightStats: (params) =>
+      getWeightStats: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
-              WHERE user_id = ${params.userId}
+              WHERE user_id = ${userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
               ORDER BY datetime
@@ -216,12 +219,12 @@ export const StatsServiceLive = Layer.effect(
           })
         }).pipe(Effect.orDie),
 
-      getWeightTrend: (params) =>
+      getWeightTrend: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT datetime, weight::text
             FROM weight_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime ASC
@@ -234,14 +237,14 @@ export const StatsServiceLive = Layer.effect(
           return new WeightTrendStats({ points })
         }).pipe(Effect.orDie),
 
-      getInjectionSiteStats: (params) =>
+      getInjectionSiteStats: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT 
               COALESCE(injection_site, 'Unknown') as injection_site,
               COUNT(*)::text as count
             FROM injection_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             GROUP BY injection_site
@@ -258,12 +261,12 @@ export const StatsServiceLive = Layer.effect(
           return new InjectionSiteStats({ sites, totalInjections: total })
         }).pipe(Effect.orDie),
 
-      getDosageHistory: (params) =>
+      getDosageHistory: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT datetime, dosage
             FROM injection_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ORDER BY datetime ASC
@@ -285,7 +288,7 @@ export const StatsServiceLive = Layer.effect(
           return new DosageHistoryStats({ points })
         }).pipe(Effect.orDie),
 
-      getInjectionFrequency: (params) =>
+      getInjectionFrequency: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             WITH injection_data AS (
@@ -294,7 +297,7 @@ export const StatsServiceLive = Layer.effect(
                 LAG(datetime) OVER (ORDER BY datetime) as prev_datetime,
                 EXTRACT(DOW FROM datetime)::int as day_of_week
               FROM injection_logs
-              WHERE user_id = ${params.userId}
+              WHERE user_id = ${userId}
               ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
               ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             ),
@@ -330,12 +333,12 @@ export const StatsServiceLive = Layer.effect(
           })
         }).pipe(Effect.orDie),
 
-      getDrugBreakdown: (params) =>
+      getDrugBreakdown: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT drug, COUNT(*)::text as count
             FROM injection_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             GROUP BY drug
@@ -352,14 +355,14 @@ export const StatsServiceLive = Layer.effect(
           return new DrugBreakdownStats({ drugs, totalInjections: total })
         }).pipe(Effect.orDie),
 
-      getInjectionByDayOfWeek: (params) =>
+      getInjectionByDayOfWeek: (params, userId) =>
         Effect.gen(function* () {
           const rows = yield* sql`
             SELECT 
               EXTRACT(DOW FROM datetime)::text as day_of_week,
               COUNT(*)::text as count
             FROM injection_logs
-            WHERE user_id = ${params.userId}
+            WHERE user_id = ${userId}
             ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
             ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
             GROUP BY EXTRACT(DOW FROM datetime)

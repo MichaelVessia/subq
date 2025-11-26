@@ -25,14 +25,14 @@ export const ReactivityKeys = {
   injectionSites: 'injection-sites',
 } as const
 
-// Factory functions for user-scoped queries
-export const createWeightLogListAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('WeightLogList', new WeightLogListParams({ userId, startDate, endDate, limit: 10000 }), {
+// Factory functions for queries (no longer need userId - server gets it from session)
+export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('WeightLogList', new WeightLogListParams({ startDate, endDate, limit: 10000 }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
-export const createInjectionLogListAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('InjectionLogList', new InjectionLogListParams({ userId, startDate, endDate, limit: 10000 }), {
+export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('InjectionLogList', new InjectionLogListParams({ startDate, endDate, limit: 10000 }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
@@ -45,43 +45,43 @@ export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefi
 })
 
 // Factory function for dashboard stats
-export const createDashboardStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ userId, startDate, endDate }), {
+export const createDashboardStatsAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDashboardStats', new DashboardStatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
 // Stats page atoms
-export const createWeightStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightStats', new StatsParams({ userId, startDate, endDate }), {
+export const createWeightStatsAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetWeightStats', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
-export const createWeightTrendAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightTrend', new StatsParams({ userId, startDate, endDate }), {
+export const createWeightTrendAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetWeightTrend', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
-export const createInjectionSiteStatsAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionSiteStats', new StatsParams({ userId, startDate, endDate }), {
+export const createInjectionSiteStatsAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionSiteStats', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createDosageHistoryAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDosageHistory', new StatsParams({ userId, startDate, endDate }), {
+export const createDosageHistoryAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDosageHistory', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createInjectionFrequencyAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionFrequency', new StatsParams({ userId, startDate, endDate }), {
+export const createInjectionFrequencyAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionFrequency', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createDrugBreakdownAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDrugBreakdown', new StatsParams({ userId, startDate, endDate }), {
+export const createDrugBreakdownAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetDrugBreakdown', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
-export const createInjectionByDayOfWeekAtom = (userId: string, startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ userId, startDate, endDate }), {
+export const createInjectionByDayOfWeekAtom = (startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })

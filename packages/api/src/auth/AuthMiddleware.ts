@@ -1,17 +1,8 @@
 import type { Headers } from '@effect/platform/Headers'
-import { RpcMiddleware } from '@effect/rpc'
+import { AuthRpcMiddleware, Unauthorized } from '@scale/shared'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import { AuthContext, AuthService, Unauthorized } from './AuthService.js'
-
-/**
- * RPC Middleware that extracts the authenticated user from request headers
- * and provides AuthContext to RPC handlers.
- */
-export class AuthRpcMiddleware extends RpcMiddleware.Tag<AuthRpcMiddleware>()('AuthRpcMiddleware', {
-  provides: AuthContext,
-  failure: Unauthorized,
-}) {}
+import { AuthService } from './AuthService.js'
 
 /**
  * Layer that provides the auth middleware implementation.
@@ -22,7 +13,7 @@ export const AuthRpcMiddlewareLive = Layer.effect(
   Effect.gen(function* () {
     const { auth } = yield* AuthService
 
-    return ({ headers }: { headers: Headers }) =>
+    return AuthRpcMiddleware.of(({ headers }: { headers: Headers }) =>
       Effect.gen(function* () {
         // Convert Headers to a plain object for better-auth
         const headerObj: Record<string, string> = {}
@@ -42,7 +33,18 @@ export const AuthRpcMiddlewareLive = Layer.effect(
           return yield* new Unauthorized({ details: 'Not authenticated' })
         }
 
-        return { user: session.user, session: session.session }
-      })
+        return {
+          user: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+          },
+          session: {
+            id: session.session.id,
+            userId: session.session.userId,
+          },
+        }
+      }),
+    )
   }),
 )

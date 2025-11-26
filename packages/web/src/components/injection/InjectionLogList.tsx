@@ -1,20 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { InjectionLogCreate } from '@scale/shared'
 import { useMemo, useState } from 'react'
-import { useUserId } from '../../hooks/useUserId.js'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
 
 export function InjectionLogList() {
-  const userId = useUserId()
-  if (!userId) {
-    return <div className="loading">Loading...</div>
-  }
-  return <InjectionLogListInner userId={userId} />
-}
-
-function InjectionLogListInner({ userId }: { userId: string }) {
-  const injectionLogAtom = useMemo(() => createInjectionLogListAtom(userId), [userId])
+  const injectionLogAtom = useMemo(() => createInjectionLogListAtom(), [])
   const logsResult = useAtomValue(injectionLogAtom)
   const [showForm, setShowForm] = useState(false)
 
