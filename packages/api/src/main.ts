@@ -3,7 +3,7 @@ import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@scale/shared'
-import { Config, Effect, Layer } from 'effect'
+import { Config, Effect, Layer, Redacted } from 'effect'
 import { Pool } from 'pg'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
@@ -14,15 +14,15 @@ import { SqlLive } from './Sql.js'
 // Auth configuration layer - creates better-auth instance with postgres
 const AuthLive = Layer.unwrapEffect(
   Effect.gen(function* () {
-    const databaseUrl = yield* Config.string('DATABASE_URL')
-    const authSecret = yield* Config.string('BETTER_AUTH_SECRET')
+    const databaseUrl = yield* Config.redacted('DATABASE_URL')
+    const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
     const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
-    const pool = new Pool({ connectionString: databaseUrl })
+    const pool = new Pool({ connectionString: Redacted.value(databaseUrl) })
 
     return AuthServiceLive({
       database: pool,
-      secret: authSecret,
+      secret: Redacted.value(authSecret),
       baseURL: authUrl,
       trustedOrigins: [authUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
       emailAndPassword: {
