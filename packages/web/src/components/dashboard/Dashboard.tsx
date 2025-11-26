@@ -598,6 +598,7 @@ export function Dashboard({ userId }: { userId: string }) {
           onChange={handleTimeRangeChange}
           zoomRange={zoomRange}
           onResetZoom={() => setZoomRange(null)}
+          onZoomChange={setZoomRange}
         />
       </div>
 

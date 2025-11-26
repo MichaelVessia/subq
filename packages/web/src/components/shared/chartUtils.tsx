@@ -148,18 +148,93 @@ export function Tooltip({
 // Time Range Selector Component
 // ============================================
 
+import { useState, useEffect } from 'react'
+
+function formatDateForInput(date: Date): string {
+  return date.toISOString().split('T')[0] ?? ''
+}
+
+function DateRangeInputs({
+  zoomRange,
+  onZoomChange,
+}: {
+  zoomRange: { start: Date; end: Date }
+  onZoomChange: (range: { start: Date; end: Date }) => void
+}) {
+  const [startValue, setStartValue] = useState(formatDateForInput(zoomRange.start))
+  const [endValue, setEndValue] = useState(formatDateForInput(zoomRange.end))
+
+  // Sync local state when zoomRange changes externally (e.g., from chart drag)
+  useEffect(() => {
+    setStartValue(formatDateForInput(zoomRange.start))
+    setEndValue(formatDateForInput(zoomRange.end))
+  }, [zoomRange.start, zoomRange.end])
+
+  const handleStartBlur = () => {
+    const newStart = new Date(startValue)
+    if (!Number.isNaN(newStart.getTime()) && newStart < zoomRange.end) {
+      onZoomChange({ start: newStart, end: zoomRange.end })
+    } else {
+      setStartValue(formatDateForInput(zoomRange.start))
+    }
+  }
+
+  const handleEndBlur = () => {
+    const newEnd = new Date(endValue)
+    if (!Number.isNaN(newEnd.getTime()) && newEnd > zoomRange.start) {
+      onZoomChange({ start: zoomRange.start, end: newEnd })
+    } else {
+      setEndValue(formatDateForInput(zoomRange.end))
+    }
+  }
+
+  const dateInputStyle: React.CSSProperties = {
+    padding: 'var(--space-1) var(--space-2)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    backgroundColor: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    fontSize: 'var(--text-sm)',
+    fontFamily: 'var(--font-mono)',
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+      <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>From</span>
+      <input
+        type="date"
+        value={startValue}
+        onChange={(e) => setStartValue(e.target.value)}
+        onBlur={handleStartBlur}
+        style={dateInputStyle}
+      />
+      <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>to</span>
+      <input
+        type="date"
+        value={endValue}
+        onChange={(e) => setEndValue(e.target.value)}
+        onBlur={handleEndBlur}
+        style={dateInputStyle}
+      />
+    </div>
+  )
+}
+
 export function TimeRangeSelector({
   selected,
   onChange,
   zoomRange,
   onResetZoom,
+  onZoomChange,
 }: {
   selected: TimeRangeKey
   onChange: (key: TimeRangeKey) => void
   zoomRange?: { start: Date; end: Date } | null
   onResetZoom?: () => void
+  onZoomChange?: (range: { start: Date; end: Date }) => void
 }) {
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -189,25 +264,7 @@ export function TimeRangeSelector({
       </div>
       {zoomRange && onResetZoom && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
-              fontSize: 'var(--text-sm)',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--color-text)',
-            }}
-          >
-            <span style={{ color: 'var(--color-text-muted)' }}>From</span>
-            <span>{zoomRange.start.toLocaleDateString()}</span>
-            <span style={{ color: 'var(--color-text-muted)' }}>to</span>
-            <span>{zoomRange.end.toLocaleDateString()}</span>
-          </div>
+          {onZoomChange && <DateRangeInputs zoomRange={zoomRange} onZoomChange={onZoomChange} />}
           <button
             type="button"
             onClick={onResetZoom}
