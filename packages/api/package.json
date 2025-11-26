@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/main.ts",
-    "migrate": "bun run scripts/migrate.ts"
+    "migrate": "bun run scripts/migrate.ts",
+    "seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
     "@effect/platform": "^0.92.1",

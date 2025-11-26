@@ -42,6 +42,7 @@ export const RpcHandlersLive = AppRpcs.toLayer(
       GetDosageHistory: (params: StatsParams) => statsService.getDosageHistory(params),
       GetInjectionFrequency: (params: StatsParams) => statsService.getInjectionFrequency(params),
       GetDrugBreakdown: (params: StatsParams) => statsService.getDrugBreakdown(params),
+      GetInjectionByDayOfWeek: (params: StatsParams) => statsService.getInjectionByDayOfWeek(params),
     }
   }),
 ).pipe(Layer.provide(Greeter.layer))

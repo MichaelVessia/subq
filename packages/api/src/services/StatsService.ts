@@ -2,10 +2,12 @@ import { SqlClient } from '@effect/sql'
 import {
   DashboardStats,
   type DashboardStatsParams,
+  DayOfWeekCount,
   DosageHistoryPoint,
   DosageHistoryStats,
   DrugBreakdownStats,
   DrugCount,
+  InjectionDayOfWeekStats,
   InjectionFrequencyStats,
   InjectionSiteCount,
   InjectionSiteStats,
@@ -79,6 +81,13 @@ const DrugCountRow = Schema.Struct({
 })
 const decodeDrugCountRow = Schema.decodeUnknown(DrugCountRow)
 
+// Day of week count row schema
+const DayOfWeekCountRow = Schema.Struct({
+  day_of_week: Schema.NumberFromString,
+  count: Schema.NumberFromString,
+})
+const decodeDayOfWeekCountRow = Schema.decodeUnknown(DayOfWeekCountRow)
+
 // ============================================
 // Stats Service Definition
 // ============================================
@@ -93,6 +102,7 @@ export class StatsService extends Effect.Tag('StatsService')<
     readonly getDosageHistory: (params: StatsParams) => Effect.Effect<DosageHistoryStats>
     readonly getInjectionFrequency: (params: StatsParams) => Effect.Effect<InjectionFrequencyStats | null>
     readonly getDrugBreakdown: (params: StatsParams) => Effect.Effect<DrugBreakdownStats>
+    readonly getInjectionByDayOfWeek: (params: StatsParams) => Effect.Effect<InjectionDayOfWeekStats>
   }
 >() {}
 
@@ -340,6 +350,30 @@ export const StatsServiceLive = Layer.effect(
             total += count
           }
           return new DrugBreakdownStats({ drugs, totalInjections: total })
+        }).pipe(Effect.orDie),
+
+      getInjectionByDayOfWeek: (params) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT 
+              EXTRACT(DOW FROM datetime)::text as day_of_week,
+              COUNT(*)::text as count
+            FROM injection_logs
+            WHERE user_id = ${params.userId}
+            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
+            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            GROUP BY EXTRACT(DOW FROM datetime)
+            ORDER BY day_of_week
+          `
+          const days: DayOfWeekCount[] = []
+          let total = 0
+          for (const row of rows) {
+            const decoded = yield* decodeDayOfWeekCountRow(row)
+            const count = Number(decoded.count)
+            days.push(new DayOfWeekCount({ dayOfWeek: Number(decoded.day_of_week), count }))
+            total += count
+          }
+          return new InjectionDayOfWeekStats({ days, totalInjections: total })
         }).pipe(Effect.orDie),
     }
   }),

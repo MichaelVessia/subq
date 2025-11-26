@@ -80,3 +80,8 @@ export const createDrugBreakdownAtom = (userId: string, startDate?: Date, endDat
   ApiClient.query('GetDrugBreakdown', new StatsParams({ userId, startDate, endDate }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
+
+export const createInjectionByDayOfWeekAtom = (userId: string, startDate?: Date, endDate?: Date) =>
+  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ userId, startDate, endDate }), {
+    reactivityKeys: [ReactivityKeys.injectionLogs],
+  })

@@ -5,6 +5,7 @@ import {
   DashboardStatsParams,
   DosageHistoryStats,
   DrugBreakdownStats,
+  InjectionDayOfWeekStats,
   InjectionFrequencyStats,
   InjectionLog,
   InjectionLogCreate,
@@ -113,5 +114,9 @@ export const AppRpcs = RpcGroup.make(
   Rpc.make('GetDrugBreakdown', {
     payload: StatsParams,
     success: DrugBreakdownStats,
+  }),
+  Rpc.make('GetInjectionByDayOfWeek', {
+    payload: StatsParams,
+    success: InjectionDayOfWeekStats,
   }),
 )

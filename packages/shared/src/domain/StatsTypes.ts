@@ -97,3 +97,18 @@ export class DrugBreakdownStats extends Schema.Class<DrugBreakdownStats>('DrugBr
   drugs: Schema.Array(DrugCount),
   totalInjections: Schema.Number,
 }) {}
+
+// ============================================
+// Injection By Day of Week (for pie chart)
+// ============================================
+
+export class DayOfWeekCount extends Schema.Class<DayOfWeekCount>('DayOfWeekCount')({
+  /** 0=Sunday, 1=Monday, ..., 6=Saturday */
+  dayOfWeek: Schema.Number,
+  count: Schema.Number,
+}) {}
+
+export class InjectionDayOfWeekStats extends Schema.Class<InjectionDayOfWeekStats>('InjectionDayOfWeekStats')({
+  days: Schema.Array(DayOfWeekCount),
+  totalInjections: Schema.Number,
+}) {}

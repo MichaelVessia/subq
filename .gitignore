@@ -20,3 +20,4 @@ build/
 
 # PostgreSQL local data
 .postgres/
+cookies.txt

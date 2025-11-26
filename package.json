@@ -21,7 +21,9 @@
     "format-fix": "biome format --write . || nix develop --command biome format --write .",
     "test": "bun test",
     "coverage": "bun test --coverage",
-    "prepare": "effect-language-service patch"
+    "prepare": "effect-language-service patch",
+    "seed": "bun run --filter @scale/api seed",
+    "migrate": "bun run --filter @scale/api migrate"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",

@@ -16,6 +16,11 @@ function getPage(): Page {
   return 'dashboard'
 }
 
+const TEST_USERS = [
+  { email: 'test@example.com', password: 'testpassword123', label: 'Test User (consistent data)' },
+  { email: 'sparse@example.com', password: 'testpassword123', label: 'Sparse User (irregular data)' },
+]
+
 function LoginForm() {
   const [email, setEmail] = useState('test@example.com')
   const [password, setPassword] = useState('testpassword123')
@@ -38,9 +43,53 @@ function LoginForm() {
     }
   }
 
+  const handleQuickLogin = async (testEmail: string, testPassword: string) => {
+    setError(null)
+    setLoading(true)
+    try {
+      const result = await signIn.email({ email: testEmail, password: testPassword })
+      if (result.error) {
+        setError(result.error.message ?? 'Login failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div style={{ maxWidth: '320px', margin: '4rem auto', padding: 'var(--space-6)' }}>
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-6)' }}>Sign In</h1>
+
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)' }}>
+          Quick login:
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {TEST_USERS.map((user) => (
+            <button
+              key={user.email}
+              type="button"
+              disabled={loading}
+              onClick={() => handleQuickLogin(user.email, user.password)}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-text)',
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: loading ? 'wait' : 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              {user.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <input
           type="email"
@@ -117,8 +166,6 @@ export function App() {
   return (
     <div
       style={{
-        maxWidth: '860px',
-        margin: '0 auto',
         padding: 'var(--space-6) var(--space-5)',
       }}
     >
@@ -155,6 +202,7 @@ export function App() {
           <a href="/injection" style={navLinkStyle(page === 'injection')}>
             Injections
           </a>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{session.user.email}</span>
           <button
             type="button"
             onClick={() => signOut()}

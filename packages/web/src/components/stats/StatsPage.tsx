@@ -2,6 +2,7 @@ import { Result, useAtomValue } from '@effect-atom/atom-react'
 import type {
   DosageHistoryStats,
   DrugBreakdownStats,
+  InjectionDayOfWeekStats,
   InjectionFrequencyStats,
   InjectionLog,
   InjectionSiteStats,
@@ -14,6 +15,7 @@ import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
+  createInjectionByDayOfWeekAtom,
   createInjectionFrequencyAtom,
   createInjectionLogListAtom,
   createInjectionSiteStatsAtom,
@@ -840,6 +842,99 @@ function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
 }
 
 // ============================================
+// Injection Day of Week Pie Chart
+// ============================================
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats }) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!svgRef.current || !containerRef.current || data.days.length === 0) return
+
+    const svg = d3.select(svgRef.current)
+    svg.selectAll('*').remove()
+
+    const containerWidth = containerRef.current.clientWidth
+    const size = Math.min(containerWidth, 250)
+    const radius = size / 2 - 10
+
+    svg.attr('width', size).attr('height', size)
+
+    const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`)
+
+    const pie = d3
+      .pie<(typeof data.days)[0]>()
+      .value((d) => d.count)
+      .sort(null)
+
+    const arc = d3
+      .arc<d3.PieArcDatum<(typeof data.days)[0]>>()
+      .innerRadius(radius * 0.5)
+      .outerRadius(radius)
+
+    const color = d3
+      .scaleOrdinal<string>()
+      .domain(data.days.map((d) => d.dayOfWeek.toString()))
+      .range(CHART_COLORS)
+
+    const arcs = g
+      .selectAll('.arc')
+      .data(pie([...data.days]))
+      .enter()
+      .append('g')
+      .attr('class', 'arc')
+
+    arcs
+      .append('path')
+      .attr('d', arc)
+      .attr('fill', (d) => color(d.data.dayOfWeek.toString()))
+      .attr('stroke', 'var(--color-surface)')
+      .attr('stroke-width', 2)
+
+    arcs
+      .append('text')
+      .attr('transform', (d) => `translate(${arc.centroid(d)})`)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '10px')
+      .attr('fill', '#fff')
+      .attr('font-weight', 600)
+      .text((d) => (d.data.count > 0 ? d.data.count.toString() : ''))
+  }, [data])
+
+  if (data.days.length === 0) {
+    return <div style={{ color: 'var(--color-text-muted)', height: 250 }}>No injection data available</div>
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+      <div ref={containerRef} style={{ flex: 1, maxWidth: 250 }}>
+        <svg ref={svgRef} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        {data.days.map((day, i) => (
+          <div key={day.dayOfWeek} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <div
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 2,
+                backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+              }}
+            />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+              {DAY_NAMES[day.dayOfWeek]} ({day.count})
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // Stats Page Component
 // ============================================
 
@@ -881,6 +976,10 @@ export function StatsPage({ userId }: { userId: string }) {
     () => createDrugBreakdownAtom(userId, range.start, range.end),
     [userId, range.start, range.end],
   )
+  const injectionByDayOfWeekAtom = useMemo(
+    () => createInjectionByDayOfWeekAtom(userId, range.start, range.end),
+    [userId, range.start, range.end],
+  )
 
   const weightStatsResult = useAtomValue(weightStatsAtom)
   const weightTrendResult = useAtomValue(weightTrendAtom)
@@ -889,6 +988,7 @@ export function StatsPage({ userId }: { userId: string }) {
   const dosageHistoryResult = useAtomValue(dosageHistoryAtom)
   const injectionFrequencyResult = useAtomValue(injectionFrequencyAtom)
   const drugBreakdownResult = useAtomValue(drugBreakdownAtom)
+  const injectionByDayOfWeekResult = useAtomValue(injectionByDayOfWeekAtom)
 
   const isLoading =
     Result.isWaiting(weightStatsResult) ||
@@ -897,7 +997,8 @@ export function StatsPage({ userId }: { userId: string }) {
     Result.isWaiting(injectionSiteStatsResult) ||
     Result.isWaiting(dosageHistoryResult) ||
     Result.isWaiting(injectionFrequencyResult) ||
-    Result.isWaiting(drugBreakdownResult)
+    Result.isWaiting(drugBreakdownResult) ||
+    Result.isWaiting(injectionByDayOfWeekResult)
 
   const weightStats = Result.getOrElse(weightStatsResult, () => null as WeightStats | null)
   const weightTrend = Result.getOrElse(weightTrendResult, () => ({ points: [] }) as WeightTrendStats)
@@ -911,6 +1012,10 @@ export function StatsPage({ userId }: { userId: string }) {
   const drugBreakdown = Result.getOrElse(
     drugBreakdownResult,
     () => ({ drugs: [], totalInjections: 0 }) as DrugBreakdownStats,
+  )
+  const injectionByDayOfWeek = Result.getOrElse(
+    injectionByDayOfWeekResult,
+    () => ({ days: [], totalInjections: 0 }) as InjectionDayOfWeekStats,
   )
 
   // Transform data for the weight chart
@@ -975,17 +1080,22 @@ export function StatsPage({ userId }: { userId: string }) {
           <InjectionFrequencySummary stats={injectionFrequency} />
         </StatCard>
 
-        {/* Two column layout for smaller charts */}
+        {/* Multi-column layout for smaller charts */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: 'var(--space-5)',
           }}
         >
           {/* Injection Sites */}
           <StatCard title="Injection Sites">
             <InjectionSitePieChart data={injectionSiteStats} />
+          </StatCard>
+
+          {/* Injection Frequency by Day */}
+          <StatCard title="Injections by Day of Week">
+            <InjectionDayOfWeekPieChart data={injectionByDayOfWeek} />
           </StatCard>
 
           {/* Drug Breakdown */}
