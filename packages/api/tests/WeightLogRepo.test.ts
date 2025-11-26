@@ -5,6 +5,7 @@ import {
   type WeightLogCreate,
   WeightLogId,
   type WeightLogListParams,
+  WeightLogNotFoundError,
   type WeightLogUpdate,
 } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
@@ -64,7 +65,7 @@ const WeightLogRepoTest = Layer.sync(WeightLogRepo, () => {
       Effect.gen(function* () {
         const current = store.get(data.id)
         if (!current) {
-          return yield* Effect.die(new Error('WeightLog not found'))
+          return yield* WeightLogNotFoundError.make({ id: data.id })
         }
         const updated = new WeightLog({
           ...current,

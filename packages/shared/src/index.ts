@@ -6,6 +6,9 @@ export * from './weight/index.js'
 export * from './injection/index.js'
 export * from './stats/index.js'
 
+// Domain errors
+export * from './errors/index.js'
+
 // RPC definitions
 export * from './Rpc.js'
 

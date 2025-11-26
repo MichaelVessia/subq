@@ -5,8 +5,10 @@ import {
   DrugSource,
   InjectionLog,
   type InjectionLogCreate,
+  InjectionLogDatabaseError,
   InjectionLogId,
   type InjectionLogListParams,
+  InjectionLogNotFoundError,
   type InjectionLogUpdate,
   InjectionSite,
   Notes,
@@ -54,13 +56,21 @@ const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDom
 export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
   InjectionLogRepo,
   {
-    readonly list: (params: InjectionLogListParams, userId: string) => Effect.Effect<InjectionLog[]>
-    readonly findById: (id: string) => Effect.Effect<Option.Option<InjectionLog>>
-    readonly create: (data: InjectionLogCreate, userId: string) => Effect.Effect<InjectionLog>
-    readonly update: (data: InjectionLogUpdate) => Effect.Effect<InjectionLog>
-    readonly delete: (id: string) => Effect.Effect<boolean>
-    readonly getUniqueDrugs: (userId: string) => Effect.Effect<string[]>
-    readonly getUniqueSites: (userId: string) => Effect.Effect<string[]>
+    readonly list: (
+      params: InjectionLogListParams,
+      userId: string,
+    ) => Effect.Effect<InjectionLog[], InjectionLogDatabaseError>
+    readonly findById: (id: string) => Effect.Effect<Option.Option<InjectionLog>, InjectionLogDatabaseError>
+    readonly create: (
+      data: InjectionLogCreate,
+      userId: string,
+    ) => Effect.Effect<InjectionLog, InjectionLogDatabaseError>
+    readonly update: (
+      data: InjectionLogUpdate,
+    ) => Effect.Effect<InjectionLog, InjectionLogNotFoundError | InjectionLogDatabaseError>
+    readonly delete: (id: string) => Effect.Effect<boolean, InjectionLogDatabaseError>
+    readonly getUniqueDrugs: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
+    readonly getUniqueSites: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
   }
 >() {}
 
@@ -88,7 +98,7 @@ export const InjectionLogRepoLive = Layer.effect(
             OFFSET ${params.offset}
           `
           return yield* Effect.all(rows.map(decodeAndTransform))
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
 
       findById: (id) =>
         Effect.gen(function* () {
@@ -100,7 +110,7 @@ export const InjectionLogRepoLive = Layer.effect(
           if (rows.length === 0) return Option.none()
           const decoded = yield* decodeAndTransform(rows[0])
           return Option.some(decoded)
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
 
       create: (data, userId) =>
         Effect.gen(function* () {
@@ -114,7 +124,7 @@ export const InjectionLogRepoLive = Layer.effect(
             RETURNING id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
           `
           return yield* decodeAndTransform(rows[0])
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause }))),
 
       update: (data) =>
         Effect.gen(function* () {
@@ -122,12 +132,15 @@ export const InjectionLogRepoLive = Layer.effect(
           const current = yield* sql`
             SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
             FROM injection_logs WHERE id = ${data.id}
-          `
+          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+
           if (current.length === 0) {
-            return yield* Effect.die(new Error('InjectionLog not found'))
+            return yield* InjectionLogNotFoundError.make({ id: data.id })
           }
 
-          const curr = yield* decodeRow(current[0])
+          const curr = yield* decodeRow(current[0]).pipe(
+            Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })),
+          )
           const newDatetime = data.datetime ?? curr.datetime
           const newDrug = data.drug ?? curr.drug
           const newSource = Option.isSome(data.source) ? data.source.value : curr.source
@@ -146,9 +159,12 @@ export const InjectionLogRepoLive = Layer.effect(
                 updated_at = NOW()
             WHERE id = ${data.id}
             RETURNING id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
-          `
-          return yield* decodeAndTransform(rows[0])
-        }).pipe(Effect.orDie),
+          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
+
+          return yield* decodeAndTransform(rows[0]).pipe(
+            Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })),
+          )
+        }),
 
       delete: (id) =>
         Effect.gen(function* () {
@@ -156,7 +172,7 @@ export const InjectionLogRepoLive = Layer.effect(
             DELETE FROM injection_logs WHERE id = ${id} RETURNING id
           `
           return result.length > 0
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause }))),
 
       getUniqueDrugs: (userId) =>
         Effect.gen(function* () {
@@ -164,7 +180,7 @@ export const InjectionLogRepoLive = Layer.effect(
             SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
           `
           return rows.map((r) => r.drug)
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
 
       getUniqueSites: (userId) =>
         Effect.gen(function* () {
@@ -175,7 +191,7 @@ export const InjectionLogRepoLive = Layer.effect(
             ORDER BY injection_site
           `
           return rows.map((r) => r.injection_site)
-        }).pipe(Effect.orDie),
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
     }
   }),
 )

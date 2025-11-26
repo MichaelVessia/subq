@@ -6,6 +6,7 @@ import {
   type InjectionLogCreate,
   InjectionLogId,
   type InjectionLogListParams,
+  InjectionLogNotFoundError,
   type InjectionLogUpdate,
   InjectionSite,
   Notes,
@@ -69,7 +70,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
       Effect.gen(function* () {
         const current = store.get(data.id)
         if (!current) {
-          return yield* Effect.die(new Error('InjectionLog not found'))
+          return yield* InjectionLogNotFoundError.make({ id: data.id })
         }
         const updated = new InjectionLog({
           ...current,

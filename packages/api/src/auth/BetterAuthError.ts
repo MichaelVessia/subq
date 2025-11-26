@@ -1,5 +1,5 @@
-import * as Data from 'effect/Data'
+import { Schema } from 'effect'
 
-export class BetterAuthApiError extends Data.TaggedError('BetterAuthApiError')<{
-  cause: unknown
-}> {}
+export class BetterAuthApiError extends Schema.TaggedError<BetterAuthApiError>()('BetterAuthApiError', {
+  cause: Schema.Defect,
+}) {}
