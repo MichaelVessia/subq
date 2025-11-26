@@ -1,4 +1,4 @@
-import { Notes, Weight, WeightLogCreate, type WeightUnit } from '@scale/shared'
+import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId, type WeightUnit } from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 
@@ -13,8 +13,10 @@ function toLocalDatetimeString(date: Date): string {
 
 interface WeightLogFormProps {
   onSubmit: (data: WeightLogCreate) => Promise<void>
+  onUpdate?: (data: WeightLogUpdate) => Promise<void>
   onCancel: () => void
   initialData?: {
+    id?: WeightLogId
     datetime?: Date
     weight?: number
     unit?: WeightUnit
@@ -27,7 +29,8 @@ interface FormErrors {
   weight?: string | undefined
 }
 
-export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogFormProps) {
+export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: WeightLogFormProps) {
+  const isEditing = !!initialData?.id
   const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
   const [weight, setWeight] = useState(initialData?.weight?.toString() ?? '')
   const [unit, setUnit] = useState<WeightUnit>(initialData?.unit ?? 'lbs')
@@ -82,14 +85,26 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
 
     setLoading(true)
     try {
-      await onSubmit(
-        new WeightLogCreate({
-          datetime: new Date(datetime),
-          weight: Weight.make(Number.parseFloat(weight)),
-          unit,
-          notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-        }),
-      )
+      if (isEditing && onUpdate && initialData?.id) {
+        await onUpdate(
+          new WeightLogUpdate({
+            id: initialData.id,
+            datetime: new Date(datetime),
+            weight: Weight.make(Number.parseFloat(weight)),
+            unit,
+            notes: Option.some(notes ? Notes.make(notes) : null),
+          }),
+        )
+      } else {
+        await onSubmit(
+          new WeightLogCreate({
+            datetime: new Date(datetime),
+            weight: Weight.make(Number.parseFloat(weight)),
+            unit,
+            notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
+          }),
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -177,7 +192,7 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
           Cancel
         </button>
         <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
-          {loading ? 'Saving...' : 'Save'}
+          {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
         </button>
       </div>
     </form>

@@ -1,5 +1,14 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
-import { Dosage, DrugName, DrugSource, InjectionLogCreate, InjectionSite, Notes } from '@scale/shared'
+import {
+  Dosage,
+  DrugName,
+  DrugSource,
+  InjectionLogCreate,
+  type InjectionLogId,
+  InjectionLogUpdate,
+  InjectionSite,
+  Notes,
+} from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
@@ -35,8 +44,10 @@ const INJECTION_SITES = [
 
 interface InjectionLogFormProps {
   onSubmit: (data: InjectionLogCreate) => Promise<void>
+  onUpdate?: (data: InjectionLogUpdate) => Promise<void>
   onCancel: () => void
   initialData?: {
+    id?: InjectionLogId
     datetime?: Date
     drug?: string
     source?: string | null
@@ -52,7 +63,8 @@ interface FormErrors {
   dosage?: string | undefined
 }
 
-export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionLogFormProps) {
+export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: InjectionLogFormProps) {
+  const isEditing = !!initialData?.id
   const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
   const [drug, setDrug] = useState(initialData?.drug ?? '')
   const [source, setSource] = useState(initialData?.source ?? '')
@@ -133,16 +145,30 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
 
     setLoading(true)
     try {
-      await onSubmit(
-        new InjectionLogCreate({
-          datetime: new Date(datetime),
-          drug: DrugName.make(drug),
-          source: source ? Option.some(DrugSource.make(source)) : Option.none(),
-          dosage: Dosage.make(dosage),
-          injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
-          notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-        }),
-      )
+      if (isEditing && onUpdate && initialData?.id) {
+        await onUpdate(
+          new InjectionLogUpdate({
+            id: initialData.id,
+            datetime: new Date(datetime),
+            drug: DrugName.make(drug),
+            source: Option.some(source ? DrugSource.make(source) : null),
+            dosage: Dosage.make(dosage),
+            injectionSite: Option.some(injectionSite ? InjectionSite.make(injectionSite) : null),
+            notes: Option.some(notes ? Notes.make(notes) : null),
+          }),
+        )
+      } else {
+        await onSubmit(
+          new InjectionLogCreate({
+            datetime: new Date(datetime),
+            drug: DrugName.make(drug),
+            source: source ? Option.some(DrugSource.make(source)) : Option.none(),
+            dosage: Dosage.make(dosage),
+            injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
+            notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
+          }),
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -276,7 +302,7 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
           Cancel
         </button>
         <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
-          {loading ? 'Saving...' : 'Save'}
+          {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
         </button>
       </div>
     </form>

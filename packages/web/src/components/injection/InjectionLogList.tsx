@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import type { InjectionLogCreate, InjectionLogId } from '@scale/shared'
+import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate } from '@scale/shared'
 import { useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
@@ -8,8 +8,10 @@ export function InjectionLogList() {
   const injectionLogAtom = useMemo(() => createInjectionLogListAtom(), [])
   const logsResult = useAtomValue(injectionLogAtom)
   const [showForm, setShowForm] = useState(false)
+  const [editingLog, setEditingLog] = useState<InjectionLog | null>(null)
 
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
+  const updateLog = useAtomSet(ApiClient.mutation('InjectionLogUpdate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
 
   const handleCreate = async (data: InjectionLogCreate) => {
@@ -18,6 +20,23 @@ export function InjectionLogList() {
       reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
     })
     setShowForm(false)
+  }
+
+  const handleUpdate = async (data: InjectionLogUpdate) => {
+    await updateLog({
+      payload: data,
+      reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
+    })
+    setEditingLog(null)
+  }
+
+  const handleEdit = (log: InjectionLog) => {
+    setEditingLog(log)
+    setShowForm(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingLog(null)
   }
 
   const handleDelete = async (id: InjectionLogId) => {
@@ -73,21 +92,50 @@ export function InjectionLogList() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
-                    {formatDate(log.datetime)}
-                  </td>
-                  <td style={{ fontWeight: 500 }}>{log.drug}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>{log.dosage}</td>
-                  <td className="text-secondary text-sm">{log.injectionSite ?? '-'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {logs.map((log) =>
+                editingLog?.id === log.id ? (
+                  <tr key={log.id}>
+                    <td colSpan={5} style={{ padding: 'var(--space-4)' }}>
+                      <InjectionLogForm
+                        onSubmit={handleCreate}
+                        onUpdate={handleUpdate}
+                        onCancel={handleCancelEdit}
+                        initialData={{
+                          id: log.id,
+                          datetime: log.datetime,
+                          drug: log.drug,
+                          source: log.source,
+                          dosage: log.dosage,
+                          injectionSite: log.injectionSite,
+                          notes: log.notes,
+                        }}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={log.id}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+                      {formatDate(log.datetime)}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{log.drug}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)' }}>{log.dosage}</td>
+                    <td className="text-secondary text-sm">{log.injectionSite ?? '-'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ marginRight: 'var(--space-2)' }}
+                        onClick={() => handleEdit(log)}
+                      >
+                        Edit
+                      </button>
+                      <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>
