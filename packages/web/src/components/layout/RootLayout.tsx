@@ -3,13 +3,14 @@ import { signOut, useSession } from '../../auth.js'
 import { LoginForm } from './LoginForm.js'
 
 const navLinkStyle = (active: boolean): React.CSSProperties => ({
-  padding: '0.5rem 0',
+  padding: '0.25rem 0',
   fontSize: 'var(--text-sm)',
   fontWeight: 500,
   color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
   borderBottom: active ? '2px solid var(--color-text)' : '2px solid transparent',
   transition: 'color var(--transition-fast)',
   textDecoration: 'none',
+  whiteSpace: 'nowrap',
 })
 
 export function RootLayout() {
@@ -32,30 +33,47 @@ export function RootLayout() {
   return (
     <div
       style={{
-        padding: 'var(--space-6) var(--space-5)',
+        padding: 'var(--space-4) var(--space-4)',
       }}
+      className="app-container"
     >
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 'var(--space-8)',
-          paddingBottom: 'var(--space-5)',
-          borderBottom: '1px solid var(--color-border)',
-        }}
-      >
-        <h1
-          style={{
-            fontSize: 'var(--text-lg)',
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          Health Tracker
-        </h1>
+      <header className="app-header">
+        <div className="header-top">
+          <h1
+            style={{
+              fontSize: 'var(--text-lg)',
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Health Tracker
+          </h1>
 
-        <nav style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center' }}>
+          <div className="header-user">
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{session.user.email}</span>
+            <button
+              type="button"
+              onClick={() => {
+                signOut().then(() => {
+                  window.location.href = '/dashboard'
+                })
+              }}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-text)',
+                background: 'none',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+              }}
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        <nav className="app-nav">
           <Link to="/dashboard" style={navLinkStyle(pathname === '/dashboard')}>
             Dashboard
           </Link>
@@ -68,26 +86,6 @@ export function RootLayout() {
           <Link to="/injection" style={navLinkStyle(pathname === '/injection')}>
             Injections
           </Link>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{session.user.email}</span>
-          <button
-            type="button"
-            onClick={() => {
-              signOut().then(() => {
-                window.location.href = '/dashboard'
-              })
-            }}
-            style={{
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--color-text)',
-              background: 'none',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-            }}
-          >
-            Sign Out
-          </button>
         </nav>
       </header>
 

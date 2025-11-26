@@ -148,7 +148,39 @@ export function Tooltip({
 // Time Range Selector Component
 // ============================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+
+// ============================================
+// Responsive Container Hook
+// ============================================
+
+export function useContainerSize<T extends HTMLElement = HTMLDivElement>(): {
+  containerRef: React.RefObject<T | null>
+  width: number
+} {
+  const containerRef = useRef<T | null>(null)
+  const [width, setWidth] = useState(0)
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const newWidth = entry.contentRect.width
+        setWidth(newWidth)
+      }
+    })
+
+    observer.observe(element)
+    // Set initial width
+    setWidth(element.clientWidth)
+
+    return () => observer.disconnect()
+  }, [])
+
+  return { containerRef, width }
+}
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0] ?? ''

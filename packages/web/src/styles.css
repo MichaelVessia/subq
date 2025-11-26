@@ -346,6 +346,78 @@ tbody tr:hover {
 }
 
 /* ============================================
+   App Layout - Mobile First
+   ============================================ */
+
+.app-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .app-container {
+    padding: var(--space-6) var(--space-5);
+  }
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+@media (min-width: 640px) {
+  .app-header {
+    margin-bottom: var(--space-8);
+    padding-bottom: var(--space-5);
+  }
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.header-user > span {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .header-user > span {
+    display: inline;
+  }
+}
+
+.app-nav {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .app-nav {
+    gap: var(--space-6);
+  }
+}
+
+/* ============================================
    Stats Page - Mobile First
    ============================================ */
 
@@ -355,6 +427,8 @@ tbody tr:hover {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
+  overflow: hidden;
+  min-width: 0;
 }
 
 @media (min-width: 640px) {
@@ -390,14 +464,14 @@ tbody tr:hover {
   gap: var(--space-4);
 }
 
-@media (min-width: 800px) {
+@media (min-width: 900px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-5);
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
   }

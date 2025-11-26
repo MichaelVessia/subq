@@ -30,6 +30,7 @@ import {
   type InjectionPoint,
   TimeRangeSelector,
   Tooltip,
+  useContainerSize,
   type WeightPointWithColor,
 } from '../shared/chartUtils.js'
 
@@ -107,16 +108,14 @@ interface WeightTrendChartProps {
 
 function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: WeightTrendChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || weightData.length === 0) return
+    if (!svgRef.current || containerWidth === 0 || weightData.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-
-    const containerWidth = containerRef.current.clientWidth
 
     // Sort data first
     const allSortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -496,7 +495,7 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .attr('fill', '#9ca3af')
       .attr('font-size', '11px')
       .text('Weight (lbs)')
-  }, [weightData, injectionData, zoomRange, onZoom])
+  }, [weightData, injectionData, zoomRange, onZoom, containerWidth])
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
@@ -526,15 +525,13 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 
 function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || data.sites.length === 0) return
+    if (!svgRef.current || containerWidth === 0 || data.sites.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-
-    const containerWidth = containerRef.current.clientWidth
     const size = Math.min(containerWidth, 250)
     const radius = size / 2 - 10
 
@@ -579,15 +576,15 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
       .attr('fill', '#fff')
       .attr('font-weight', 600)
       .text((d) => (d.data.count > 0 ? d.data.count.toString() : ''))
-  }, [data])
+  }, [data, containerWidth])
 
   if (data.sites.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 250 }}>No injection data available</div>
+    return <div style={{ color: 'var(--color-text-muted)', height: 150 }}>No injection data available</div>
   }
 
   return (
     <div className="chart-with-legend">
-      <div ref={containerRef} style={{ flex: 1, maxWidth: 250, width: '100%' }}>
+      <div ref={containerRef} style={{ flex: 1, minWidth: 120, width: '100%' }}>
         <svg ref={svgRef} />
       </div>
       <div className="chart-legend">
@@ -602,7 +599,7 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
                 backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
               }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
               {site.site} ({site.count})
             </span>
           </div>
@@ -625,16 +622,14 @@ interface DosagePointWithColor {
 
 function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || data.points.length === 0) return
+    if (!svgRef.current || containerWidth === 0 || data.points.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-
-    const containerWidth = containerRef.current.clientWidth
     const margin = { top: 20, right: 20, bottom: 40, left: 50 }
     const width = containerWidth - margin.left - margin.right
     const height = 200 - margin.top - margin.bottom
@@ -766,7 +761,7 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       .call((sel) => sel.select('.domain').remove())
       .call((sel) => sel.selectAll('.tick line').remove())
       .call((sel) => sel.selectAll('.tick text').attr('fill', '#9ca3af').attr('font-size', '10px'))
-  }, [data])
+  }, [data, containerWidth])
 
   if (data.points.length === 0) {
     return <div style={{ color: 'var(--color-text-muted)', height: 200 }}>No dosage data available</div>
@@ -820,15 +815,13 @@ function InjectionFrequencySummary({ stats }: { stats: InjectionFrequencyStats |
 
 function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || data.drugs.length === 0) return
+    if (!svgRef.current || containerWidth === 0 || data.drugs.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-
-    const containerWidth = containerRef.current.clientWidth
     const margin = { top: 10, right: 20, bottom: 30, left: 100 }
     const barHeight = 30
     const height = data.drugs.length * barHeight + margin.top + margin.bottom
@@ -881,7 +874,7 @@ function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
       .call((sel) => sel.select('.domain').remove())
       .call((sel) => sel.selectAll('.tick line').remove())
       .call((sel) => sel.selectAll('.tick text').attr('fill', 'var(--color-text)').attr('font-size', '12px'))
-  }, [data])
+  }, [data, containerWidth])
 
   if (data.drugs.length === 0) {
     return <div style={{ color: 'var(--color-text-muted)', height: 100 }}>No drug data available</div>
@@ -902,15 +895,13 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || data.days.length === 0) return
+    if (!svgRef.current || containerWidth === 0 || data.days.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
-
-    const containerWidth = containerRef.current.clientWidth
     const size = Math.min(containerWidth, 250)
     const radius = size / 2 - 10
 
@@ -955,15 +946,15 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
       .attr('fill', '#fff')
       .attr('font-weight', 600)
       .text((d) => (d.data.count > 0 ? d.data.count.toString() : ''))
-  }, [data])
+  }, [data, containerWidth])
 
   if (data.days.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 250 }}>No injection data available</div>
+    return <div style={{ color: 'var(--color-text-muted)', height: 150 }}>No injection data available</div>
   }
 
   return (
     <div className="chart-with-legend">
-      <div ref={containerRef} style={{ flex: 1, maxWidth: 250, width: '100%' }}>
+      <div ref={containerRef} style={{ flex: 1, minWidth: 120, width: '100%' }}>
         <svg ref={svgRef} />
       </div>
       <div className="chart-legend">
@@ -978,7 +969,7 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
                 backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
               }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
               {DAY_NAMES[day.dayOfWeek]} ({day.count})
             </span>
           </div>
