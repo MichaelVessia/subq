@@ -3,7 +3,7 @@ import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@scale/shared'
-import { Config, Effect, Layer, Redacted } from 'effect'
+import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { Pool } from 'pg'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
@@ -14,11 +14,20 @@ import { SqlLive } from './Sql.js'
 // Auth configuration layer - creates better-auth instance with postgres
 const AuthLive = Layer.unwrapEffect(
   Effect.gen(function* () {
+    yield* Effect.logInfo('Initializing auth service...')
+
     const databaseUrl = yield* Config.redacted('DATABASE_URL')
     const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
     const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
+    yield* Effect.logDebug('Auth configuration loaded', {
+      authUrl,
+      hasDatabaseUrl: !!Redacted.value(databaseUrl),
+      hasAuthSecret: !!Redacted.value(authSecret),
+    })
+
     const pool = new Pool({ connectionString: Redacted.value(databaseUrl) })
+    yield* Effect.logInfo('Database pool created for auth service')
 
     return AuthServiceLive({
       database: pool,
@@ -29,17 +38,25 @@ const AuthLive = Layer.unwrapEffect(
         enabled: true,
       },
     })
-  }),
+  }).pipe(Effect.tap(() => Effect.logInfo('Auth service initialized successfully'))),
 )
 
 // Combine all domain RPC handlers
-const RpcHandlersLive = Layer.mergeAll(WeightRpcHandlersLive, InjectionRpcHandlersLive, StatsRpcHandlersLive)
+const RpcHandlersLive = Layer.mergeAll(WeightRpcHandlersLive, InjectionRpcHandlersLive, StatsRpcHandlersLive).pipe(
+  Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')),
+)
 
 // Combined repositories layer
-const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive)
+const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive).pipe(
+  Layer.tap(() => Effect.logInfo('Repository layer initialized')),
+)
 
 // RPC handler layer with auth middleware
-const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive), Layer.provide(AuthRpcMiddlewareLive))
+const RpcLive = RpcServer.layer(AppRpcs).pipe(
+  Layer.provide(RpcHandlersLive),
+  Layer.provide(AuthRpcMiddlewareLive),
+  Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
+)
 
 // CORS configuration - allow both localhost and 127.0.0.1
 const corsMiddleware = HttpMiddleware.cors({
@@ -53,8 +70,10 @@ const corsMiddleware = HttpMiddleware.cors({
 // Auth routes layer - adds auth routes to the default router
 const AuthRoutesLive = HttpRouter.Default.use((router) =>
   Effect.gen(function* () {
+    yield* Effect.logInfo('Setting up auth routes...')
     const { auth } = yield* AuthService
     yield* router.all('/api/auth/*', toEffectHandler(auth))
+    yield* Effect.logInfo('Auth routes configured')
   }),
 )
 
@@ -78,9 +97,22 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(AuthLive),
   // Provide SQL client to repositories and services
   Layer.provide(SqlLive),
+  Layer.tap(() => Effect.logInfo('HTTP server layer configured on port 3001')),
 )
 
 // HttpServerRequest is provided by the HTTP router at request time, not layer time.
 // The type system doesn't see this, so we use a type cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-NodeRuntime.runMain(Layer.launch(HttpLive) as any)
+NodeRuntime.runMain(
+  Layer.launch(HttpLive).pipe(
+    Logger.withMinimumLogLevel(LogLevel.Info),
+    Effect.tap(() => Effect.logInfo('Application startup complete')),
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        yield* Effect.logError('Application startup failed', { error: error.message })
+        yield* Effect.logError('Error details', { error: String(error) })
+        return yield* Effect.fail(error)
+      }),
+    ),
+  ) as any,
+)
