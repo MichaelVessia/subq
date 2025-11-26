@@ -155,36 +155,36 @@ function formatDateForInput(date: Date): string {
 }
 
 function DateRangeInputs({
-  zoomRange,
-  onZoomChange,
+  range,
+  onRangeChange,
 }: {
-  zoomRange: { start: Date; end: Date }
-  onZoomChange: (range: { start: Date; end: Date }) => void
+  range: { start: Date; end: Date }
+  onRangeChange: (range: { start: Date; end: Date }) => void
 }) {
-  const [startValue, setStartValue] = useState(formatDateForInput(zoomRange.start))
-  const [endValue, setEndValue] = useState(formatDateForInput(zoomRange.end))
+  const [startValue, setStartValue] = useState(formatDateForInput(range.start))
+  const [endValue, setEndValue] = useState(formatDateForInput(range.end))
 
-  // Sync local state when zoomRange changes externally (e.g., from chart drag)
+  // Sync local state when range changes externally (e.g., from chart drag)
   useEffect(() => {
-    setStartValue(formatDateForInput(zoomRange.start))
-    setEndValue(formatDateForInput(zoomRange.end))
-  }, [zoomRange.start, zoomRange.end])
+    setStartValue(formatDateForInput(range.start))
+    setEndValue(formatDateForInput(range.end))
+  }, [range.start, range.end])
 
   const handleStartBlur = () => {
     const newStart = new Date(startValue)
-    if (!Number.isNaN(newStart.getTime()) && newStart < zoomRange.end) {
-      onZoomChange({ start: newStart, end: zoomRange.end })
+    if (!Number.isNaN(newStart.getTime()) && newStart < range.end) {
+      onRangeChange({ start: newStart, end: range.end })
     } else {
-      setStartValue(formatDateForInput(zoomRange.start))
+      setStartValue(formatDateForInput(range.start))
     }
   }
 
   const handleEndBlur = () => {
     const newEnd = new Date(endValue)
-    if (!Number.isNaN(newEnd.getTime()) && newEnd > zoomRange.start) {
-      onZoomChange({ start: zoomRange.start, end: newEnd })
+    if (!Number.isNaN(newEnd.getTime()) && newEnd > range.start) {
+      onRangeChange({ start: range.start, end: newEnd })
     } else {
-      setEndValue(formatDateForInput(zoomRange.end))
+      setEndValue(formatDateForInput(range.end))
     }
   }
 
@@ -220,30 +220,42 @@ function DateRangeInputs({
   )
 }
 
+export interface DateRange {
+  start: Date | undefined
+  end: Date | undefined
+}
+
 export function TimeRangeSelector({
-  selected,
-  onChange,
-  zoomRange,
-  onResetZoom,
-  onZoomChange,
+  range,
+  activePreset,
+  onPresetChange,
+  onRangeChange,
 }: {
-  selected: TimeRangeKey
-  onChange: (key: TimeRangeKey) => void
-  zoomRange?: { start: Date; end: Date } | null
-  onResetZoom?: () => void
-  onZoomChange?: (range: { start: Date; end: Date }) => void
+  range: DateRange
+  activePreset: TimeRangeKey | null
+  onPresetChange: (key: TimeRangeKey) => void
+  onRangeChange: (range: DateRange) => void
 }) {
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
+  const hasCustomRange = range.start && range.end && !activePreset
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-4)',
+        flexWrap: 'wrap',
+        rowGap: 'var(--space-3)',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         {keys.map((key) => {
-          const isSelected = selected === key && !zoomRange
+          const isSelected = activePreset === key
           return (
             <button
               key={key}
-              onClick={() => onChange(key)}
+              onClick={() => onPresetChange(key)}
               type="button"
               style={{
                 padding: 'var(--space-2) var(--space-4)',
@@ -262,12 +274,15 @@ export function TimeRangeSelector({
           )
         })}
       </div>
-      {zoomRange && onResetZoom && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          {onZoomChange && <DateRangeInputs zoomRange={zoomRange} onZoomChange={onZoomChange} />}
+      {hasCustomRange && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <DateRangeInputs
+            range={{ start: range.start!, end: range.end! }}
+            onRangeChange={(r) => onRangeChange({ start: r.start, end: r.end })}
+          />
           <button
             type="button"
-            onClick={onResetZoom}
+            onClick={() => onPresetChange('all')}
             style={{
               padding: 'var(--space-2) var(--space-4)',
               borderRadius: 'var(--radius-md)',

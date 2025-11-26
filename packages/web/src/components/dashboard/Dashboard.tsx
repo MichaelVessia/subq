@@ -1,14 +1,13 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import type { DashboardStats, InjectionLog, WeightLog } from '@scale/shared'
 import * as d3 from 'd3'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
 import { createDashboardStatsAtom, createInjectionLogListAtom, createWeightLogListAtom } from '../../rpc.js'
 import {
   type DataPoint,
   getDosageColor,
   type InjectionPoint,
-  TIME_RANGES,
-  type TimeRangeKey,
   TimeRangeSelector,
   Tooltip,
   type WeightPointWithColor,
@@ -518,30 +517,26 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // ============================================
 
 export function Dashboard({ userId }: { userId: string }) {
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>('all')
-  const [zoomRange, setZoomRange] = useState<{ start: Date; end: Date } | null>(null)
+  const { range, setRange, setPreset, activePreset } = useDateRangeParams()
 
-  // Create atoms based on selected time range
-  const { startDate, endDate } = useMemo(() => TIME_RANGES[timeRange].getRange(), [timeRange])
-
-  // Reset zoom when time range changes
-  const handleTimeRangeChange = (key: TimeRangeKey) => {
-    setTimeRange(key)
-    setZoomRange(null)
-  }
-
-  const weightAtom = useMemo(() => createWeightLogListAtom(userId, startDate, endDate), [userId, startDate, endDate])
-  const injectionAtom = useMemo(
-    () => createInjectionLogListAtom(userId, startDate, endDate),
-    [userId, startDate, endDate],
+  const handleZoom = useCallback(
+    (zoomRange: { start: Date; end: Date }) => {
+      setRange({ start: zoomRange.start, end: zoomRange.end })
+    },
+    [setRange],
   )
 
-  // Stats computed server-side - use zoom range if set, otherwise time range
-  const effectiveStartDate = zoomRange?.start ?? startDate
-  const effectiveEndDate = zoomRange?.end ?? endDate
+  const weightAtom = useMemo(
+    () => createWeightLogListAtom(userId, range.start, range.end),
+    [userId, range.start, range.end],
+  )
+  const injectionAtom = useMemo(
+    () => createInjectionLogListAtom(userId, range.start, range.end),
+    [userId, range.start, range.end],
+  )
   const statsAtom = useMemo(
-    () => createDashboardStatsAtom(userId, effectiveStartDate, effectiveEndDate),
-    [userId, effectiveStartDate, effectiveEndDate],
+    () => createDashboardStatsAtom(userId, range.start, range.end),
+    [userId, range.start, range.end],
   )
 
   const weightResult = useAtomValue(weightAtom)
@@ -590,15 +585,17 @@ export function Dashboard({ userId }: { userId: string }) {
     return <div className="loading">Loading...</div>
   }
 
+  // For chart zoom visual - derive from custom range
+  const zoomRange = range.start && range.end && !activePreset ? { start: range.start, end: range.end } : null
+
   return (
     <div>
       <div style={{ marginBottom: 'var(--space-6)' }}>
         <TimeRangeSelector
-          selected={timeRange}
-          onChange={handleTimeRangeChange}
-          zoomRange={zoomRange}
-          onResetZoom={() => setZoomRange(null)}
-          onZoomChange={setZoomRange}
+          range={range}
+          activePreset={activePreset}
+          onPresetChange={setPreset}
+          onRangeChange={setRange}
         />
       </div>
 
@@ -621,12 +618,7 @@ export function Dashboard({ userId }: { userId: string }) {
       )}
 
       {weightData.length > 0 ? (
-        <WeightChart
-          weightData={weightData}
-          injectionData={injectionData}
-          zoomRange={zoomRange}
-          onZoom={setZoomRange}
-        />
+        <WeightChart weightData={weightData} injectionData={injectionData} zoomRange={zoomRange} onZoom={handleZoom} />
       ) : (
         <div className="empty-state">No weight data yet. Add some entries to see your progress.</div>
       )}
