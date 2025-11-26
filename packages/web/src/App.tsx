@@ -205,7 +205,11 @@ export function App() {
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{session.user.email}</span>
           <button
             type="button"
-            onClick={() => signOut()}
+            onClick={() => {
+              signOut().then(() => {
+                window.location.href = '/dashboard'
+              })
+            }}
             style={{
               padding: 'var(--space-2) var(--space-3)',
               fontSize: 'var(--text-xs)',
