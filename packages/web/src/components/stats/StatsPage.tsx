@@ -623,9 +623,17 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
 // Dosage History Step Chart
 // ============================================
 
+interface DosagePointWithColor {
+  date: Date
+  dosage: string
+  dosageValue: number
+  color: string
+}
+
 function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || data.points.length === 0) return
@@ -642,11 +650,18 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
 
-    const sortedPoints = [...data.points].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const sortedPoints: DosagePointWithColor[] = [...data.points]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((p) => ({
+        date: new Date(p.date),
+        dosage: p.dosage,
+        dosageValue: p.dosageValue,
+        color: getDosageColor(p.dosage),
+      }))
 
     const xScale = d3
       .scaleTime()
-      .domain(d3.extent(sortedPoints, (d) => new Date(d.date)) as [Date, Date])
+      .domain(d3.extent(sortedPoints, (d) => d.date) as [Date, Date])
       .range([0, width])
 
     const dosageExtent = d3.extent(sortedPoints, (d) => d.dosageValue) as [number, number]
@@ -666,29 +681,75 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       )
       .call((sel) => sel.select('.domain').remove())
 
+    // Group by color for line segments
+    const segments: { points: DosagePointWithColor[]; color: string }[] = []
+    let currentSegment: DosagePointWithColor[] = []
+    let currentColor = ''
+
+    for (const point of sortedPoints) {
+      if (point.color !== currentColor) {
+        if (currentSegment.length > 0) {
+          segments.push({ points: currentSegment, color: currentColor })
+          const lastPoint = currentSegment[currentSegment.length - 1]
+          if (lastPoint) currentSegment = [lastPoint]
+        }
+        currentColor = point.color
+      }
+      currentSegment.push(point)
+    }
+    if (currentSegment.length > 0) {
+      segments.push({ points: currentSegment, color: currentColor })
+    }
+
     const line = d3
-      .line<(typeof sortedPoints)[0]>()
-      .x((d) => xScale(new Date(d.date)))
+      .line<DosagePointWithColor>()
+      .x((d) => xScale(d.date))
       .y((d) => yScale(d.dosageValue))
       .curve(d3.curveStepAfter)
 
-    g.append('path')
-      .datum(sortedPoints)
-      .attr('fill', 'none')
-      .attr('stroke', '#7c3aed')
-      .attr('stroke-width', 2)
-      .attr('d', line)
+    // Draw segments with dosage colors
+    for (const segment of segments) {
+      if (segment.points.length < 2) continue
+      g.append('path')
+        .datum(segment.points)
+        .attr('fill', 'none')
+        .attr('stroke', segment.color)
+        .attr('stroke-width', 2)
+        .attr('d', line)
+    }
+
+    const formatDate = d3.timeFormat('%b %d, %Y')
 
     g.selectAll('.point')
       .data(sortedPoints)
       .enter()
       .append('circle')
-      .attr('cx', (d) => xScale(new Date(d.date)))
+      .attr('cx', (d) => xScale(d.date))
       .attr('cy', (d) => yScale(d.dosageValue))
-      .attr('r', 5)
-      .attr('fill', (d) => getDosageColor(d.dosage))
+      .attr('r', 4)
+      .attr('fill', (d) => d.color)
       .attr('stroke', 'var(--color-surface)')
       .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .on('mouseenter', function (event, d) {
+        d3.select(this).attr('r', 6)
+        setTooltip({
+          content: (
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.dosage}</div>
+              <div style={{ opacity: 0.7 }}>{formatDate(d.date)}</div>
+            </div>
+          ),
+          position: { x: event.clientX, y: event.clientY },
+        })
+      })
+      .on('mousemove', (event) => {
+        setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
+      })
+      .on('mouseleave', function () {
+        d3.select(this).attr('r', 4)
+        setTooltip(null)
+      })
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -719,8 +780,9 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
   }
 
   return (
-    <div ref={containerRef} style={{ width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <svg ref={svgRef} />
+      <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
     </div>
   )
 }
