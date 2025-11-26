@@ -88,6 +88,7 @@ export function InjectionLogList() {
       {
         accessorKey: 'injectionSite',
         header: 'Site',
+        enableSorting: false,
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">{row.getValue('injectionSite') ?? '-'}</span>
         ),
