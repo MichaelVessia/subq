@@ -199,7 +199,7 @@ function DateRangeInputs({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
+    <div className="date-range-inputs">
       <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>From</span>
       <input
         type="date"
@@ -239,61 +239,34 @@ export function TimeRangeSelector({
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
   const hasCustomRange = range.start && range.end && !activePreset
 
+  const buttonStyle = (isSelected: boolean): React.CSSProperties => ({
+    padding: 'var(--space-2) var(--space-4)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border)',
+    backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
+    color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
+    fontSize: 'var(--text-sm)',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  })
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-4)',
-        flexWrap: 'wrap',
-        rowGap: 'var(--space-3)',
-      }}
-    >
-      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-        {keys.map((key) => {
-          const isSelected = activePreset === key
-          return (
-            <button
-              key={key}
-              onClick={() => onPresetChange(key)}
-              type="button"
-              style={{
-                padding: 'var(--space-2) var(--space-4)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
-                color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {TIME_RANGES[key].label}
-            </button>
-          )
-        })}
+    <div className="time-range-selector">
+      <div className="time-range-buttons">
+        {keys.map((key) => (
+          <button key={key} onClick={() => onPresetChange(key)} type="button" style={buttonStyle(activePreset === key)}>
+            {TIME_RANGES[key].label}
+          </button>
+        ))}
       </div>
       {hasCustomRange && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div className="time-range-custom">
           <DateRangeInputs
             range={{ start: range.start!, end: range.end! }}
             onRangeChange={(r) => onRangeChange({ start: r.start, end: r.end })}
           />
-          <button
-            type="button"
-            onClick={() => onPresetChange('all')}
-            style={{
-              padding: 'var(--space-2) var(--space-4)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
-              color: 'var(--color-text)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={() => onPresetChange('all')} style={buttonStyle(false)}>
             Reset
           </button>
         </div>

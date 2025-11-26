@@ -344,3 +344,141 @@ tbody tr:hover {
   margin-top: var(--space-1);
   margin-bottom: 0;
 }
+
+/* ============================================
+   Stats Page - Mobile First
+   ============================================ */
+
+/* Stat cards */
+.stat-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .stat-card {
+    padding: var(--space-5);
+  }
+}
+
+/* Stats summary grids (weight stats, injection frequency) */
+.stats-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .stats-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .stats-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+}
+
+/* Stats page main grid (pie charts, bar charts) */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 800px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Chart with legend layout */
+.chart-with-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .chart-with-legend {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* Chart legend */
+.chart-legend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+@media (min-width: 480px) {
+  .chart-legend {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+}
+
+/* Time range selector */
+.time-range-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .time-range-selector {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+}
+
+.time-range-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.time-range-custom {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .time-range-custom {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
+  }
+}
+
+.date-range-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (min-width: 480px) {
+  .date-range-inputs {
+    flex-direction: row;
+    align-items: baseline;
+  }
+}

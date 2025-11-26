@@ -39,14 +39,7 @@ import {
 
 function StatCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-5)',
-      }}
-    >
+    <div className="stat-card">
       <h3
         style={{
           fontSize: 'var(--text-sm)',
@@ -83,9 +76,7 @@ function WeightSummary({ stats }: { stats: WeightStats | null }) {
   ]
 
   return (
-    <div
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 'var(--space-4)' }}
-    >
+    <div className="stats-summary-grid">
       {items.map((item) => (
         <div key={item.label}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{item.label}</div>
@@ -595,11 +586,11 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-      <div ref={containerRef} style={{ flex: 1, maxWidth: 250 }}>
+    <div className="chart-with-legend">
+      <div ref={containerRef} style={{ flex: 1, maxWidth: 250, width: '100%' }}>
         <svg ref={svgRef} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <div className="chart-legend">
         {data.sites.map((site, i) => (
           <div key={site.site} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <div
@@ -607,10 +598,11 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
                 width: 12,
                 height: 12,
                 borderRadius: 2,
+                flexShrink: 0,
                 backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
               }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
               {site.site} ({site.count})
             </span>
           </div>
@@ -809,9 +801,7 @@ function InjectionFrequencySummary({ stats }: { stats: InjectionFrequencyStats |
   ]
 
   return (
-    <div
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-4)' }}
-    >
+    <div className="stats-summary-grid">
       {items.map((item) => (
         <div key={item.label}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{item.label}</div>
@@ -972,11 +962,11 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-      <div ref={containerRef} style={{ flex: 1, maxWidth: 250 }}>
+    <div className="chart-with-legend">
+      <div ref={containerRef} style={{ flex: 1, maxWidth: 250, width: '100%' }}>
         <svg ref={svgRef} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <div className="chart-legend">
         {data.days.map((day, i) => (
           <div key={day.dayOfWeek} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <div
@@ -984,10 +974,11 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
                 width: 12,
                 height: 12,
                 borderRadius: 2,
+                flexShrink: 0,
                 backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
               }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
               {DAY_NAMES[day.dayOfWeek]} ({day.count})
             </span>
           </div>
@@ -1129,13 +1120,7 @@ export function StatsPage() {
         </StatCard>
 
         {/* Multi-column layout for smaller charts */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 'var(--space-5)',
-          }}
-        >
+        <div className="stats-grid">
           {/* Injection Sites */}
           <StatCard title="Injection Sites">
             <InjectionSitePieChart data={injectionSiteStats} />
