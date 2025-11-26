@@ -67,6 +67,7 @@ export function WeightLogList() {
         accessorKey: 'datetime',
         header: 'Date',
         cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
+        sortingFn: 'datetime',
       },
       {
         accessorKey: 'weight',
@@ -76,6 +77,7 @@ export function WeightLogList() {
             {row.getValue('weight')} {row.original.unit}
           </span>
         ),
+        sortingFn: 'basic',
       },
       {
         accessorKey: 'notes',
@@ -84,6 +86,7 @@ export function WeightLogList() {
       },
       {
         id: 'actions',
+        header: 'Actions',
         enableHiding: false,
         cell: ({ row }) => {
           const log = row.original

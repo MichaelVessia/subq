@@ -73,6 +73,7 @@ export function InjectionLogList() {
         accessorKey: 'datetime',
         header: 'Date',
         cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
+        sortingFn: 'datetime',
       },
       {
         accessorKey: 'drug',
@@ -93,6 +94,7 @@ export function InjectionLogList() {
       },
       {
         id: 'actions',
+        header: 'Actions',
         enableHiding: false,
         cell: ({ row }) => {
           const log = row.original
