@@ -6,13 +6,14 @@ import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 import { Select } from '../ui/select.js'
 
-const GLP1_DRUGS = [
+// Drugs organized by form type
+const VIAL_DRUGS = ['Semaglutide (Compounded)', 'Tirzepatide (Compounded)', 'Retatrutide (Compounded)']
+
+const PEN_DRUGS = [
   'Semaglutide (Ozempic)',
   'Semaglutide (Wegovy)',
-  'Semaglutide (Compounded)',
   'Tirzepatide (Mounjaro)',
   'Tirzepatide (Zepbound)',
-  'Tirzepatide (Compounded)',
   'Liraglutide (Saxenda)',
   'Dulaglutide (Trulicity)',
 ]
@@ -40,10 +41,22 @@ interface FormErrors {
 
 export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: InventoryFormProps) {
   const isEditing = !!initialData?.id
+  const [form, setForm] = useState<'vial' | 'pen'>(initialData?.form ?? 'vial')
   const [drug, setDrug] = useState(initialData?.drug ?? '')
   const [source, setSource] = useState(initialData?.source ?? '')
-  const [form, setForm] = useState<'vial' | 'pen'>(initialData?.form ?? 'vial')
   const [totalAmount, setTotalAmount] = useState(initialData?.totalAmount ?? '')
+
+  // Get drugs filtered by form type
+  const availableDrugs = form === 'vial' ? VIAL_DRUGS : PEN_DRUGS
+
+  // Clear drug selection when form changes and drug isn't valid for new form
+  const handleFormChange = (newForm: 'vial' | 'pen') => {
+    setForm(newForm)
+    const drugsForForm = newForm === 'vial' ? VIAL_DRUGS : PEN_DRUGS
+    if (drug && !drugsForForm.includes(drug)) {
+      setDrug('')
+    }
+  }
   const [status, setStatus] = useState<'new' | 'opened' | 'finished'>(initialData?.status ?? 'new')
   const [beyondUseDate, setBeyondUseDate] = useState(
     initialData?.beyondUseDate ? initialData.beyondUseDate.toISOString().split('T')[0] : '',
@@ -106,7 +119,21 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {/* Form type first - affects available medications */}
       <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <Label htmlFor="form" className="mb-2 block">
+            Form <span className="text-destructive">*</span>
+          </Label>
+          <Select id="form" value={form} onChange={(e) => handleFormChange(e.target.value as 'vial' | 'pen')}>
+            <option value="vial">Vial (Compounded)</option>
+            <option value="pen">Pen (Branded)</option>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            {form === 'vial' ? 'Multi-dose vials from compounding pharmacies' : 'Pre-filled pens from manufacturers'}
+          </p>
+        </div>
+
         <div>
           <Label htmlFor="drug" className="mb-2 block">
             Medication <span className="text-destructive">*</span>
@@ -119,7 +146,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             error={touched.drug && !!errors.drug}
           >
             <option value="">Select medication</option>
-            {GLP1_DRUGS.map((d) => (
+            {availableDrugs.map((d) => (
               <option key={d} value={d}>
                 {d}
               </option>
@@ -127,7 +154,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           </Select>
           {touched.drug && errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug}</span>}
         </div>
+      </div>
 
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div>
           <Label htmlFor="source" className="mb-2 block">
             Pharmacy <span className="text-destructive">*</span>
@@ -138,24 +167,12 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             value={source}
             onChange={(e) => setSource(e.target.value)}
             onBlur={() => handleBlur('source')}
-            placeholder="e.g., Empower Pharmacy"
+            placeholder={form === 'vial' ? 'e.g., Empower Pharmacy' : 'e.g., CVS, Walgreens'}
             error={touched.source && !!errors.source}
           />
           {touched.source && errors.source && (
             <span className="block text-xs text-destructive mt-1">{errors.source}</span>
           )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div>
-          <Label htmlFor="form" className="mb-2 block">
-            Form
-          </Label>
-          <Select id="form" value={form} onChange={(e) => setForm(e.target.value as 'vial' | 'pen')}>
-            <option value="vial">Vial (Compounded)</option>
-            <option value="pen">Pen (Branded)</option>
-          </Select>
         </div>
 
         <div>
@@ -168,7 +185,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
             onBlur={() => handleBlur('totalAmount')}
-            placeholder="e.g., 10mg"
+            placeholder={form === 'vial' ? 'e.g., 10mg, 20mg' : 'e.g., 2.5mg, 5mg'}
             error={touched.totalAmount && !!errors.totalAmount}
           />
           {touched.totalAmount && errors.totalAmount && (
@@ -203,7 +220,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             value={beyondUseDate}
             onChange={(e) => setBeyondUseDate(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground mt-1">Compounded vials typically have a 28-day BUD once opened</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Compounded vials typically have a 28-day BUD once opened. Check your pharmacy label.
+          </p>
         </div>
       )}
 

@@ -31,8 +31,11 @@ function toLocalDatetimeString(date: Date): string {
 const GLP1_DRUGS = [
   { name: 'Semaglutide (Ozempic)', dosages: ['0.25mg', '0.5mg', '1mg', '2mg'] },
   { name: 'Semaglutide (Wegovy)', dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2.4mg'] },
+  { name: 'Semaglutide (Compounded)', dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2mg', '2.4mg'] },
   { name: 'Tirzepatide (Mounjaro)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
   { name: 'Tirzepatide (Zepbound)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
+  { name: 'Tirzepatide (Compounded)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
+  { name: 'Retatrutide (Compounded)', dosages: ['1mg', '2mg', '4mg', '8mg', '12mg'] },
   { name: 'Liraglutide (Saxenda)', dosages: ['0.6mg', '1.2mg', '1.8mg', '2.4mg', '3mg'] },
   { name: 'Dulaglutide (Trulicity)', dosages: ['0.75mg', '1.5mg', '3mg', '4.5mg'] },
 ]
