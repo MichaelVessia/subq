@@ -72,22 +72,26 @@ export function InjectionLogList() {
       {
         accessorKey: 'datetime',
         header: 'Date',
+        size: 180,
         cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
         sortingFn: 'datetime',
       },
       {
         accessorKey: 'drug',
         header: 'Drug',
+        size: 120,
         cell: ({ row }) => <span className="font-medium">{row.getValue('drug')}</span>,
       },
       {
         accessorKey: 'dosage',
         header: 'Dosage',
+        size: 100,
         cell: ({ row }) => <span className="font-mono">{row.getValue('dosage')}</span>,
       },
       {
         accessorKey: 'injectionSite',
         header: 'Site',
+        size: 120,
         enableSorting: false,
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">{row.getValue('injectionSite') ?? '-'}</span>
@@ -96,6 +100,7 @@ export function InjectionLogList() {
       {
         id: 'actions',
         header: 'Actions',
+        size: 80,
         enableHiding: false,
         cell: ({ row }) => {
           const log = row.original

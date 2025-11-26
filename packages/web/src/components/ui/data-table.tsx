@@ -40,19 +40,20 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
   return (
     <div className="w-full">
       <div className="overflow-hidden rounded-md border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
                   const sorted = header.column.getIsSorted()
+                  const size = header.column.columnDef.size
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} style={size ? { width: size } : undefined}>
                       {header.isPlaceholder ? null : canSort ? (
                         <button
                           type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
+                          className="flex items-center gap-1 hover:text-foreground focus:outline-none"
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}

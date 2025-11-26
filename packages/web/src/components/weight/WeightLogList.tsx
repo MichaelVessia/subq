@@ -66,12 +66,14 @@ export function WeightLogList() {
       {
         accessorKey: 'datetime',
         header: 'Date',
+        size: 180,
         cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
         sortingFn: 'datetime',
       },
       {
         accessorKey: 'weight',
         header: 'Weight',
+        size: 100,
         cell: ({ row }) => (
           <span className="font-mono font-medium">
             {row.getValue('weight')} {row.original.unit}
@@ -82,11 +84,19 @@ export function WeightLogList() {
       {
         accessorKey: 'notes',
         header: 'Notes',
-        cell: ({ row }) => <span className="text-muted-foreground text-sm">{row.getValue('notes') ?? '-'}</span>,
+        cell: ({ row }) => {
+          const notes = row.getValue('notes') as string | null
+          return (
+            <span className="text-muted-foreground text-sm block truncate" title={notes ?? undefined}>
+              {notes ?? '-'}
+            </span>
+          )
+        },
       },
       {
         id: 'actions',
         header: 'Actions',
+        size: 80,
         enableHiding: false,
         cell: ({ row }) => {
           const log = row.original
