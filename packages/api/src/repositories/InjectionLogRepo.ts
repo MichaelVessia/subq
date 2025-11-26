@@ -49,7 +49,7 @@ export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
   {
     readonly list: (params: InjectionLogListParams) => Effect.Effect<InjectionLog[]>
     readonly findById: (id: string) => Effect.Effect<Option.Option<InjectionLog>>
-    readonly create: (data: InjectionLogCreate) => Effect.Effect<InjectionLog>
+    readonly create: (data: InjectionLogCreate, userId: string) => Effect.Effect<InjectionLog>
     readonly update: (data: InjectionLogUpdate) => Effect.Effect<InjectionLog>
     readonly delete: (id: string) => Effect.Effect<boolean>
     readonly getUniqueDrugs: () => Effect.Effect<string[]>
@@ -95,15 +95,15 @@ export const InjectionLogRepoLive = Layer.effect(
           return Option.some(decoded)
         }).pipe(Effect.orDie),
 
-      create: (data) =>
+      create: (data, userId) =>
         Effect.gen(function* () {
           const source = Option.isSome(data.source) ? data.source.value : null
           const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
           const notes = Option.isSome(data.notes) ? data.notes.value : null
 
           const rows = yield* sql`
-            INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes)
-            VALUES (${data.datetime}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes})
+            INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes, user_id)
+            VALUES (${data.datetime}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes}, ${userId})
             RETURNING id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
           `
           return yield* decodeAndTransform(rows[0])

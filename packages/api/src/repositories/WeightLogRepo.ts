@@ -44,7 +44,7 @@ export class WeightLogRepo extends Effect.Tag('WeightLogRepo')<
   {
     readonly list: (params: WeightLogListParams) => Effect.Effect<WeightLog[]>
     readonly findById: (id: string) => Effect.Effect<Option.Option<WeightLog>>
-    readonly create: (data: WeightLogCreate) => Effect.Effect<WeightLog>
+    readonly create: (data: WeightLogCreate, userId: string) => Effect.Effect<WeightLog>
     readonly update: (data: WeightLogUpdate) => Effect.Effect<WeightLog>
     readonly delete: (id: string) => Effect.Effect<boolean>
   }
@@ -87,13 +87,13 @@ export const WeightLogRepoLive = Layer.effect(
           return Option.some(decoded)
         }).pipe(Effect.orDie),
 
-      create: (data) =>
+      create: (data, userId) =>
         Effect.gen(function* () {
           const notes = Option.isSome(data.notes) ? data.notes.value : null
 
           const rows = yield* sql`
-            INSERT INTO weight_logs (datetime, weight, unit, notes)
-            VALUES (${data.datetime}, ${data.weight}, ${data.unit}, ${notes})
+            INSERT INTO weight_logs (datetime, weight, unit, notes, user_id)
+            VALUES (${data.datetime}, ${data.weight}, ${data.unit}, ${notes}, ${userId})
             RETURNING id, datetime, weight, unit, notes, created_at, updated_at
           `
           return yield* decodeAndTransform(rows[0])

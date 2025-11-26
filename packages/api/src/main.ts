@@ -74,4 +74,7 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(SqlLive),
 )
 
-NodeRuntime.runMain(Layer.launch(HttpLive))
+// HttpServerRequest is provided by the HTTP router at request time, not layer time.
+// The type system doesn't see this, so we use a type cast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+NodeRuntime.runMain(Layer.launch(HttpLive) as any)
