@@ -1,8 +1,10 @@
+import { mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { SqlClient } from '@effect/sql'
+import { Database } from 'bun:sqlite'
 import { betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'
 import { Config, Effect } from 'effect'
-import { Pool } from 'pg'
 import { SqlLive } from '../src/Sql.js'
 
 // Test user credentials
@@ -10,11 +12,6 @@ const TEST_USERS = [
   { email: 'consistent@example.com', password: 'testpassword123', name: 'Consistent User' },
   { email: 'sparse@example.com', password: 'testpassword123', name: 'Sparse User' },
 ]
-
-// 1 year of realistic GLP-1 weight loss journey
-// - Weekly injections ramping from 2.5mg to 15mg
-// - Variable weighing frequency (daily streaks, sparse periods)
-// - Starting ~220 lbs, ending ~165 lbs
 
 // Helper to create or get a user
 const getOrCreateUser = (
@@ -26,7 +23,7 @@ const getOrCreateUser = (
 ) =>
   Effect.gen(function* () {
     // Check if user exists first
-    const existingUser = yield* sql`SELECT id FROM "user" WHERE email = ${email}`
+    const existingUser = yield* sql`SELECT id FROM user WHERE email = ${email}`
     if (existingUser.length > 0) {
       const userId = existingUser[0].id as string
       console.log(`Using existing user: ${email} (ID: ${userId})`)
@@ -45,14 +42,17 @@ const getOrCreateUser = (
 
 const seedData = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const databaseUrl = yield* Config.string('DATABASE_URL')
+  const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
   const authSecret = yield* Config.string('BETTER_AUTH_SECRET')
   const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
-  // Create better-auth instance to manage test user
-  const pool = new Pool({ connectionString: databaseUrl })
+  // Ensure data directory exists
+  yield* Effect.tryPromise(() => mkdir(dirname(databasePath), { recursive: true }))
+
+  // Create better-auth instance with better-sqlite3 for auth migrations
+  const sqlite = new Database(databasePath)
   const authOptions = {
-    database: pool,
+    database: sqlite,
     secret: authSecret,
     baseURL: authUrl,
     emailAndPassword: {
@@ -87,8 +87,8 @@ const seedData = Effect.gen(function* () {
     console.log(`  ${user.name}: ${user.email} / ${user.password}`)
   }
 
-  // Clean up the pool
-  yield* Effect.promise(() => pool.end())
+  // Clean up the sqlite connection
+  sqlite.close()
 })
 
 // Seed consistent user (original behavior)
@@ -105,39 +105,28 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     startDate.setFullYear(startDate.getFullYear() - 1)
     startDate.setHours(8, 0, 0, 0)
 
-    // Dose schedule:
-    // Weeks 1-26: Semaglutide - increase 2.5mg each week until 15mg
-    // Weeks 27-52: Switch to Tirzepatide - start at 2.5mg, ramp to 15mg
+    // Dose schedule
     const getDrugAndDose = (weekNum: number): { drug: string; dose: string } => {
       if (weekNum <= 26) {
-        // Semaglutide phase
         const dose = Math.min(weekNum * 2.5, 15)
         return { drug: 'Semaglutide', dose: `${dose}mg` }
       }
-      // Tirzepatide phase - restart dosing from 2.5mg
       const tirzWeek = weekNum - 26
       const dose = Math.min(tirzWeek * 2.5, 15)
       return { drug: 'Tirzepatide', dose: `${dose}mg` }
     }
 
     // Weight loss model
-    // Start: 220 lbs
-    // More aggressive loss during titration, slower at maintenance
-    // Target ~165 lbs by end (55 lb loss)
     const getExpectedWeight = (dayNum: number): number => {
       const startWeight = 220
       const totalDays = 365
       const totalLoss = 55
-
-      // Non-linear loss curve - faster at start, slower over time
       const progress = dayNum / totalDays
-      const lossFactor = 1 - (1 - progress) ** 0.7 // Diminishing returns curve
+      const lossFactor = 1 - (1 - progress) ** 0.7
       const expectedLoss = totalLoss * lossFactor
-
       return startWeight - expectedLoss
     }
 
-    // Add daily fluctuation (-2 to +2 lbs)
     const addFluctuation = (baseWeight: number, seed: number): number => {
       const fluctuation = (Math.sin(seed * 12.9898) * 43758.5453) % 1
       return baseWeight + (fluctuation - 0.5) * 4
@@ -146,21 +135,24 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     // Injection sites rotation
     const sites = ['left abdomen', 'right abdomen', 'left thigh', 'right thigh']
 
-    // Generate injection logs (weekly for 52 weeks)
+    // Generate injection logs
     console.log('Inserting injection logs...')
     const injectionEntries: Array<{
+      id: string
       datetime: string
       drug: string
       source: string
       dosage: string
       injectionSite: string
       notes: string | null
+      createdAt: string
+      updatedAt: string
     }> = []
 
     for (let week = 1; week <= 52; week++) {
       const injectionDate = new Date(startDate)
       injectionDate.setDate(startDate.getDate() + (week - 1) * 7)
-      injectionDate.setHours(18, Math.floor(Math.random() * 30), 0, 0) // Evening, slight variation
+      injectionDate.setHours(18, Math.floor(Math.random() * 30), 0, 0)
 
       const { drug, dose } = getDrugAndDose(week)
       const site = sites[(week - 1) % sites.length]
@@ -174,56 +166,52 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       else if (week === 52) notes = '1 year milestone!'
       else if (week % 12 === 0) notes = `${week} weeks in`
 
+      const now = new Date().toISOString()
       injectionEntries.push({
+        id: crypto.randomUUID(),
         datetime: injectionDate.toISOString(),
         drug,
         source: 'Pharmacy',
         dosage: dose,
         injectionSite: site,
         notes,
+        createdAt: now,
+        updatedAt: now,
       })
     }
 
     for (const entry of injectionEntries) {
       yield* sql`
-      INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes, user_id)
-      VALUES (
-        ${entry.datetime}::timestamptz,
-        ${entry.drug},
-        ${entry.source},
-        ${entry.dosage},
-        ${entry.injectionSite},
-        ${entry.notes},
-        ${userId}
-      )
-    `
+        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+      `
     }
     console.log(`Inserted ${injectionEntries.length} injection logs`)
 
-    // Generate weight logs with variable frequency
-    // Pattern: alternating between daily streaks and sparse periods
+    // Generate weight logs
     console.log('Inserting weight logs...')
     const weightEntries: Array<{
+      id: string
       datetime: string
       weight: number
       unit: string
       notes: string | null
+      createdAt: string
+      updatedAt: string
     }> = []
 
-    // Define weighing patterns for different periods
-    // Each period: { startDay, endDay, pattern: 'daily' | 'sparse' | 'moderate' }
     const patterns: Array<{ startDay: number; endDay: number; pattern: 'daily' | 'sparse' | 'moderate' }> = [
-      { startDay: 0, endDay: 14, pattern: 'daily' }, // First 2 weeks - excited, daily
-      { startDay: 15, endDay: 35, pattern: 'moderate' }, // Weeks 3-5 - every 2-3 days
-      { startDay: 36, endDay: 60, pattern: 'sparse' }, // Weeks 6-8 - got lazy, 1-2x/week
-      { startDay: 61, endDay: 90, pattern: 'daily' }, // Weeks 9-13 - new dose, tracking closely
-      { startDay: 91, endDay: 120, pattern: 'moderate' }, // Weeks 14-17
-      { startDay: 121, endDay: 150, pattern: 'sparse' }, // Weeks 18-21 - holidays, sparse
-      { startDay: 151, endDay: 180, pattern: 'daily' }, // Weeks 22-26 - new year resolution
-      { startDay: 181, endDay: 240, pattern: 'moderate' }, // Weeks 27-34
-      { startDay: 241, endDay: 280, pattern: 'sparse' }, // Weeks 35-40
-      { startDay: 281, endDay: 320, pattern: 'daily' }, // Weeks 41-46 - motivated again
-      { startDay: 321, endDay: 365, pattern: 'moderate' }, // Weeks 47-52
+      { startDay: 0, endDay: 14, pattern: 'daily' },
+      { startDay: 15, endDay: 35, pattern: 'moderate' },
+      { startDay: 36, endDay: 60, pattern: 'sparse' },
+      { startDay: 61, endDay: 90, pattern: 'daily' },
+      { startDay: 91, endDay: 120, pattern: 'moderate' },
+      { startDay: 121, endDay: 150, pattern: 'sparse' },
+      { startDay: 151, endDay: 180, pattern: 'daily' },
+      { startDay: 181, endDay: 240, pattern: 'moderate' },
+      { startDay: 241, endDay: 280, pattern: 'sparse' },
+      { startDay: 281, endDay: 320, pattern: 'daily' },
+      { startDay: 321, endDay: 365, pattern: 'moderate' },
     ]
 
     const getPattern = (day: number): 'daily' | 'sparse' | 'moderate' => {
@@ -240,22 +228,18 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     while (day <= 365) {
       const pattern = getPattern(day)
 
-      // Determine if we weigh today
       let shouldWeigh = false
       if (pattern === 'daily') {
         shouldWeigh = true
       } else if (pattern === 'moderate') {
-        // Every 2-3 days
         shouldWeigh = day % 2 === 0 || day % 3 === 0
       } else {
-        // Sparse: 1-2x per week
         shouldWeigh = day % 7 === 0 || (day % 7 === 3 && Math.random() > 0.5)
       }
 
       if (shouldWeigh) {
         const weightDate = new Date(startDate)
         weightDate.setDate(startDate.getDate() + day)
-        // Morning weigh-in with slight time variation
         weightDate.setHours(7 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 45), 0, 0)
 
         const baseWeight = getExpectedWeight(day)
@@ -268,7 +252,6 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
         else if (day === 180) notes = '6 months - halfway there'
         else if (day === 270) notes = '9 months - so close to goal'
         else if (day === 365) notes = '1 YEAR! What a journey'
-        // Check for milestone crossings (only trigger once using min weight seen)
         else if (weight < 200 && !hitUnder200) {
           notes = 'Under 200 for the first time!'
           hitUnder200 = true
@@ -280,11 +263,15 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
           hitUnder170 = true
         }
 
+        const now = new Date().toISOString()
         weightEntries.push({
+          id: crypto.randomUUID(),
           datetime: weightDate.toISOString(),
           weight,
           unit: 'lbs',
           notes,
+          createdAt: now,
+          updatedAt: now,
         })
       }
 
@@ -293,18 +280,17 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
 
     for (const entry of weightEntries) {
       yield* sql`
-      INSERT INTO weight_logs (datetime, weight, unit, notes, user_id)
-      VALUES (${entry.datetime}::timestamptz, ${entry.weight}, ${entry.unit}, ${entry.notes}, ${userId})
-    `
+        INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.weight}, ${entry.unit}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+      `
     }
 
     console.log(`Inserted ${weightEntries.length} weight logs`)
   })
 
-// Seed sparse user - irregular tracking with gaps, dose changes back and forth
+// Seed sparse user
 const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
   Effect.gen(function* () {
-    // Clear existing data for this user
     yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
     yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
 
@@ -316,12 +302,6 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
 
     const sites = ['left abdomen', 'right abdomen', 'left thigh', 'right thigh']
 
-    // Sparse user pattern:
-    // - Starts strong for 6 weeks, then stops for 4 weeks
-    // - Restarts at lower dose, builds up, then has supply issues
-    // - Switches between Semaglutide and Tirzepatide
-    // - Goes back and forth on dosing
-    // - Weighs very inconsistently - sometimes daily for a week, then nothing for 3 weeks
     type Phase = {
       startWeek: number
       endWeek: number
@@ -352,27 +332,26 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
       { startWeek: 47, endWeek: 52, active: true, drug: 'Semaglutide', dose: '7.5mg' },
     ]
 
-    // Generate injection logs based on phases
     const injectionEntries: Array<{
+      id: string
       datetime: string
       drug: string
       source: string
       dosage: string
       injectionSite: string
       notes: string | null
+      createdAt: string
+      updatedAt: string
     }> = []
 
     for (const phase of phases) {
       if (!phase.active) continue
       for (let week = phase.startWeek; week <= phase.endWeek; week++) {
-        // Sometimes miss a week (20% chance)
         if (Math.random() < 0.2) continue
 
         const injectionDate = new Date(startDate)
-        // Add random day offset (-2 to +3 days) for inconsistent injection day
         const dayOffset = Math.floor(Math.random() * 6) - 2
         injectionDate.setDate(startDate.getDate() + (week - 1) * 7 + dayOffset)
-        // Inconsistent timing - anywhere from morning to night
         injectionDate.setHours(8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60), 0, 0)
 
         const site = sites[Math.floor(Math.random() * sites.length)]
@@ -385,61 +364,46 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
           notes = randomNotes[Math.floor(Math.random() * randomNotes.length)]
         }
 
+        const now = new Date().toISOString()
         injectionEntries.push({
+          id: crypto.randomUUID(),
           datetime: injectionDate.toISOString(),
           drug: phase.drug,
           source: Math.random() > 0.3 ? 'Pharmacy' : 'Compounding pharmacy',
           dosage: phase.dose,
           injectionSite: site,
           notes,
+          createdAt: now,
+          updatedAt: now,
         })
       }
     }
 
     for (const entry of injectionEntries) {
       yield* sql`
-        INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes, user_id)
-        VALUES (
-          ${entry.datetime}::timestamptz,
-          ${entry.drug},
-          ${entry.source},
-          ${entry.dosage},
-          ${entry.injectionSite},
-          ${entry.notes},
-          ${userId}
-        )
+        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
       `
     }
     console.log(`Inserted ${injectionEntries.length} injection logs`)
 
-    // Weight entries - very sparse and inconsistent
-    // Starting weight ~240, minimal progress due to inconsistent treatment
-    // Maybe ends around 215-220 (modest loss)
-    const weightEntries: Array<{
-      datetime: string
-      weight: number
-      unit: string
-      notes: string | null
-    }> = []
-
-    // Define sparse weighing periods
     type WeighPeriod = {
       startDay: number
       endDay: number
       frequency: 'daily' | 'weekly' | 'biweekly' | 'none'
     }
     const weighPeriods: WeighPeriod[] = [
-      { startDay: 0, endDay: 7, frequency: 'daily' }, // First week - motivated
-      { startDay: 8, endDay: 21, frequency: 'none' }, // Forgot about it
-      { startDay: 22, endDay: 35, frequency: 'weekly' }, // Occasional check-in
-      { startDay: 36, endDay: 70, frequency: 'none' }, // Stopped caring (during break)
-      { startDay: 71, endDay: 85, frequency: 'daily' }, // Restarted, checking daily
-      { startDay: 86, endDay: 140, frequency: 'biweekly' }, // Occasional
-      { startDay: 141, endDay: 180, frequency: 'none' }, // Supply issues period
-      { startDay: 181, endDay: 195, frequency: 'daily' }, // Back on track
+      { startDay: 0, endDay: 7, frequency: 'daily' },
+      { startDay: 8, endDay: 21, frequency: 'none' },
+      { startDay: 22, endDay: 35, frequency: 'weekly' },
+      { startDay: 36, endDay: 70, frequency: 'none' },
+      { startDay: 71, endDay: 85, frequency: 'daily' },
+      { startDay: 86, endDay: 140, frequency: 'biweekly' },
+      { startDay: 141, endDay: 180, frequency: 'none' },
+      { startDay: 181, endDay: 195, frequency: 'daily' },
       { startDay: 196, endDay: 250, frequency: 'weekly' },
-      { startDay: 251, endDay: 280, frequency: 'none' }, // Break period
-      { startDay: 281, endDay: 300, frequency: 'daily' }, // Restarting
+      { startDay: 251, endDay: 280, frequency: 'none' },
+      { startDay: 281, endDay: 300, frequency: 'daily' },
       { startDay: 301, endDay: 365, frequency: 'biweekly' },
     ]
 
@@ -450,18 +414,23 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
       return 'none'
     }
 
-    // Weight model for sparse user - less consistent loss
-    // Start: 240, End: ~220 (only ~20 lb loss due to inconsistency)
     const getSparseUserWeight = (dayNum: number): number => {
       const startWeight = 240
-      // Modest, inconsistent loss
       const progress = dayNum / 365
-      // Weight fluctuates more, trends down slowly
       const baseLoss = 20 * progress
-      // Add larger fluctuations (+/- 5 lbs)
       const fluctuation = Math.sin(dayNum * 0.3) * 3 + Math.cos(dayNum * 0.7) * 2
       return startWeight - baseLoss + fluctuation
     }
+
+    const weightEntries: Array<{
+      id: string
+      datetime: string
+      weight: number
+      unit: string
+      notes: string | null
+      createdAt: string
+      updatedAt: string
+    }> = []
 
     let day = 0
     while (day <= 365) {
@@ -479,7 +448,6 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
       if (shouldWeigh) {
         const weightDate = new Date(startDate)
         weightDate.setDate(startDate.getDate() + day)
-        // Random time of day
         weightDate.setHours(6 + Math.floor(Math.random() * 14), Math.floor(Math.random() * 60), 0, 0)
 
         const weight = Math.round(getSparseUserWeight(day) * 10) / 10
@@ -497,11 +465,15 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
           notes = randomNotes[Math.floor(Math.random() * randomNotes.length)]
         }
 
+        const now = new Date().toISOString()
         weightEntries.push({
+          id: crypto.randomUUID(),
           datetime: weightDate.toISOString(),
           weight,
           unit: 'lbs',
           notes,
+          createdAt: now,
+          updatedAt: now,
         })
       }
 
@@ -510,8 +482,8 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
 
     for (const entry of weightEntries) {
       yield* sql`
-        INSERT INTO weight_logs (datetime, weight, unit, notes, user_id)
-        VALUES (${entry.datetime}::timestamptz, ${entry.weight}, ${entry.unit}, ${entry.notes}, ${userId})
+        INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.weight}, ${entry.unit}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
       `
     }
 
@@ -519,7 +491,8 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
   })
 
 // Run it
-Effect.runPromise(seedData.pipe(Effect.provide(SqlLive)))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+Effect.runPromise(seedData.pipe(Effect.provide(SqlLive)) as any)
   .then(() => process.exit(0))
   .catch((err) => {
     console.error('Seeding failed:', err)

@@ -21,3 +21,6 @@ build/
 # PostgreSQL local data
 .postgres/
 cookies.txt
+
+# SQLite local data
+packages/api/data/

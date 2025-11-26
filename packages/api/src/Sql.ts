@@ -1,18 +1,11 @@
-import { PgClient } from '@effect/sql-pg'
-import { Config, Option } from 'effect'
+import type { SqlClient } from '@effect/sql'
+import { SqliteClient } from '@effect/sql-sqlite-bun'
+import { Config, type ConfigError, type Layer } from 'effect'
 
-// Configuration for postgres connection - supports both TCP (DATABASE_URL) and Unix socket (PGHOST)
-const SqlConfig = Config.all({
-  url: Config.option(Config.redacted('DATABASE_URL')),
-  host: Config.option(Config.string('PGHOST')),
-  database: Config.string('PGDATABASE').pipe(Config.withDefault('scalability_dev')),
-})
+// SQLite configuration - uses file path for local dev
+// For Cloudflare Workers, this will be replaced with D1 adapter
+const SqliteConfig = Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
 
-// Create the postgres client layer
-export const SqlLive = PgClient.layerConfig(
-  Config.map(SqlConfig, (c) =>
-    Option.isSome(c.url)
-      ? { url: c.url.value }
-      : { host: Option.getOrElse(c.host, () => '/tmp'), database: c.database },
-  ),
-)
+// Create the SQLite client layer
+export const SqlLive: Layer.Layer<SqliteClient.SqliteClient | SqlClient.SqlClient, ConfigError.ConfigError> =
+  SqliteClient.layerConfig(Config.map(SqliteConfig, (filename) => ({ filename })))

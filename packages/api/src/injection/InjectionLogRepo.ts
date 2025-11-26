@@ -19,16 +19,18 @@ import { Effect, Layer, Option, Schema } from 'effect'
 // Database Row Schema
 // ============================================
 
+// Schema for rows as they come from SQLite
+// (snake_case columns, ISO strings for dates)
 const InjectionLogRow = Schema.Struct({
   id: Schema.String,
-  datetime: Schema.DateFromSelf, // pg driver returns Date objects
+  datetime: Schema.String, // SQLite stores as ISO string
   drug: Schema.String,
   source: Schema.NullOr(Schema.String),
   dosage: Schema.String,
   injection_site: Schema.NullOr(Schema.String),
   notes: Schema.NullOr(Schema.String),
-  created_at: Schema.DateFromSelf,
-  updated_at: Schema.DateFromSelf,
+  created_at: Schema.String,
+  updated_at: Schema.String,
 })
 
 const decodeRow = Schema.decodeUnknown(InjectionLogRow)
@@ -37,17 +39,20 @@ const decodeRow = Schema.decodeUnknown(InjectionLogRow)
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
     id: InjectionLogId.make(row.id),
-    datetime: row.datetime,
+    datetime: new Date(row.datetime),
     drug: DrugName.make(row.drug),
     source: row.source ? DrugSource.make(row.source) : null,
     dosage: Dosage.make(row.dosage),
     injectionSite: row.injection_site ? InjectionSite.make(row.injection_site) : null,
     notes: row.notes ? Notes.make(row.notes) : null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   })
 
 const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDomain)
+
+// Generate a UUID v4
+const generateUuid = () => crypto.randomUUID()
 
 // ============================================
 // Repository Service Definition
@@ -86,12 +91,16 @@ export const InjectionLogRepoLive = Layer.effect(
     return {
       list: (params, userId) =>
         Effect.gen(function* () {
+          // Convert Date params to ISO strings for SQLite comparison
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
+
           const rows = yield* sql`
             SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
             FROM injection_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
             ORDER BY datetime DESC
             LIMIT ${params.limit}
@@ -114,14 +123,23 @@ export const InjectionLogRepoLive = Layer.effect(
 
       create: (data, userId) =>
         Effect.gen(function* () {
+          const id = generateUuid()
           const source = Option.isSome(data.source) ? data.source.value : null
           const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
           const notes = Option.isSome(data.notes) ? data.notes.value : null
+          const now = new Date().toISOString()
+          const datetimeStr = data.datetime.toISOString()
 
+          yield* sql`
+            INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, user_id, created_at, updated_at)
+            VALUES (${id}, ${datetimeStr}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes}, ${userId}, ${now}, ${now})
+          `
+
+          // Fetch the inserted row
           const rows = yield* sql`
-            INSERT INTO injection_logs (datetime, drug, source, dosage, injection_site, notes, user_id)
-            VALUES (${data.datetime}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes}, ${userId})
-            RETURNING id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
+            SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
+            FROM injection_logs
+            WHERE id = ${id}
           `
           return yield* decodeAndTransform(rows[0])
         }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause }))),
@@ -141,14 +159,15 @@ export const InjectionLogRepoLive = Layer.effect(
           const curr = yield* decodeRow(current[0]).pipe(
             Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })),
           )
-          const newDatetime = data.datetime ?? curr.datetime
+          const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
           const newDrug = data.drug ?? curr.drug
           const newSource = Option.isSome(data.source) ? data.source.value : curr.source
           const newDosage = data.dosage ?? curr.dosage
           const newInjectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : curr.injection_site
           const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
+          const now = new Date().toISOString()
 
-          const rows = yield* sql`
+          yield* sql`
             UPDATE injection_logs
             SET datetime = ${newDatetime},
                 drug = ${newDrug},
@@ -156,10 +175,16 @@ export const InjectionLogRepoLive = Layer.effect(
                 dosage = ${newDosage},
                 injection_site = ${newInjectionSite},
                 notes = ${newNotes},
-                updated_at = NOW()
+                updated_at = ${now}
             WHERE id = ${data.id}
-            RETURNING id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
           `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
+
+          // Fetch updated row
+          const rows = yield* sql`
+            SELECT id, datetime, drug, source, dosage, injection_site, notes, created_at, updated_at
+            FROM injection_logs
+            WHERE id = ${data.id}
+          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
           return yield* decodeAndTransform(rows[0]).pipe(
             Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })),
@@ -168,10 +193,12 @@ export const InjectionLogRepoLive = Layer.effect(
 
       delete: (id) =>
         Effect.gen(function* () {
-          const result = yield* sql`
-            DELETE FROM injection_logs WHERE id = ${id} RETURNING id
-          `
-          return result.length > 0
+          // Check if exists first
+          const existing = yield* sql`SELECT id FROM injection_logs WHERE id = ${id}`
+          if (existing.length === 0) return false
+
+          yield* sql`DELETE FROM injection_logs WHERE id = ${id}`
+          return true
         }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause }))),
 
       getUniqueDrugs: (userId) =>

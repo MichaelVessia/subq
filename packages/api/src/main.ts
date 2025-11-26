@@ -3,34 +3,35 @@ import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@scale/shared'
+import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
-import { Pool } from 'pg'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { SqlLive } from './Sql.js'
 
-// Auth configuration layer - creates better-auth instance with postgres
+// Auth configuration layer - creates better-auth instance with SQLite
 const AuthLive = Layer.unwrapEffect(
   Effect.gen(function* () {
     yield* Effect.logInfo('Initializing auth service...')
 
-    const databaseUrl = yield* Config.redacted('DATABASE_URL')
+    const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
     const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
     const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
     yield* Effect.logDebug('Auth configuration loaded', {
       authUrl,
-      hasDatabaseUrl: !!Redacted.value(databaseUrl),
+      databasePath,
       hasAuthSecret: !!Redacted.value(authSecret),
     })
 
-    const pool = new Pool({ connectionString: Redacted.value(databaseUrl) })
-    yield* Effect.logInfo('Database pool created for auth service')
+    // Use better-sqlite3 for auth
+    const sqlite = new Database(databasePath)
+    yield* Effect.logInfo('SQLite database opened for auth service')
 
     return AuthServiceLive({
-      database: pool,
+      database: sqlite,
       secret: Redacted.value(authSecret),
       baseURL: authUrl,
       trustedOrigins: [authUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
