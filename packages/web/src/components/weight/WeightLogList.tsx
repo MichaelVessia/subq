@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import type { WeightLogCreate } from '@scale/shared'
+import type { WeightLogCreate, WeightLogId } from '@scale/shared'
 import { useMemo, useState } from 'react'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { WeightLogForm } from './WeightLogForm.js'
@@ -17,7 +17,7 @@ export function WeightLogList() {
     setShowForm(false)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: WeightLogId) => {
     if (confirm('Delete this entry?')) {
       await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.weightLogs] })
     }

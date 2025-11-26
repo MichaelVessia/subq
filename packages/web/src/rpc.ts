@@ -1,7 +1,14 @@
 import { FetchHttpClient } from '@effect/platform'
 import { RpcClient, RpcSerialization } from '@effect/rpc'
 import { AtomRpc } from '@effect-atom/atom-react'
-import { AppRpcs, DashboardStatsParams, InjectionLogListParams, StatsParams, WeightLogListParams } from '@scale/shared'
+import {
+  AppRpcs,
+  DashboardStatsParams,
+  InjectionLogListParams,
+  Limit,
+  StatsParams,
+  WeightLogListParams,
+} from '@scale/shared'
 import { Layer } from 'effect'
 
 // FetchHttpClient layer with credentials for auth cookies
@@ -27,12 +34,12 @@ export const ReactivityKeys = {
 
 // Factory functions for queries (no longer need userId - server gets it from session)
 export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('WeightLogList', new WeightLogListParams({ startDate, endDate, limit: 10000 }), {
+  ApiClient.query('WeightLogList', new WeightLogListParams({ startDate, endDate, limit: Limit.make(10000) }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
 
 export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('InjectionLogList', new InjectionLogListParams({ startDate, endDate, limit: 10000 }), {
+  ApiClient.query('InjectionLogList', new InjectionLogListParams({ startDate, endDate, limit: Limit.make(10000) }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 

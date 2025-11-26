@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite, Limit, Notes, Offset } from './Brand.js'
 
 // ============================================
 // Core Domain Type
@@ -19,13 +20,13 @@ import { Schema } from 'effect'
  * @property updatedAt - When this record was last modified
  */
 export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
-  id: Schema.String,
+  id: InjectionLogId,
   datetime: Schema.Date,
-  drug: Schema.String,
-  source: Schema.NullOr(Schema.String),
-  dosage: Schema.String,
-  injectionSite: Schema.NullOr(Schema.String),
-  notes: Schema.NullOr(Schema.String),
+  drug: DrugName,
+  source: Schema.NullOr(DrugSource),
+  dosage: Dosage,
+  injectionSite: Schema.NullOr(InjectionSite),
+  notes: Schema.NullOr(Notes),
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
 }) {}
@@ -39,42 +40,42 @@ export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
  */
 export class InjectionLogCreate extends Schema.Class<InjectionLogCreate>('InjectionLogCreate')({
   datetime: Schema.Date,
-  drug: Schema.String,
-  source: Schema.optionalWith(Schema.String, { as: 'Option' }),
-  dosage: Schema.String,
-  injectionSite: Schema.optionalWith(Schema.String, { as: 'Option' }),
-  notes: Schema.optionalWith(Schema.String, { as: 'Option' }),
+  drug: DrugName,
+  source: Schema.optionalWith(DrugSource, { as: 'Option' }),
+  dosage: Dosage,
+  injectionSite: Schema.optionalWith(InjectionSite, { as: 'Option' }),
+  notes: Schema.optionalWith(Notes, { as: 'Option' }),
 }) {}
 
 /**
  * Payload for updating an existing injection log entry.
  */
 export class InjectionLogUpdate extends Schema.Class<InjectionLogUpdate>('InjectionLogUpdate')({
-  id: Schema.String,
+  id: InjectionLogId,
   datetime: Schema.optional(Schema.Date),
-  drug: Schema.optional(Schema.String),
-  source: Schema.optionalWith(Schema.NullOr(Schema.String), { as: 'Option' }),
-  dosage: Schema.optional(Schema.String),
-  injectionSite: Schema.optionalWith(Schema.NullOr(Schema.String), {
+  drug: Schema.optional(DrugName),
+  source: Schema.optionalWith(Schema.NullOr(DrugSource), { as: 'Option' }),
+  dosage: Schema.optional(Dosage),
+  injectionSite: Schema.optionalWith(Schema.NullOr(InjectionSite), {
     as: 'Option',
   }),
-  notes: Schema.optionalWith(Schema.NullOr(Schema.String), { as: 'Option' }),
+  notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
 }) {}
 
 /**
  * Payload for deleting an injection log entry.
  */
 export class InjectionLogDelete extends Schema.Class<InjectionLogDelete>('InjectionLogDelete')({
-  id: Schema.String,
+  id: InjectionLogId,
 }) {}
 
 /**
  * Parameters for listing injection logs.
  */
 export class InjectionLogListParams extends Schema.Class<InjectionLogListParams>('InjectionLogListParams')({
-  limit: Schema.optionalWith(Schema.Number, { default: () => 50 }),
-  offset: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+  limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
+  offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
-  drug: Schema.optional(Schema.String), // Filter by specific drug
+  drug: Schema.optional(DrugName), // Filter by specific drug
 }) {}

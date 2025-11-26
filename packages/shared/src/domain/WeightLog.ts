@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { Limit, Notes, Offset, Weight, WeightLogId } from './Brand.js'
 
 // ============================================
 // Enums / Literals
@@ -28,11 +29,11 @@ export type WeightUnit = typeof WeightUnit.Type
  * @property updatedAt - When this record was last modified
  */
 export class WeightLog extends Schema.Class<WeightLog>('WeightLog')({
-  id: Schema.String,
+  id: WeightLogId,
   datetime: Schema.Date,
-  weight: Schema.Number,
+  weight: Weight,
   unit: WeightUnit,
-  notes: Schema.NullOr(Schema.String),
+  notes: Schema.NullOr(Notes),
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
 }) {}
@@ -47,9 +48,9 @@ export class WeightLog extends Schema.Class<WeightLog>('WeightLog')({
  */
 export class WeightLogCreate extends Schema.Class<WeightLogCreate>('WeightLogCreate')({
   datetime: Schema.Date,
-  weight: Schema.Number,
+  weight: Weight,
   unit: WeightUnit,
-  notes: Schema.optionalWith(Schema.String, { as: 'Option' }),
+  notes: Schema.optionalWith(Notes, { as: 'Option' }),
 }) {}
 
 /**
@@ -57,18 +58,18 @@ export class WeightLogCreate extends Schema.Class<WeightLogCreate>('WeightLogCre
  * All fields optional - only provided fields are updated.
  */
 export class WeightLogUpdate extends Schema.Class<WeightLogUpdate>('WeightLogUpdate')({
-  id: Schema.String,
+  id: WeightLogId,
   datetime: Schema.optional(Schema.Date),
-  weight: Schema.optional(Schema.Number),
+  weight: Schema.optional(Weight),
   unit: Schema.optional(WeightUnit),
-  notes: Schema.optionalWith(Schema.NullOr(Schema.String), { as: 'Option' }),
+  notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
 }) {}
 
 /**
  * Payload for deleting a weight log entry.
  */
 export class WeightLogDelete extends Schema.Class<WeightLogDelete>('WeightLogDelete')({
-  id: Schema.String,
+  id: WeightLogId,
 }) {}
 
 // ============================================
@@ -80,8 +81,8 @@ export class WeightLogDelete extends Schema.Class<WeightLogDelete>('WeightLogDel
  * Supports pagination and date filtering.
  */
 export class WeightLogListParams extends Schema.Class<WeightLogListParams>('WeightLogListParams')({
-  limit: Schema.optionalWith(Schema.Number, { default: () => 50 }),
-  offset: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+  limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
+  offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
 }) {}

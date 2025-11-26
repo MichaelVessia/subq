@@ -1,13 +1,14 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
-import type {
-  DosageHistoryStats,
-  DrugBreakdownStats,
-  InjectionDayOfWeekStats,
-  InjectionFrequencyStats,
-  InjectionLog,
-  InjectionSiteStats,
-  WeightStats,
-  WeightTrendStats,
+import {
+  Count,
+  type DosageHistoryStats,
+  type DrugBreakdownStats,
+  type InjectionDayOfWeekStats,
+  type InjectionFrequencyStats,
+  type InjectionLog,
+  type InjectionSiteStats,
+  type WeightStats,
+  type WeightTrendStats,
 } from '@scale/shared'
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -1052,17 +1053,17 @@ export function StatsPage() {
   const injections = Result.getOrElse(injectionResult, () => [] as InjectionLog[])
   const injectionSiteStats = Result.getOrElse(
     injectionSiteStatsResult,
-    () => ({ sites: [], totalInjections: 0 }) as InjectionSiteStats,
+    () => ({ sites: [], totalInjections: Count.make(0) }) as InjectionSiteStats,
   )
   const dosageHistory = Result.getOrElse(dosageHistoryResult, () => ({ points: [] }) as DosageHistoryStats)
   const injectionFrequency = Result.getOrElse(injectionFrequencyResult, () => null as InjectionFrequencyStats | null)
   const drugBreakdown = Result.getOrElse(
     drugBreakdownResult,
-    () => ({ drugs: [], totalInjections: 0 }) as DrugBreakdownStats,
+    () => ({ drugs: [], totalInjections: Count.make(0) }) as DrugBreakdownStats,
   )
   const injectionByDayOfWeek = Result.getOrElse(
     injectionByDayOfWeekResult,
-    () => ({ days: [], totalInjections: 0 }) as InjectionDayOfWeekStats,
+    () => ({ days: [], totalInjections: Count.make(0) }) as InjectionDayOfWeekStats,
   )
 
   // Transform data for the weight chart

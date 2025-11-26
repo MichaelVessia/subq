@@ -1,9 +1,15 @@
 import { SqlClient } from '@effect/sql'
 import {
+  Dosage,
+  DrugName,
+  DrugSource,
   InjectionLog,
   type InjectionLogCreate,
+  InjectionLogId,
   type InjectionLogListParams,
   type InjectionLogUpdate,
+  InjectionSite,
+  Notes,
 } from '@scale/shared'
 import { Effect, Layer, Option, Schema } from 'effect'
 
@@ -25,15 +31,16 @@ const InjectionLogRow = Schema.Struct({
 
 const decodeRow = Schema.decodeUnknown(InjectionLogRow)
 
+// Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
-    id: row.id,
+    id: InjectionLogId.make(row.id),
     datetime: row.datetime,
-    drug: row.drug,
-    source: row.source,
-    dosage: row.dosage,
-    injectionSite: row.injection_site,
-    notes: row.notes,
+    drug: DrugName.make(row.drug),
+    source: row.source ? DrugSource.make(row.source) : null,
+    dosage: Dosage.make(row.dosage),
+    injectionSite: row.injection_site ? InjectionSite.make(row.injection_site) : null,
+    notes: row.notes ? Notes.make(row.notes) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   })

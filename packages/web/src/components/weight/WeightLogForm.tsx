@@ -1,4 +1,4 @@
-import { WeightLogCreate, type WeightUnit } from '@scale/shared'
+import { Notes, Weight, WeightLogCreate, type WeightUnit } from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 
@@ -85,9 +85,9 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
       await onSubmit(
         new WeightLogCreate({
           datetime: new Date(datetime),
-          weight: Number.parseFloat(weight),
+          weight: Weight.make(Number.parseFloat(weight)),
           unit,
-          notes: notes ? Option.some(notes) : Option.none(),
+          notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
         }),
       )
     } finally {

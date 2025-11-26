@@ -1,5 +1,13 @@
 import { SqlClient } from '@effect/sql'
-import { WeightLog, type WeightLogCreate, type WeightLogListParams, type WeightLogUpdate } from '@scale/shared'
+import {
+  Notes,
+  Weight,
+  WeightLog,
+  type WeightLogCreate,
+  WeightLogId,
+  type WeightLogListParams,
+  type WeightLogUpdate,
+} from '@scale/shared'
 import { Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
@@ -20,14 +28,14 @@ const WeightLogRow = Schema.Struct({
 
 const decodeRow = Schema.decodeUnknown(WeightLogRow)
 
-// Transform DB row to domain object (after decoding)
+// Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof WeightLogRow.Type): WeightLog =>
   new WeightLog({
-    id: row.id,
+    id: WeightLogId.make(row.id),
     datetime: row.datetime,
-    weight: row.weight,
+    weight: Weight.make(row.weight),
     unit: row.unit,
-    notes: row.notes,
+    notes: row.notes ? Notes.make(row.notes) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   })

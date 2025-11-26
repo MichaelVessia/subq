@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import type { InjectionLogCreate } from '@scale/shared'
+import type { InjectionLogCreate, InjectionLogId } from '@scale/shared'
 import { useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
@@ -20,7 +20,7 @@ export function InjectionLogList() {
     setShowForm(false)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: InjectionLogId) => {
     if (confirm('Delete this entry?')) {
       await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.injectionLogs] })
     }

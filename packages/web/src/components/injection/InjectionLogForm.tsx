@@ -1,5 +1,5 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
-import { InjectionLogCreate } from '@scale/shared'
+import { Dosage, DrugName, DrugSource, InjectionLogCreate, InjectionSite, Notes } from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
@@ -136,11 +136,11 @@ export function InjectionLogForm({ onSubmit, onCancel, initialData }: InjectionL
       await onSubmit(
         new InjectionLogCreate({
           datetime: new Date(datetime),
-          drug,
-          source: source ? Option.some(source) : Option.none(),
-          dosage,
-          injectionSite: injectionSite ? Option.some(injectionSite) : Option.none(),
-          notes: notes ? Option.some(notes) : Option.none(),
+          drug: DrugName.make(drug),
+          source: source ? Option.some(DrugSource.make(source)) : Option.none(),
+          dosage: Dosage.make(dosage),
+          injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
+          notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
         }),
       )
     } finally {

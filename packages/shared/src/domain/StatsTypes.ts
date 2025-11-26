@@ -1,4 +1,16 @@
 import { Schema } from 'effect'
+import {
+  Count,
+  DayOfWeek,
+  DaysBetween,
+  Dosage,
+  DosageValue,
+  DrugName,
+  InjectionSite,
+  InjectionsPerWeek,
+  Weight,
+  WeightRateOfChange,
+} from './Brand.js'
 
 // ============================================
 // Stats Request Params (shared across stats endpoints)
@@ -15,15 +27,15 @@ export class StatsParams extends Schema.Class<StatsParams>('StatsParams')({
 
 export class WeightStats extends Schema.Class<WeightStats>('WeightStats')({
   /** Minimum weight in period */
-  minWeight: Schema.Number,
+  minWeight: Weight,
   /** Maximum weight in period */
-  maxWeight: Schema.Number,
+  maxWeight: Weight,
   /** Average weight in period */
-  avgWeight: Schema.Number,
+  avgWeight: Weight,
   /** Rate of change in lbs per week (negative = losing weight) */
-  rateOfChange: Schema.Number,
+  rateOfChange: WeightRateOfChange,
   /** Total number of weight entries */
-  entryCount: Schema.Number,
+  entryCount: Count,
 }) {}
 
 // ============================================
@@ -32,7 +44,7 @@ export class WeightStats extends Schema.Class<WeightStats>('WeightStats')({
 
 export class WeightTrendPoint extends Schema.Class<WeightTrendPoint>('WeightTrendPoint')({
   date: Schema.Date,
-  weight: Schema.Number,
+  weight: Weight,
 }) {}
 
 export class WeightTrendStats extends Schema.Class<WeightTrendStats>('WeightTrendStats')({
@@ -44,13 +56,13 @@ export class WeightTrendStats extends Schema.Class<WeightTrendStats>('WeightTren
 // ============================================
 
 export class InjectionSiteCount extends Schema.Class<InjectionSiteCount>('InjectionSiteCount')({
-  site: Schema.String,
-  count: Schema.Number,
+  site: InjectionSite,
+  count: Count,
 }) {}
 
 export class InjectionSiteStats extends Schema.Class<InjectionSiteStats>('InjectionSiteStats')({
   sites: Schema.Array(InjectionSiteCount),
-  totalInjections: Schema.Number,
+  totalInjections: Count,
 }) {}
 
 // ============================================
@@ -59,9 +71,9 @@ export class InjectionSiteStats extends Schema.Class<InjectionSiteStats>('Inject
 
 export class DosageHistoryPoint extends Schema.Class<DosageHistoryPoint>('DosageHistoryPoint')({
   date: Schema.Date,
-  dosage: Schema.String,
+  dosage: Dosage,
   /** Numeric value extracted from dosage string (e.g. 5 from "5mg") */
-  dosageValue: Schema.Number,
+  dosageValue: DosageValue,
 }) {}
 
 export class DosageHistoryStats extends Schema.Class<DosageHistoryStats>('DosageHistoryStats')({
@@ -74,13 +86,13 @@ export class DosageHistoryStats extends Schema.Class<DosageHistoryStats>('Dosage
 
 export class InjectionFrequencyStats extends Schema.Class<InjectionFrequencyStats>('InjectionFrequencyStats')({
   /** Total injections in period */
-  totalInjections: Schema.Number,
+  totalInjections: Count,
   /** Average days between injections */
-  avgDaysBetween: Schema.Number,
+  avgDaysBetween: DaysBetween,
   /** Most frequent day of week (0=Sun, 6=Sat) */
-  mostFrequentDayOfWeek: Schema.NullOr(Schema.Number),
+  mostFrequentDayOfWeek: Schema.NullOr(DayOfWeek),
   /** Injections per week average */
-  injectionsPerWeek: Schema.Number,
+  injectionsPerWeek: InjectionsPerWeek,
 }) {}
 
 // ============================================
@@ -88,13 +100,13 @@ export class InjectionFrequencyStats extends Schema.Class<InjectionFrequencyStat
 // ============================================
 
 export class DrugCount extends Schema.Class<DrugCount>('DrugCount')({
-  drug: Schema.String,
-  count: Schema.Number,
+  drug: DrugName,
+  count: Count,
 }) {}
 
 export class DrugBreakdownStats extends Schema.Class<DrugBreakdownStats>('DrugBreakdownStats')({
   drugs: Schema.Array(DrugCount),
-  totalInjections: Schema.Number,
+  totalInjections: Count,
 }) {}
 
 // ============================================
@@ -103,11 +115,11 @@ export class DrugBreakdownStats extends Schema.Class<DrugBreakdownStats>('DrugBr
 
 export class DayOfWeekCount extends Schema.Class<DayOfWeekCount>('DayOfWeekCount')({
   /** 0=Sunday, 1=Monday, ..., 6=Saturday */
-  dayOfWeek: Schema.Number,
-  count: Schema.Number,
+  dayOfWeek: DayOfWeek,
+  count: Count,
 }) {}
 
 export class InjectionDayOfWeekStats extends Schema.Class<InjectionDayOfWeekStats>('InjectionDayOfWeekStats')({
   days: Schema.Array(DayOfWeekCount),
-  totalInjections: Schema.Number,
+  totalInjections: Count,
 }) {}

@@ -1,20 +1,32 @@
 import { SqlClient } from '@effect/sql'
 import {
+  Count,
   DashboardStats,
   type DashboardStatsParams,
+  DayOfWeek,
   DayOfWeekCount,
+  DaysBetween,
+  Dosage,
   DosageHistoryPoint,
   DosageHistoryStats,
+  DosageValue,
   DrugBreakdownStats,
   DrugCount,
+  DrugName,
   InjectionDayOfWeekStats,
   InjectionFrequencyStats,
   InjectionSiteCount,
   InjectionSiteStats,
+  InjectionsPerWeek,
+  InjectionSite,
+  Percentage,
   type StatsParams,
+  Weight,
+  WeightRateOfChange,
   WeightStats,
   WeightTrendPoint,
   WeightTrendStats,
+  WeeklyChange,
 } from '@scale/shared'
 import { Effect, Layer, Schema } from 'effect'
 
@@ -154,23 +166,23 @@ export const StatsServiceLive = Layer.effect(
             return null
           }
 
-          const startWeight = decoded.start_weight
-          const endWeight = decoded.end_weight
-          const totalChange = endWeight - startWeight
-          const percentChange = (totalChange / startWeight) * 100
+          const startWeight = Weight.make(decoded.start_weight)
+          const endWeight = Weight.make(decoded.end_weight)
+          const totalChangeNum = decoded.end_weight - decoded.start_weight
+          const percentChangeNum = (totalChangeNum / decoded.start_weight) * 100
 
           // Calculate weekly average
           const daysDiff = (decoded.end_date.getTime() - decoded.start_date.getTime()) / (1000 * 60 * 60 * 24)
           const weeks = daysDiff / 7
-          const weeklyAvg = weeks > 0 ? totalChange / weeks : 0
+          const weeklyAvgNum = weeks > 0 ? totalChangeNum / weeks : 0
 
           return new DashboardStats({
             startWeight,
             endWeight,
-            totalChange,
-            percentChange,
-            weeklyAvg,
-            dataPointCount: count,
+            totalChange: WeeklyChange.make(totalChangeNum),
+            percentChange: Percentage.make(percentChangeNum),
+            weeklyAvg: WeeklyChange.make(weeklyAvgNum),
+            dataPointCount: Count.make(count),
             periodStart: decoded.start_date,
             periodEnd: decoded.end_date,
           })
@@ -208,14 +220,14 @@ export const StatsServiceLive = Layer.effect(
           const daysSpan = decoded.days_span ?? 0
           const weeks = daysSpan / 7
           const weightChange = (decoded.end_weight ?? 0) - (decoded.start_weight ?? 0)
-          const rateOfChange = weeks > 0 ? weightChange / weeks : 0
+          const rateOfChangeNum = weeks > 0 ? weightChange / weeks : 0
 
           return new WeightStats({
-            minWeight: decoded.min_weight,
-            maxWeight: decoded.max_weight,
-            avgWeight: decoded.avg_weight,
-            rateOfChange,
-            entryCount: Number(decoded.entry_count),
+            minWeight: Weight.make(decoded.min_weight),
+            maxWeight: Weight.make(decoded.max_weight),
+            avgWeight: Weight.make(decoded.avg_weight),
+            rateOfChange: WeightRateOfChange.make(rateOfChangeNum),
+            entryCount: Count.make(Number(decoded.entry_count)),
           })
         }).pipe(Effect.orDie),
 
@@ -232,7 +244,7 @@ export const StatsServiceLive = Layer.effect(
           const points: WeightTrendPoint[] = []
           for (const row of rows) {
             const decoded = yield* decodeWeightTrendRow(row)
-            points.push(new WeightTrendPoint({ date: decoded.datetime, weight: decoded.weight }))
+            points.push(new WeightTrendPoint({ date: decoded.datetime, weight: Weight.make(decoded.weight) }))
           }
           return new WeightTrendStats({ points })
         }).pipe(Effect.orDie),
@@ -254,11 +266,16 @@ export const StatsServiceLive = Layer.effect(
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeInjectionSiteRow(row)
-            const count = Number(decoded.count)
-            sites.push(new InjectionSiteCount({ site: decoded.injection_site ?? 'Unknown', count }))
-            total += count
+            const countNum = Number(decoded.count)
+            sites.push(
+              new InjectionSiteCount({
+                site: InjectionSite.make(decoded.injection_site ?? 'Unknown'),
+                count: Count.make(countNum),
+              }),
+            )
+            total += countNum
           }
-          return new InjectionSiteStats({ sites, totalInjections: total })
+          return new InjectionSiteStats({ sites, totalInjections: Count.make(total) })
         }).pipe(Effect.orDie),
 
       getDosageHistory: (params, userId) =>
@@ -276,12 +293,12 @@ export const StatsServiceLive = Layer.effect(
             const decoded = yield* decodeDosageHistoryRow(row)
             // Extract numeric value from dosage string (e.g., "5mg" -> 5)
             const match = decoded.dosage.match(/(\d+(?:\.\d+)?)/)
-            const dosageValue = match ? Number.parseFloat(match[1]!) : 0
+            const dosageValueNum = match ? Number.parseFloat(match[1]!) : 0
             points.push(
               new DosageHistoryPoint({
                 date: decoded.datetime,
-                dosage: decoded.dosage,
-                dosageValue,
+                dosage: Dosage.make(decoded.dosage),
+                dosageValue: DosageValue.make(dosageValueNum),
               }),
             )
           }
@@ -319,17 +336,18 @@ export const StatsServiceLive = Layer.effect(
           if (rows.length === 0) return null
 
           const decoded = yield* decodeInjectionFrequencyRow(rows[0])
-          const totalInjections = Number(decoded.total_injections)
-          if (totalInjections === 0) return null
+          const totalInjectionsNum = Number(decoded.total_injections)
+          if (totalInjectionsNum === 0) return null
 
           const weeks = decoded.weeks_in_period ?? 1
-          const injectionsPerWeek = weeks > 0 ? totalInjections / weeks : totalInjections
+          const injectionsPerWeekNum = weeks > 0 ? totalInjectionsNum / weeks : totalInjectionsNum
 
           return new InjectionFrequencyStats({
-            totalInjections,
-            avgDaysBetween: decoded.avg_days_between ?? 0,
-            mostFrequentDayOfWeek: decoded.most_frequent_dow,
-            injectionsPerWeek,
+            totalInjections: Count.make(totalInjectionsNum),
+            avgDaysBetween: DaysBetween.make(decoded.avg_days_between ?? 0),
+            mostFrequentDayOfWeek:
+              decoded.most_frequent_dow !== null ? DayOfWeek.make(decoded.most_frequent_dow) : null,
+            injectionsPerWeek: InjectionsPerWeek.make(injectionsPerWeekNum),
           })
         }).pipe(Effect.orDie),
 
@@ -348,11 +366,11 @@ export const StatsServiceLive = Layer.effect(
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeDrugCountRow(row)
-            const count = Number(decoded.count)
-            drugs.push(new DrugCount({ drug: decoded.drug, count }))
-            total += count
+            const countNum = Number(decoded.count)
+            drugs.push(new DrugCount({ drug: DrugName.make(decoded.drug), count: Count.make(countNum) }))
+            total += countNum
           }
-          return new DrugBreakdownStats({ drugs, totalInjections: total })
+          return new DrugBreakdownStats({ drugs, totalInjections: Count.make(total) })
         }).pipe(Effect.orDie),
 
       getInjectionByDayOfWeek: (params, userId) =>
@@ -372,11 +390,16 @@ export const StatsServiceLive = Layer.effect(
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeDayOfWeekCountRow(row)
-            const count = Number(decoded.count)
-            days.push(new DayOfWeekCount({ dayOfWeek: Number(decoded.day_of_week), count }))
-            total += count
+            const countNum = Number(decoded.count)
+            days.push(
+              new DayOfWeekCount({
+                dayOfWeek: DayOfWeek.make(Number(decoded.day_of_week)),
+                count: Count.make(countNum),
+              }),
+            )
+            total += countNum
           }
-          return new InjectionDayOfWeekStats({ days, totalInjections: total })
+          return new InjectionDayOfWeekStats({ days, totalInjections: Count.make(total) })
         }).pipe(Effect.orDie),
     }
   }),

@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { Count, Percentage, Weight, WeeklyChange } from './Brand.js'
 
 // ============================================
 // Dashboard Stats Request
@@ -23,17 +24,17 @@ export class DashboardStatsParams extends Schema.Class<DashboardStatsParams>('Da
  */
 export class DashboardStats extends Schema.Class<DashboardStats>('DashboardStats')({
   /** Weight at start of period */
-  startWeight: Schema.Number,
+  startWeight: Weight,
   /** Weight at end of period */
-  endWeight: Schema.Number,
+  endWeight: Weight,
   /** Absolute change in weight (end - start) */
-  totalChange: Schema.Number,
+  totalChange: WeeklyChange,
   /** Percentage change ((end - start) / start * 100) */
-  percentChange: Schema.Number,
+  percentChange: Percentage,
   /** Average weekly change in weight */
-  weeklyAvg: Schema.Number,
+  weeklyAvg: WeeklyChange,
   /** Number of data points in range */
-  dataPointCount: Schema.Number,
+  dataPointCount: Count,
   /** Start date of the data */
   periodStart: Schema.Date,
   /** End date of the data */
