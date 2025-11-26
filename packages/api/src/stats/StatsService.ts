@@ -34,69 +34,75 @@ import { Effect, Layer, Schema } from 'effect'
 // Raw SQL Result Schema
 // ============================================
 
+// SQLite stores dates as TEXT (ISO8601), so we need to parse them
+const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
+  decode: (s) => new Date(s),
+  encode: (d) => d.toISOString(),
+})
+
 const StatsRow = Schema.Struct({
-  start_weight: Schema.NullOr(Schema.NumberFromString),
-  end_weight: Schema.NullOr(Schema.NumberFromString),
-  start_date: Schema.NullOr(Schema.DateFromSelf),
-  end_date: Schema.NullOr(Schema.DateFromSelf),
-  data_point_count: Schema.NumberFromString,
+  start_weight: Schema.NullOr(Schema.Number),
+  end_weight: Schema.NullOr(Schema.Number),
+  start_date: Schema.NullOr(DateFromString),
+  end_date: Schema.NullOr(DateFromString),
+  data_point_count: Schema.Number,
 })
 
 const decodeRow = Schema.decodeUnknown(StatsRow)
 
 // Weight stats row schema
 const WeightStatsRow = Schema.Struct({
-  min_weight: Schema.NullOr(Schema.NumberFromString),
-  max_weight: Schema.NullOr(Schema.NumberFromString),
-  avg_weight: Schema.NullOr(Schema.NumberFromString),
-  start_weight: Schema.NullOr(Schema.NumberFromString),
-  end_weight: Schema.NullOr(Schema.NumberFromString),
-  days_span: Schema.NullOr(Schema.NumberFromString),
-  entry_count: Schema.NumberFromString,
+  min_weight: Schema.NullOr(Schema.Number),
+  max_weight: Schema.NullOr(Schema.Number),
+  avg_weight: Schema.NullOr(Schema.Number),
+  start_weight: Schema.NullOr(Schema.Number),
+  end_weight: Schema.NullOr(Schema.Number),
+  days_span: Schema.NullOr(Schema.Number),
+  entry_count: Schema.Number,
 })
 const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
 
 // Weight trend row schema
 const WeightTrendRow = Schema.Struct({
-  datetime: Schema.DateFromSelf,
-  weight: Schema.NumberFromString,
+  datetime: DateFromString,
+  weight: Schema.Number,
 })
 const decodeWeightTrendRow = Schema.decodeUnknown(WeightTrendRow)
 
 // Injection site count row schema
 const InjectionSiteRow = Schema.Struct({
   injection_site: Schema.NullOr(Schema.String),
-  count: Schema.NumberFromString,
+  count: Schema.Number,
 })
 const decodeInjectionSiteRow = Schema.decodeUnknown(InjectionSiteRow)
 
 // Dosage history row schema
 const DosageHistoryRow = Schema.Struct({
-  datetime: Schema.DateFromSelf,
+  datetime: DateFromString,
   dosage: Schema.String,
 })
 const decodeDosageHistoryRow = Schema.decodeUnknown(DosageHistoryRow)
 
 // Injection frequency row schema
 const InjectionFrequencyRow = Schema.Struct({
-  total_injections: Schema.NumberFromString,
-  avg_days_between: Schema.NullOr(Schema.NumberFromString),
-  most_frequent_dow: Schema.NullOr(Schema.NumberFromString),
-  weeks_in_period: Schema.NullOr(Schema.NumberFromString),
+  total_injections: Schema.Number,
+  avg_days_between: Schema.NullOr(Schema.Number),
+  most_frequent_dow: Schema.NullOr(Schema.Number),
+  weeks_in_period: Schema.NullOr(Schema.Number),
 })
 const decodeInjectionFrequencyRow = Schema.decodeUnknown(InjectionFrequencyRow)
 
 // Drug count row schema
 const DrugCountRow = Schema.Struct({
   drug: Schema.String,
-  count: Schema.NumberFromString,
+  count: Schema.Number,
 })
 const decodeDrugCountRow = Schema.decodeUnknown(DrugCountRow)
 
 // Day of week count row schema
 const DayOfWeekCountRow = Schema.Struct({
-  day_of_week: Schema.NumberFromString,
-  count: Schema.NumberFromString,
+  day_of_week: Schema.Number,
+  count: Schema.Number,
 })
 const decodeDayOfWeekCountRow = Schema.decodeUnknown(DayOfWeekCountRow)
 
@@ -135,13 +141,15 @@ export const StatsServiceLive = Layer.effect(
         Effect.gen(function* () {
           // Single query to get first/last weights and count within date range
           // This is more efficient than fetching all data to the client
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
               WHERE user_id = ${userId}
-              ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-              ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+              ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+              ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
               ORDER BY datetime
             ),
             stats AS (
@@ -150,7 +158,7 @@ export const StatsServiceLive = Layer.effect(
                 (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1) as end_weight,
                 (SELECT datetime FROM filtered ORDER BY datetime ASC LIMIT 1) as start_date,
                 (SELECT datetime FROM filtered ORDER BY datetime DESC LIMIT 1) as end_date,
-                COUNT(*)::text as data_point_count
+                COUNT(*) as data_point_count
               FROM filtered
             )
             SELECT * FROM stats
@@ -161,7 +169,7 @@ export const StatsServiceLive = Layer.effect(
           const decoded = yield* decodeRow(rows[0])
 
           // Need at least 2 data points for meaningful stats
-          const count = Number(decoded.data_point_count)
+          const count = decoded.data_point_count
           if (count < 2 || !decoded.start_weight || !decoded.end_weight || !decoded.start_date || !decoded.end_date) {
             return null
           }
@@ -190,23 +198,25 @@ export const StatsServiceLive = Layer.effect(
 
       getWeightStats: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
             WITH filtered AS (
               SELECT datetime, weight
               FROM weight_logs
               WHERE user_id = ${userId}
-              ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-              ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+              ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+              ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
               ORDER BY datetime
             )
             SELECT
-              MIN(weight)::text as min_weight,
-              MAX(weight)::text as max_weight,
-              AVG(weight)::text as avg_weight,
-              (SELECT weight FROM filtered ORDER BY datetime ASC LIMIT 1)::text as start_weight,
-              (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1)::text as end_weight,
-              (EXTRACT(EPOCH FROM (MAX(datetime) - MIN(datetime))) / 86400)::text as days_span,
-              COUNT(*)::text as entry_count
+              MIN(weight) as min_weight,
+              MAX(weight) as max_weight,
+              AVG(weight) as avg_weight,
+              (SELECT weight FROM filtered ORDER BY datetime ASC LIMIT 1) as start_weight,
+              (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1) as end_weight,
+              (julianday(MAX(datetime)) - julianday(MIN(datetime))) as days_span,
+              COUNT(*) as entry_count
             FROM filtered
           `
           if (rows.length === 0) return null
@@ -227,18 +237,20 @@ export const StatsServiceLive = Layer.effect(
             maxWeight: Weight.make(decoded.max_weight),
             avgWeight: Weight.make(decoded.avg_weight),
             rateOfChange: WeightRateOfChange.make(rateOfChangeNum),
-            entryCount: Count.make(Number(decoded.entry_count)),
+            entryCount: Count.make(decoded.entry_count),
           })
         }).pipe(Effect.orDie),
 
       getWeightTrend: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
-            SELECT datetime, weight::text
+            SELECT datetime, weight
             FROM weight_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             ORDER BY datetime ASC
           `
           const points: WeightTrendPoint[] = []
@@ -251,14 +263,16 @@ export const StatsServiceLive = Layer.effect(
 
       getInjectionSiteStats: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
             SELECT 
               COALESCE(injection_site, 'Unknown') as injection_site,
-              COUNT(*)::text as count
+              COUNT(*) as count
             FROM injection_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             GROUP BY injection_site
             ORDER BY count DESC
           `
@@ -266,7 +280,7 @@ export const StatsServiceLive = Layer.effect(
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeInjectionSiteRow(row)
-            const countNum = Number(decoded.count)
+            const countNum = decoded.count
             sites.push(
               new InjectionSiteCount({
                 site: InjectionSite.make(decoded.injection_site ?? 'Unknown'),
@@ -280,12 +294,14 @@ export const StatsServiceLive = Layer.effect(
 
       getDosageHistory: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
             SELECT datetime, dosage
             FROM injection_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             ORDER BY datetime ASC
           `
           const points: DosageHistoryPoint[] = []
@@ -307,16 +323,20 @@ export const StatsServiceLive = Layer.effect(
 
       getInjectionFrequency: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
+          // SQLite: strftime('%w', date) returns day of week (0=Sunday, 6=Saturday)
+          // julianday() for date arithmetic
           const rows = yield* sql`
             WITH injection_data AS (
               SELECT 
                 datetime,
                 LAG(datetime) OVER (ORDER BY datetime) as prev_datetime,
-                EXTRACT(DOW FROM datetime)::int as day_of_week
+                CAST(strftime('%w', datetime) AS INTEGER) as day_of_week
               FROM injection_logs
               WHERE user_id = ${userId}
-              ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-              ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+              ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+              ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             ),
             day_counts AS (
               SELECT day_of_week, COUNT(*) as cnt
@@ -326,17 +346,17 @@ export const StatsServiceLive = Layer.effect(
               LIMIT 1
             )
             SELECT
-              (SELECT COUNT(*) FROM injection_data)::text as total_injections,
-              (SELECT AVG(EXTRACT(EPOCH FROM (datetime - prev_datetime)) / 86400) 
-               FROM injection_data WHERE prev_datetime IS NOT NULL)::text as avg_days_between,
-              (SELECT day_of_week FROM day_counts)::text as most_frequent_dow,
-              (SELECT EXTRACT(EPOCH FROM (MAX(datetime) - MIN(datetime))) / (7 * 86400)
-               FROM injection_data)::text as weeks_in_period
+              (SELECT COUNT(*) FROM injection_data) as total_injections,
+              (SELECT AVG(julianday(datetime) - julianday(prev_datetime))
+               FROM injection_data WHERE prev_datetime IS NOT NULL) as avg_days_between,
+              (SELECT day_of_week FROM day_counts) as most_frequent_dow,
+              (SELECT (julianday(MAX(datetime)) - julianday(MIN(datetime))) / 7.0
+               FROM injection_data) as weeks_in_period
           `
           if (rows.length === 0) return null
 
           const decoded = yield* decodeInjectionFrequencyRow(rows[0])
-          const totalInjectionsNum = Number(decoded.total_injections)
+          const totalInjectionsNum = decoded.total_injections
           if (totalInjectionsNum === 0) return null
 
           const weeks = decoded.weeks_in_period ?? 1
@@ -353,12 +373,14 @@ export const StatsServiceLive = Layer.effect(
 
       getDrugBreakdown: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
-            SELECT drug, COUNT(*)::text as count
+            SELECT drug, COUNT(*) as count
             FROM injection_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
             GROUP BY drug
             ORDER BY count DESC
           `
@@ -366,7 +388,7 @@ export const StatsServiceLive = Layer.effect(
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeDrugCountRow(row)
-            const countNum = Number(decoded.count)
+            const countNum = decoded.count
             drugs.push(new DrugCount({ drug: DrugName.make(decoded.drug), count: Count.make(countNum) }))
             total += countNum
           }
@@ -375,25 +397,28 @@ export const StatsServiceLive = Layer.effect(
 
       getInjectionByDayOfWeek: (params, userId) =>
         Effect.gen(function* () {
+          const startDateStr = params.startDate?.toISOString()
+          const endDateStr = params.endDate?.toISOString()
+          // SQLite: strftime('%w', date) returns day of week (0=Sunday, 6=Saturday)
           const rows = yield* sql`
             SELECT 
-              EXTRACT(DOW FROM datetime)::text as day_of_week,
-              COUNT(*)::text as count
+              CAST(strftime('%w', datetime) AS INTEGER) as day_of_week,
+              COUNT(*) as count
             FROM injection_logs
             WHERE user_id = ${userId}
-            ${params.startDate ? sql`AND datetime >= ${params.startDate}` : sql``}
-            ${params.endDate ? sql`AND datetime <= ${params.endDate}` : sql``}
-            GROUP BY EXTRACT(DOW FROM datetime)
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+            GROUP BY strftime('%w', datetime)
             ORDER BY day_of_week
           `
           const days: DayOfWeekCount[] = []
           let total = 0
           for (const row of rows) {
             const decoded = yield* decodeDayOfWeekCountRow(row)
-            const countNum = Number(decoded.count)
+            const countNum = decoded.count
             days.push(
               new DayOfWeekCount({
-                dayOfWeek: DayOfWeek.make(Number(decoded.day_of_week)),
+                dayOfWeek: DayOfWeek.make(decoded.day_of_week),
                 count: Count.make(countNum),
               }),
             )
