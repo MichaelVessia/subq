@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useRouter } from '@tanstack/react-router'
+import { useCallback, useMemo } from 'react'
 import { TIME_RANGES, type TimeRangeKey } from '../components/shared/chartUtils.js'
 
 export interface DateRange {
@@ -6,14 +7,14 @@ export interface DateRange {
   end: Date | undefined
 }
 
-function formatDateParam(date: Date): string {
-  return date.toISOString().split('T')[0]!
-}
-
-function parseDateParam(value: string | null): Date | undefined {
+function parseDateParam(value: string | undefined): Date | undefined {
   if (!value) return undefined
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function formatDateParam(date: Date): string {
+  return date.toISOString().split('T')[0]!
 }
 
 function getPresetFromRange(start: Date | undefined, end: Date | undefined): TimeRangeKey | null {
@@ -40,56 +41,43 @@ function getPresetFromRange(start: Date | undefined, end: Date | undefined): Tim
   return null
 }
 
-function getParamsFromUrl(): { start: Date | undefined; end: Date | undefined } {
-  const params = new URLSearchParams(window.location.search)
-  return {
-    start: parseDateParam(params.get('start')),
-    end: parseDateParam(params.get('end')),
-  }
-}
-
-function updateUrl(start: Date | undefined, end: Date | undefined) {
-  const params = new URLSearchParams(window.location.search)
-
-  if (start) {
-    params.set('start', formatDateParam(start))
-  } else {
-    params.delete('start')
-  }
-
-  if (end) {
-    params.set('end', formatDateParam(end))
-  } else {
-    params.delete('end')
-  }
-
-  const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname
-
-  window.history.pushState({}, '', newUrl)
-}
-
 export function useDateRangeParams() {
-  const [range, setRangeState] = useState<DateRange>(() => getParamsFromUrl())
+  const location = useLocation()
+  const router = useRouter()
+  const search = location.search as { start?: string; end?: string }
 
-  // Handle browser back/forward
-  useEffect(() => {
-    const handlePopState = () => {
-      setRangeState(getParamsFromUrl())
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+  const range = useMemo(
+    (): DateRange => ({
+      start: parseDateParam(search.start),
+      end: parseDateParam(search.end),
+    }),
+    [search.start, search.end],
+  )
 
-  const setRange = useCallback((newRange: DateRange) => {
-    setRangeState(newRange)
-    updateUrl(newRange.start, newRange.end)
-  }, [])
+  const setRange = useCallback(
+    (newRange: DateRange) => {
+      const newSearch = new URLSearchParams()
+      if (newRange.start) newSearch.set('start', formatDateParam(newRange.start))
+      if (newRange.end) newSearch.set('end', formatDateParam(newRange.end))
+      const searchString = newSearch.toString()
+      const href = searchString ? `${location.pathname}?${searchString}` : location.pathname
+      router.history.push(href)
+    },
+    [router, location.pathname],
+  )
 
-  const setPreset = useCallback((key: TimeRangeKey) => {
-    const { startDate, endDate } = TIME_RANGES[key].getRange()
-    setRangeState({ start: startDate, end: endDate })
-    updateUrl(startDate, endDate)
-  }, [])
+  const setPreset = useCallback(
+    (key: TimeRangeKey) => {
+      const { startDate, endDate } = TIME_RANGES[key].getRange()
+      const newSearch = new URLSearchParams()
+      if (startDate) newSearch.set('start', formatDateParam(startDate))
+      if (endDate) newSearch.set('end', formatDateParam(endDate))
+      const searchString = newSearch.toString()
+      const href = searchString ? `${location.pathname}?${searchString}` : location.pathname
+      router.history.push(href)
+    },
+    [router, location.pathname],
+  )
 
   // Determine if current range matches a preset
   const activePreset = useMemo(() => getPresetFromRange(range.start, range.end), [range.start, range.end])

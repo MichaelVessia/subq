@@ -3,6 +3,7 @@ import type { DashboardStats, InjectionLog, WeightLog } from '@scale/shared'
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
+import { useUserId } from '../../hooks/useUserId.js'
 import { createDashboardStatsAtom, createInjectionLogListAtom, createWeightLogListAtom } from '../../rpc.js'
 import {
   type DataPoint,
@@ -516,7 +517,15 @@ function StatItem({ label, value }: { label: string; value: string }) {
 // Dashboard Component
 // ============================================
 
-export function Dashboard({ userId }: { userId: string }) {
+export function Dashboard() {
+  const userId = useUserId()
+  if (!userId) {
+    return <div className="loading">Loading...</div>
+  }
+  return <DashboardInner userId={userId} />
+}
+
+function DashboardInner({ userId }: { userId: string }) {
   const { range, setRange, setPreset, activePreset } = useDateRangeParams()
 
   const handleZoom = useCallback(

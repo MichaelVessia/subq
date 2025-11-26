@@ -12,6 +12,7 @@ import type {
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
+import { useUserId } from '../../hooks/useUserId.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
@@ -1000,7 +1001,15 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
 // Stats Page Component
 // ============================================
 
-export function StatsPage({ userId }: { userId: string }) {
+export function StatsPage() {
+  const userId = useUserId()
+  if (!userId) {
+    return <div className="loading">Loading...</div>
+  }
+  return <StatsPageInner userId={userId} />
+}
+
+function StatsPageInner({ userId }: { userId: string }) {
   const { range, setRange, setPreset, activePreset } = useDateRangeParams()
 
   const handleZoom = useCallback(
