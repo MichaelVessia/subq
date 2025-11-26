@@ -23,6 +23,7 @@ import {
   createWeightStatsAtom,
   createWeightTrendAtom,
 } from '../../rpc.js'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import {
   CHART_COLORS,
   type DataPoint,
@@ -35,36 +36,12 @@ import {
 } from '../shared/chartUtils.js'
 
 // ============================================
-// Stat Card Component
-// ============================================
-
-function StatCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="stat-card">
-      <h3
-        style={{
-          fontSize: 'var(--text-sm)',
-          fontWeight: 600,
-          color: 'var(--color-text-muted)',
-          marginBottom: 'var(--space-4)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
-        {title}
-      </h3>
-      {children}
-    </div>
-  )
-}
-
-// ============================================
 // Weight Summary Stats
 // ============================================
 
 function WeightSummary({ stats }: { stats: WeightStats | null }) {
   if (!stats) {
-    return <div style={{ color: 'var(--color-text-muted)' }}>No weight data available</div>
+    return <div className="text-muted-foreground">No weight data available</div>
   }
 
   const rateSign = stats.rateOfChange >= 0 ? '+' : ''
@@ -77,13 +54,11 @@ function WeightSummary({ stats }: { stats: WeightStats | null }) {
   ]
 
   return (
-    <div className="stats-summary-grid">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {items.map((item) => (
         <div key={item.label}>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{item.label}</div>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-            {item.value}
-          </div>
+          <div className="text-xs text-muted-foreground">{item.label}</div>
+          <div className="text-lg font-semibold font-mono">{item.value}</div>
         </div>
       ))}
     </div>
@@ -117,11 +92,9 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    // Sort data first
     const allSortedWeight = [...weightData].sort((a, b) => a.date.getTime() - b.date.getTime())
     const allSortedInjections = [...injectionData].sort((a, b) => a.date.getTime() - b.date.getTime())
 
-    // Filter to zoom range if set
     const sortedWeight = zoomRange
       ? allSortedWeight.filter((d) => d.date >= zoomRange.start && d.date <= zoomRange.end)
       : allSortedWeight
@@ -131,7 +104,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 
     if (sortedWeight.length === 0) return
 
-    // Pre-calculate pill rows for dynamic margin
     const PILL_WIDTH_SINGLE = 44
     const PILL_HEIGHT = 18
     const MIN_GAP_X = 4
@@ -197,7 +169,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .domain([weightExtent[0] - yPadding, weightExtent[1] + yPadding])
       .range([height, 0])
 
-    // Grid lines
     g.append('g')
       .attr('class', 'grid')
       .attr('opacity', 0.08)
@@ -209,14 +180,12 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       )
       .call((sel) => sel.select('.domain').remove())
 
-    // Color points by current dosage
     const weightPointsWithColors: WeightPointWithColor[] = sortedWeight.map((wp) => {
       const recentInjection = sortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
       const color = recentInjection ? getDosageColor(recentInjection.dosage) : '#94a3b8'
       return { ...wp, color }
     })
 
-    // Group by color for line segments
     const segments: { points: WeightPointWithColor[]; color: string }[] = []
     let currentSegment: WeightPointWithColor[] = []
     let currentColor = ''
@@ -242,7 +211,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .y((d) => yScale(d.weight))
       .curve(d3.curveMonotoneX)
 
-    // Brush for zoom
     const brush = d3
       .brushX()
       .extent([
@@ -261,12 +229,11 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
     g.append('g').attr('class', 'brush').call(brush).selectAll('rect').attr('rx', 3).attr('ry', 3)
 
     g.select('.brush .selection')
-      .attr('fill', 'var(--color-text)')
+      .attr('fill', 'rgb(var(--foreground))')
       .attr('fill-opacity', 0.1)
-      .attr('stroke', 'var(--color-text)')
+      .attr('stroke', 'rgb(var(--foreground))')
       .attr('stroke-opacity', 0.3)
 
-    // Draw segments
     for (const segment of segments) {
       if (segment.points.length < 2) continue
       g.append('path')
@@ -279,7 +246,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 
     const formatDate = d3.timeFormat('%b %d, %Y')
 
-    // Weight points
     g.selectAll('.weight-point')
       .data(weightPointsWithColors)
       .enter()
@@ -289,7 +255,7 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .attr('cy', (d) => yScale(d.weight))
       .attr('r', 4)
       .attr('fill', (d) => d.color)
-      .attr('stroke', 'var(--color-surface)')
+      .attr('stroke', 'rgb(var(--card))')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
@@ -297,9 +263,9 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.weight} lbs</div>
-              <div style={{ opacity: 0.7 }}>{formatDate(d.date)}</div>
-              {d.notes && <div style={{ marginTop: '4px', opacity: 0.8 }}>{d.notes}</div>}
+              <div className="font-semibold mb-0.5">{d.weight} lbs</div>
+              <div className="opacity-70">{formatDate(d.date)}</div>
+              {d.notes && <div className="mt-1 opacity-80">{d.notes}</div>}
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -313,7 +279,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
         setTooltip(null)
       })
 
-    // Injection markers - dosage pills
     const injectionPointsOnLine = sortedInjections
       .map((inj) => {
         const closestWeight = sortedWeight.reduce((prev, curr) =>
@@ -345,7 +310,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 
     const dosageChanges: DosageChange[] = []
 
-    // Show context pill when zoomed
     if (zoomRange && injectionPointsOnLine.length === 0) {
       const priorInjection = allSortedInjections.filter((inj) => inj.date < zoomRange.start).pop()
       if (priorInjection && sortedWeight.length > 0) {
@@ -392,7 +356,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       }
     }
 
-    // Assign rows to avoid overlap
     for (let i = 0; i < dosageChanges.length; i++) {
       const change = dosageChanges[i]!
       const occupiedRows: number[] = []
@@ -409,7 +372,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
 
     const rowOffset = (row: number) => row * (PILL_HEIGHT + 2)
 
-    // Injection labels
     const injectionGroup = g
       .selectAll('.injection-group')
       .data(dosageChanges)
@@ -422,9 +384,9 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '2px' }}>Started {d.item.dosage}</div>
-              <div style={{ opacity: 0.7 }}>{formatDate(d.item.displayDate)}</div>
-              <div style={{ marginTop: '4px', fontSize: '9px', opacity: 0.6 }}>{d.item.drug}</div>
+              <div className="font-semibold mb-0.5">Started {d.item.dosage}</div>
+              <div className="opacity-70">{formatDate(d.item.displayDate)}</div>
+              <div className="mt-1 text-[9px] opacity-60">{d.item.drug}</div>
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -468,7 +430,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .attr('stroke-dasharray', '3,3')
       .attr('opacity', 0.4)
 
-    // Axes
     g.append('g')
       .attr('transform', `translate(0,${height})`)
       .call(
@@ -498,22 +459,11 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
   }, [weightData, injectionData, zoomRange, onZoom, containerWidth])
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      <svg ref={svgRef} style={{ display: 'block', cursor: 'crosshair' }} />
+    <div ref={containerRef} className="relative w-full">
+      <svg ref={svgRef} className="block cursor-crosshair" />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
       {!zoomRange && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '8px',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--color-text-muted)',
-            opacity: 0.6,
-          }}
-        >
-          Drag to zoom
-        </div>
+        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground opacity-60">Drag to zoom</div>
       )}
     </div>
   )
@@ -565,7 +515,7 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
       .append('path')
       .attr('d', arc)
       .attr('fill', (d) => color(d.data.site))
-      .attr('stroke', 'var(--color-surface)')
+      .attr('stroke', 'rgb(var(--card))')
       .attr('stroke-width', 2)
 
     arcs
@@ -579,27 +529,22 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
   }, [data, containerWidth])
 
   if (data.sites.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 150 }}>No injection data available</div>
+    return <div className="text-muted-foreground h-[150px]">No injection data available</div>
   }
 
   return (
-    <div className="chart-with-legend">
-      <div ref={containerRef} style={{ flex: 1, minWidth: 120, width: '100%' }}>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+      <div ref={containerRef} className="flex-1 min-w-[120px] w-full">
         <svg ref={svgRef} />
       </div>
-      <div className="chart-legend">
+      <div className="flex flex-row flex-wrap gap-2 justify-center sm:flex-col sm:flex-nowrap">
         {data.sites.map((site, i) => (
-          <div key={site.site} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <div key={site.site} className="flex items-center gap-2">
             <div
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: 2,
-                flexShrink: 0,
-                backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-              }}
+              className="w-3 h-3 rounded-sm shrink-0"
+              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            <span className="text-xs text-muted-foreground">
               {site.site} ({site.count})
             </span>
           </div>
@@ -669,7 +614,6 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       )
       .call((sel) => sel.select('.domain').remove())
 
-    // Group by color for line segments
     const segments: { points: DosagePointWithColor[]; color: string }[] = []
     let currentSegment: DosagePointWithColor[] = []
     let currentColor = ''
@@ -695,7 +639,6 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       .y((d) => yScale(d.dosageValue))
       .curve(d3.curveStepAfter)
 
-    // Draw segments with dosage colors
     for (const segment of segments) {
       if (segment.points.length < 2) continue
       g.append('path')
@@ -716,7 +659,7 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       .attr('cy', (d) => yScale(d.dosageValue))
       .attr('r', 4)
       .attr('fill', (d) => d.color)
-      .attr('stroke', 'var(--color-surface)')
+      .attr('stroke', 'rgb(var(--card))')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
@@ -724,8 +667,8 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
         setTooltip({
           content: (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '2px' }}>{d.dosage}</div>
-              <div style={{ opacity: 0.7 }}>{formatDate(d.date)}</div>
+              <div className="font-semibold mb-0.5">{d.dosage}</div>
+              <div className="opacity-70">{formatDate(d.date)}</div>
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -764,11 +707,11 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
   }, [data, containerWidth])
 
   if (data.points.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 200 }}>No dosage data available</div>
+    return <div className="text-muted-foreground h-[200px]">No dosage data available</div>
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} className="relative w-full">
       <svg ref={svgRef} />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
     </div>
@@ -781,7 +724,7 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
 
 function InjectionFrequencySummary({ stats }: { stats: InjectionFrequencyStats | null }) {
   if (!stats) {
-    return <div style={{ color: 'var(--color-text-muted)' }}>No injection data available</div>
+    return <div className="text-muted-foreground">No injection data available</div>
   }
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -796,13 +739,11 @@ function InjectionFrequencySummary({ stats }: { stats: InjectionFrequencyStats |
   ]
 
   return (
-    <div className="stats-summary-grid">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((item) => (
         <div key={item.label}>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{item.label}</div>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-            {item.value}
-          </div>
+          <div className="text-xs text-muted-foreground">{item.label}</div>
+          <div className="text-lg font-semibold font-mono">{item.value}</div>
         </div>
       ))}
     </div>
@@ -866,22 +807,22 @@ function DrugBreakdownChart({ data }: { data: DrugBreakdownStats }) {
       .attr('y', (d) => (yScale(d.drug) ?? 0) + yScale.bandwidth() / 2)
       .attr('dy', '0.35em')
       .attr('font-size', '12px')
-      .attr('fill', 'var(--color-text-muted)')
+      .attr('fill', 'rgb(var(--muted-foreground))')
       .text((d) => d.count.toString())
 
     g.append('g')
       .call(d3.axisLeft(yScale))
       .call((sel) => sel.select('.domain').remove())
       .call((sel) => sel.selectAll('.tick line').remove())
-      .call((sel) => sel.selectAll('.tick text').attr('fill', 'var(--color-text)').attr('font-size', '12px'))
+      .call((sel) => sel.selectAll('.tick text').attr('fill', 'rgb(var(--foreground))').attr('font-size', '12px'))
   }, [data, containerWidth])
 
   if (data.drugs.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 100 }}>No drug data available</div>
+    return <div className="text-muted-foreground h-[100px]">No drug data available</div>
   }
 
   return (
-    <div ref={containerRef} style={{ width: '100%' }}>
+    <div ref={containerRef} className="w-full">
       <svg ref={svgRef} />
     </div>
   )
@@ -935,7 +876,7 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
       .append('path')
       .attr('d', arc)
       .attr('fill', (d) => color(d.data.dayOfWeek.toString()))
-      .attr('stroke', 'var(--color-surface)')
+      .attr('stroke', 'rgb(var(--card))')
       .attr('stroke-width', 2)
 
     arcs
@@ -949,27 +890,22 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
   }, [data, containerWidth])
 
   if (data.days.length === 0) {
-    return <div style={{ color: 'var(--color-text-muted)', height: 150 }}>No injection data available</div>
+    return <div className="text-muted-foreground h-[150px]">No injection data available</div>
   }
 
   return (
-    <div className="chart-with-legend">
-      <div ref={containerRef} style={{ flex: 1, minWidth: 120, width: '100%' }}>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+      <div ref={containerRef} className="flex-1 min-w-[120px] w-full">
         <svg ref={svgRef} />
       </div>
-      <div className="chart-legend">
+      <div className="flex flex-row flex-wrap gap-2 justify-center sm:flex-col sm:flex-nowrap">
         {data.days.map((day, i) => (
-          <div key={day.dayOfWeek} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <div key={day.dayOfWeek} className="flex items-center gap-2">
             <div
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: 2,
-                flexShrink: 0,
-                backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-              }}
+              className="w-3 h-3 rounded-sm shrink-0"
+              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
             />
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            <span className="text-xs text-muted-foreground">
               {DAY_NAMES[day.dayOfWeek]} ({day.count})
             </span>
           </div>
@@ -1048,7 +984,6 @@ export function StatsPage() {
     () => ({ days: [], totalInjections: Count.make(0) }) as InjectionDayOfWeekStats,
   )
 
-  // Transform data for the weight chart
   const weightData = useMemo((): DataPoint[] => {
     return weightTrend.points.map((p) => ({
       date: new Date(p.date),
@@ -1059,7 +994,7 @@ export function StatsPage() {
   const injectionData = useMemo((): InjectionPoint[] => {
     return injections.map((inj) => ({
       date: new Date(inj.datetime),
-      weight: 0, // Will be matched to closest weight point in chart
+      weight: 0,
       dosage: inj.dosage,
       drug: inj.drug,
       injectionSite: inj.injectionSite,
@@ -1067,16 +1002,15 @@ export function StatsPage() {
     }))
   }, [injections])
 
-  // For chart zoom visual - derive from custom range
   const zoomRange = range.start && range.end && !activePreset ? { start: range.start, end: range.end } : null
 
   if (isLoading) {
-    return <div className="loading">Loading stats...</div>
+    return <div className="p-6 text-center text-muted-foreground">Loading stats...</div>
   }
 
   return (
     <div>
-      <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div className="mb-6">
         <TimeRangeSelector
           range={range}
           activePreset={activePreset}
@@ -1085,53 +1019,88 @@ export function StatsPage() {
         />
       </div>
 
-      <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
+      <div className="grid gap-5">
         {/* Weight Statistics */}
-        <StatCard title="Weight Statistics">
-          <WeightSummary stats={weightStats} />
-        </StatCard>
+        <Card>
+          <CardHeader>
+            <CardTitle>Weight Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WeightSummary stats={weightStats} />
+          </CardContent>
+        </Card>
 
         {/* Weight Trend with Dosage Visualization */}
-        <StatCard title="Weight Trend">
-          {weightData.length > 0 ? (
-            <WeightTrendChart
-              weightData={weightData}
-              injectionData={injectionData}
-              zoomRange={zoomRange}
-              onZoom={handleZoom}
-            />
-          ) : (
-            <div style={{ color: 'var(--color-text-muted)', height: 200 }}>No weight data available</div>
-          )}
-        </StatCard>
+        <Card>
+          <CardHeader>
+            <CardTitle>Weight Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {weightData.length > 0 ? (
+              <WeightTrendChart
+                weightData={weightData}
+                injectionData={injectionData}
+                zoomRange={zoomRange}
+                onZoom={handleZoom}
+              />
+            ) : (
+              <div className="text-muted-foreground h-[200px]">No weight data available</div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Injection Frequency */}
-        <StatCard title="Injection Frequency">
-          <InjectionFrequencySummary stats={injectionFrequency} />
-        </StatCard>
+        <Card>
+          <CardHeader>
+            <CardTitle>Injection Frequency</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InjectionFrequencySummary stats={injectionFrequency} />
+          </CardContent>
+        </Card>
 
         {/* Multi-column layout for smaller charts */}
-        <div className="stats-grid">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {/* Injection Sites */}
-          <StatCard title="Injection Sites">
-            <InjectionSitePieChart data={injectionSiteStats} />
-          </StatCard>
+          <Card>
+            <CardHeader>
+              <CardTitle>Injection Sites</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InjectionSitePieChart data={injectionSiteStats} />
+            </CardContent>
+          </Card>
 
           {/* Injection Frequency by Day */}
-          <StatCard title="Injections by Day of Week">
-            <InjectionDayOfWeekPieChart data={injectionByDayOfWeek} />
-          </StatCard>
+          <Card>
+            <CardHeader>
+              <CardTitle>Injections by Day of Week</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InjectionDayOfWeekPieChart data={injectionByDayOfWeek} />
+            </CardContent>
+          </Card>
 
           {/* Drug Breakdown */}
-          <StatCard title="Medications Used">
-            <DrugBreakdownChart data={drugBreakdown} />
-          </StatCard>
+          <Card>
+            <CardHeader>
+              <CardTitle>Medications Used</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DrugBreakdownChart data={drugBreakdown} />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Dosage History */}
-        <StatCard title="Dosage History">
-          <DosageHistoryChart data={dosageHistory} />
-        </StatCard>
+        <Card>
+          <CardHeader>
+            <CardTitle>Dosage History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DosageHistoryChart data={dosageHistory} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

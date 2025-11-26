@@ -2,6 +2,9 @@ import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@scale/shared'
 import { useMemo, useState } from 'react'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
+import { Button } from '../ui/button.js'
+import { Card } from '../ui/card.js'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table.js'
 import { WeightLogForm } from './WeightLogForm.js'
 
 export function WeightLogList() {
@@ -46,49 +49,40 @@ export function WeightLogList() {
     }).format(new Date(date))
 
   if (Result.isWaiting(logsResult)) {
-    return <div className="loading">Loading...</div>
+    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
   }
 
   const logs = Result.getOrElse(logsResult, () => [])
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 'var(--space-6)',
-        }}
-      >
-        <h2>Weight Log</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Add Entry
-        </button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold tracking-tight">Weight Log</h2>
+        <Button onClick={() => setShowForm(true)}>Add Entry</Button>
       </div>
 
       {showForm && (
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+        <Card className="mb-6 p-6">
           <WeightLogForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
-        </div>
+        </Card>
       )}
 
       {logs.length > 0 ? (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Weight</th>
-                <th>Notes</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Weight</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {logs.map((log) =>
                 editingLog?.id === log.id ? (
-                  <tr key={log.id}>
-                    <td colSpan={4} style={{ padding: 'var(--space-4)' }}>
+                  <TableRow key={log.id}>
+                    <TableCell colSpan={4} className="p-4">
                       <WeightLogForm
                         onSubmit={handleCreate}
                         onUpdate={handleUpdate}
@@ -101,38 +95,31 @@ export function WeightLogList() {
                           notes: log.notes,
                         }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  <tr key={log.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
-                      {formatDate(log.datetime)}
-                    </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+                  <TableRow key={log.id}>
+                    <TableCell className="font-mono text-sm">{formatDate(log.datetime)}</TableCell>
+                    <TableCell className="font-mono font-medium">
                       {log.weight} {log.unit}
-                    </td>
-                    <td className="text-secondary text-sm">{log.notes ?? '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ marginRight: 'var(--space-2)' }}
-                        onClick={() => handleEdit(log)}
-                      >
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{log.notes ?? '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEdit(log)}>
                         Edit
-                      </button>
-                      <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(log.id)}>
                         Delete
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ),
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       ) : (
-        <div className="empty-state">No entries yet. Add your first weight log.</div>
+        <div className="text-center py-12 text-muted-foreground">No entries yet. Add your first weight log.</div>
       )}
     </div>
   )

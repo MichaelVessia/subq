@@ -1,8 +1,12 @@
+import { useEffect, useRef, useState } from 'react'
+import { cn } from '../../lib/utils.js'
+import { Button } from '../ui/button.js'
+import { Input } from '../ui/input.js'
+
 // ============================================
-// Shared Chart Utilities
+// Time Range Types and Options
 // ============================================
 
-// Time Range Types and Options
 export type TimeRangeKey = '1m' | '3m' | '6m' | '1y' | 'all'
 
 export interface TimeRangeOption {
@@ -123,32 +127,16 @@ export function Tooltip({
   if (!position) return null
   return (
     <div
+      className="fixed bg-foreground text-background px-3.5 py-2.5 rounded-md text-xs leading-relaxed pointer-events-none z-[1000] max-w-[220px] shadow-md"
       style={{
-        position: 'fixed',
         left: position.x + 12,
         top: position.y - 12,
-        backgroundColor: 'var(--color-text)',
-        color: 'var(--color-surface)',
-        padding: '10px 14px',
-        borderRadius: 'var(--radius-md)',
-        fontSize: 'var(--text-xs)',
-        lineHeight: '1.5',
-        pointerEvents: 'none',
-        zIndex: 1000,
-        maxWidth: '220px',
-        boxShadow: 'var(--shadow-md)',
       }}
     >
       {content}
     </div>
   )
 }
-
-// ============================================
-// Time Range Selector Component
-// ============================================
-
-import { useState, useEffect, useRef } from 'react'
 
 // ============================================
 // Responsive Container Hook
@@ -173,7 +161,6 @@ export function useContainerSize<T extends HTMLElement = HTMLDivElement>(): {
     })
 
     observer.observe(element)
-    // Set initial width
     setWidth(element.clientWidth)
 
     return () => observer.disconnect()
@@ -181,6 +168,10 @@ export function useContainerSize<T extends HTMLElement = HTMLDivElement>(): {
 
   return { containerRef, width }
 }
+
+// ============================================
+// Date Range Inputs Component
+// ============================================
 
 function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0] ?? ''
@@ -196,7 +187,6 @@ function DateRangeInputs({
   const [startValue, setStartValue] = useState(formatDateForInput(range.start))
   const [endValue, setEndValue] = useState(formatDateForInput(range.end))
 
-  // Sync local state when range changes externally (e.g., from chart drag)
   useEffect(() => {
     setStartValue(formatDateForInput(range.start))
     setEndValue(formatDateForInput(range.end))
@@ -220,37 +210,31 @@ function DateRangeInputs({
     }
   }
 
-  const dateInputStyle: React.CSSProperties = {
-    padding: 'var(--space-1) var(--space-2)',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface)',
-    color: 'var(--color-text)',
-    fontSize: 'var(--text-sm)',
-    fontFamily: 'var(--font-mono)',
-  }
-
   return (
-    <div className="date-range-inputs">
-      <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>From</span>
-      <input
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline">
+      <span className="text-sm text-muted-foreground">From</span>
+      <Input
         type="date"
         value={startValue}
         onChange={(e) => setStartValue(e.target.value)}
         onBlur={handleStartBlur}
-        style={dateInputStyle}
+        className="w-auto font-mono h-8 px-2"
       />
-      <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>to</span>
-      <input
+      <span className="text-sm text-muted-foreground">to</span>
+      <Input
         type="date"
         value={endValue}
         onChange={(e) => setEndValue(e.target.value)}
         onBlur={handleEndBlur}
-        style={dateInputStyle}
+        className="w-auto font-mono h-8 px-2"
       />
     </div>
   )
 }
+
+// ============================================
+// Time Range Selector Component
+// ============================================
 
 export interface DateRange {
   start: Date | undefined
@@ -271,36 +255,30 @@ export function TimeRangeSelector({
   const keys = Object.keys(TIME_RANGES) as TimeRangeKey[]
   const hasCustomRange = range.start && range.end && !activePreset
 
-  const buttonStyle = (isSelected: boolean): React.CSSProperties => ({
-    padding: 'var(--space-2) var(--space-4)',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: isSelected ? 'var(--color-text)' : 'var(--color-surface)',
-    color: isSelected ? 'var(--color-surface)' : 'var(--color-text)',
-    fontSize: 'var(--text-sm)',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-  })
-
   return (
-    <div className="time-range-selector">
-      <div className="time-range-buttons">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap sm:gap-4">
+      <div className="flex gap-2 flex-wrap">
         {keys.map((key) => (
-          <button key={key} onClick={() => onPresetChange(key)} type="button" style={buttonStyle(activePreset === key)}>
+          <Button
+            key={key}
+            onClick={() => onPresetChange(key)}
+            variant={activePreset === key ? 'default' : 'outline'}
+            size="sm"
+            className={cn(activePreset === key && 'bg-foreground text-background hover:bg-foreground/90')}
+          >
             {TIME_RANGES[key].label}
-          </button>
+          </Button>
         ))}
       </div>
       {hasCustomRange && (
-        <div className="time-range-custom">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <DateRangeInputs
             range={{ start: range.start!, end: range.end! }}
             onRangeChange={(r) => onRangeChange({ start: r.start, end: r.end })}
           />
-          <button type="button" onClick={() => onPresetChange('all')} style={buttonStyle(false)}>
+          <Button variant="outline" size="sm" onClick={() => onPresetChange('all')}>
             Reset
-          </button>
+          </Button>
         </div>
       )}
     </div>

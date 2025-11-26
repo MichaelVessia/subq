@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { signIn, signUp } from '../../auth.js'
+import { Button } from '../ui/button.js'
+import { Input } from '../ui/input.js'
 
 const DEMO_USERS = [
   { email: 'consistent@example.com', password: 'testpassword123', label: 'Demo: Consistent data' },
@@ -58,96 +60,37 @@ export function LoginForm() {
   }
 
   return (
-    <div style={{ maxWidth: '320px', margin: '4rem auto', padding: 'var(--space-6)' }}>
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-6)' }}>
-        {mode === 'signin' ? 'Sign In' : 'Create Account'}
-      </h1>
+    <div className="max-w-xs mx-auto mt-16 p-6">
+      <h1 className="text-lg font-semibold mb-6">{mode === 'signin' ? 'Sign In' : 'Create Account'}</h1>
 
       {mode === 'signin' && (
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)' }}>
-            Try a demo account:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="mb-6">
+          <p className="text-xs text-muted-foreground mb-3">Try a demo account:</p>
+          <div className="flex flex-col gap-2">
             {DEMO_USERS.map((user) => (
-              <button
+              <Button
                 key={user.email}
-                type="button"
+                variant="outline"
+                size="sm"
                 disabled={loading}
                 onClick={() => handleDemoLogin(user.email, user.password)}
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text)',
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: loading ? 'wait' : 'pointer',
-                  textAlign: 'left',
-                }}
+                className="justify-start text-xs"
               >
                 {user.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {mode === 'signup' && (
-          <input
-            type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{
-              padding: 'var(--space-3)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 'var(--text-sm)',
-            }}
-          />
+          <Input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
         )}
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            padding: 'var(--space-3)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 'var(--text-sm)',
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            padding: 'var(--space-3)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 'var(--text-sm)',
-          }}
-        />
-        {error && <p style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: 'var(--space-3)',
-            background: 'var(--color-text)',
-            color: 'var(--color-bg)',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 'var(--text-sm)',
-            fontWeight: 500,
-            cursor: loading ? 'wait' : 'pointer',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
+        <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" disabled={loading}>
           {loading
             ? mode === 'signup'
               ? 'Creating account...'
@@ -155,31 +98,12 @@ export function LoginForm() {
             : mode === 'signup'
               ? 'Create Account'
               : 'Sign In'}
-        </button>
+        </Button>
       </form>
 
-      <p
-        style={{
-          marginTop: 'var(--space-4)',
-          fontSize: 'var(--text-sm)',
-          color: 'var(--color-text-muted)',
-          textAlign: 'center',
-        }}
-      >
+      <p className="mt-4 text-sm text-muted-foreground text-center">
         {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-        <button
-          type="button"
-          onClick={toggleMode}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-text)',
-            textDecoration: 'underline',
-            cursor: 'pointer',
-            fontSize: 'var(--text-sm)',
-            padding: 0,
-          }}
-        >
+        <button type="button" onClick={toggleMode} className="text-foreground underline cursor-pointer">
           {mode === 'signin' ? 'Sign up' : 'Sign in'}
         </button>
       </p>

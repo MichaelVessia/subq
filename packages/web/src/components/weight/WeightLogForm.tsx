@@ -1,6 +1,11 @@
 import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId, type WeightUnit } from '@scale/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
+import { Button } from '../ui/button.js'
+import { Input } from '../ui/input.js'
+import { Label } from '../ui/label.js'
+import { Select } from '../ui/select.js'
+import { Textarea } from '../ui/textarea.js'
 
 function toLocalDatetimeString(date: Date): string {
   const year = date.getFullYear()
@@ -77,8 +82,6 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Mark all fields as touched
     setTouched({ datetime: true, weight: true })
 
     if (!validateForm()) return
@@ -114,11 +117,11 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <label htmlFor="datetime">
-          Date & Time <span className="required-mark">*</span>
-        </label>
-        <input
+      <div className="mb-4">
+        <Label htmlFor="datetime" className="mb-2 block">
+          Date & Time <span className="text-destructive">*</span>
+        </Label>
+        <Input
           type="datetime-local"
           id="datetime"
           value={datetime}
@@ -129,25 +132,20 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
             }
           }}
           onBlur={(e) => handleBlur('datetime', e.target.value)}
-          className={touched.datetime && errors.datetime ? 'input-error' : ''}
+          error={touched.datetime && !!errors.datetime}
           max={toLocalDatetimeString(new Date())}
         />
-        {touched.datetime && errors.datetime && <span className="field-error">{errors.datetime}</span>}
+        {touched.datetime && errors.datetime && (
+          <span className="block text-xs text-destructive mt-1">{errors.datetime}</span>
+        )}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-4)',
-        }}
-      >
+      <div className="grid grid-cols-[1fr_auto] gap-4 mb-4">
         <div>
-          <label htmlFor="weight">
-            Weight <span className="required-mark">*</span>
-          </label>
-          <input
+          <Label htmlFor="weight" className="mb-2 block">
+            Weight <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="number"
             id="weight"
             value={weight}
@@ -162,23 +160,29 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
             min="0"
             max="1000"
             placeholder="e.g., 185.5"
-            className={touched.weight && errors.weight ? 'input-error' : ''}
+            error={touched.weight && !!errors.weight}
           />
-          {touched.weight && errors.weight && <span className="field-error">{errors.weight}</span>}
+          {touched.weight && errors.weight && (
+            <span className="block text-xs text-destructive mt-1">{errors.weight}</span>
+          )}
         </div>
 
         <div>
-          <label htmlFor="unit">Unit</label>
-          <select id="unit" value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)}>
+          <Label htmlFor="unit" className="mb-2 block">
+            Unit
+          </Label>
+          <Select id="unit" value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)}>
             <option value="lbs">lbs</option>
             <option value="kg">kg</option>
-          </select>
+          </Select>
         </div>
       </div>
 
-      <div style={{ marginBottom: 'var(--space-5)' }}>
-        <label htmlFor="notes">Notes</label>
-        <textarea
+      <div className="mb-5">
+        <Label htmlFor="notes" className="mb-2 block">
+          Notes
+        </Label>
+        <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -187,13 +191,13 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
+        </Button>
+        <Button type="submit" disabled={loading || !isValid}>
           {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-        </button>
+        </Button>
       </div>
     </form>
   )

@@ -12,6 +12,11 @@ import {
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
+import { Button } from '../ui/button.js'
+import { Input } from '../ui/input.js'
+import { Label } from '../ui/label.js'
+import { Select } from '../ui/select.js'
+import { Textarea } from '../ui/textarea.js'
 
 function toLocalDatetimeString(date: Date): string {
   const year = date.getFullYear()
@@ -22,7 +27,6 @@ function toLocalDatetimeString(date: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
-// Common GLP-1 medications with typical dosage progressions
 const GLP1_DRUGS = [
   { name: 'Semaglutide (Ozempic)', dosages: ['0.25mg', '0.5mg', '1mg', '2mg'] },
   { name: 'Semaglutide (Wegovy)', dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2.4mg'] },
@@ -32,7 +36,6 @@ const GLP1_DRUGS = [
   { name: 'Dulaglutide (Trulicity)', dosages: ['0.75mg', '1.5mg', '3mg', '4.5mg'] },
 ]
 
-// Standard subcutaneous injection sites
 const INJECTION_SITES = [
   'Left abdomen',
   'Right abdomen',
@@ -78,17 +81,12 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
 
-  // Combine user's previously used drugs with common GLP-1 drugs
   const userDrugs = Result.getOrElse(drugsResult, () => [])
   const userSites = Result.getOrElse(sitesResult, () => [])
 
-  // All drug suggestions: user's drugs first, then common ones not already in user's list
   const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS.map((d) => d.name)])]
-
-  // All site suggestions: user's sites first, then standard ones not already in user's list
   const allSites = [...new Set([...userSites, ...INJECTION_SITES])]
 
-  // Get suggested dosages based on selected drug
   const selectedDrugInfo = GLP1_DRUGS.find((d) => d.name === drug || drug.toLowerCase().includes(d.name.toLowerCase()))
   const dosageSuggestions = selectedDrugInfo?.dosages ?? []
 
@@ -108,7 +106,6 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
       }
       case 'dosage': {
         if (!value.trim()) return 'Dosage is required'
-        // Validate dosage format (number followed by unit)
         const dosagePattern = /^\d+(\.\d+)?\s*(mg|mcg|ml|units?|iu)$/i
         if (!dosagePattern.test(value.trim())) {
           return 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)'
@@ -137,8 +134,6 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Mark all required fields as touched
     setTouched({ datetime: true, drug: true, dosage: true })
 
     if (!validateForm()) return
@@ -178,11 +173,11 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <label htmlFor="datetime">
-          Date & Time <span className="required-mark">*</span>
-        </label>
-        <input
+      <div className="mb-4">
+        <Label htmlFor="datetime" className="mb-2 block">
+          Date & Time <span className="text-destructive">*</span>
+        </Label>
+        <Input
           type="datetime-local"
           id="datetime"
           value={datetime}
@@ -193,17 +188,19 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
             }
           }}
           onBlur={(e) => handleBlur('datetime', e.target.value)}
-          className={touched.datetime && errors.datetime ? 'input-error' : ''}
+          error={touched.datetime && !!errors.datetime}
           max={toLocalDatetimeString(new Date())}
         />
-        {touched.datetime && errors.datetime && <span className="field-error">{errors.datetime}</span>}
+        {touched.datetime && errors.datetime && (
+          <span className="block text-xs text-destructive mt-1">{errors.datetime}</span>
+        )}
       </div>
 
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <label htmlFor="drug">
-          Medication <span className="required-mark">*</span>
-        </label>
-        <select
+      <div className="mb-4">
+        <Label htmlFor="drug" className="mb-2 block">
+          Medication <span className="text-destructive">*</span>
+        </Label>
+        <Select
           id="drug"
           value={drug}
           onChange={(e) => {
@@ -213,7 +210,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
             }
           }}
           onBlur={(e) => handleBlur('drug', e.target.value)}
-          className={touched.drug && errors.drug ? 'input-error' : ''}
+          error={touched.drug && !!errors.drug}
         >
           <option value="">Select medication</option>
           {allDrugs.map((d) => (
@@ -221,23 +218,16 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
               {d}
             </option>
           ))}
-        </select>
-        {touched.drug && errors.drug && <span className="field-error">{errors.drug}</span>}
+        </Select>
+        {touched.drug && errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug}</span>}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 'var(--space-4)',
-          marginBottom: 'var(--space-4)',
-        }}
-      >
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label htmlFor="dosage">
-            Dosage <span className="required-mark">*</span>
-          </label>
-          <input
+          <Label htmlFor="dosage" className="mb-2 block">
+            Dosage <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="text"
             id="dosage"
             value={dosage}
@@ -250,19 +240,23 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
             onBlur={(e) => handleBlur('dosage', e.target.value)}
             list="dosage-suggestions"
             placeholder="e.g., 2.5mg"
-            className={touched.dosage && errors.dosage ? 'input-error' : ''}
+            error={touched.dosage && !!errors.dosage}
           />
           <datalist id="dosage-suggestions">
             {dosageSuggestions.map((d) => (
               <option key={d} value={d} />
             ))}
           </datalist>
-          {touched.dosage && errors.dosage && <span className="field-error">{errors.dosage}</span>}
+          {touched.dosage && errors.dosage && (
+            <span className="block text-xs text-destructive mt-1">{errors.dosage}</span>
+          )}
         </div>
 
         <div>
-          <label htmlFor="source">Source</label>
-          <input
+          <Label htmlFor="source" className="mb-2 block">
+            Source
+          </Label>
+          <Input
             type="text"
             id="source"
             value={source}
@@ -272,22 +266,26 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
         </div>
       </div>
 
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <label htmlFor="injectionSite">Injection Site</label>
-        <select id="injectionSite" value={injectionSite} onChange={(e) => setInjectionSite(e.target.value)}>
+      <div className="mb-4">
+        <Label htmlFor="injectionSite" className="mb-2 block">
+          Injection Site
+        </Label>
+        <Select id="injectionSite" value={injectionSite} onChange={(e) => setInjectionSite(e.target.value)}>
           <option value="">Select site (optional)</option>
           {allSites.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-        <p className="field-hint">Rotating injection sites helps prevent lipodystrophy</p>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">Rotating injection sites helps prevent lipodystrophy</p>
       </div>
 
-      <div style={{ marginBottom: 'var(--space-5)' }}>
-        <label htmlFor="notes">Notes</label>
-        <textarea
+      <div className="mb-5">
+        <Label htmlFor="notes" className="mb-2 block">
+          Notes
+        </Label>
+        <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -296,13 +294,13 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
         />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
+        </Button>
+        <Button type="submit" disabled={loading || !isValid}>
           {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
-        </button>
+        </Button>
       </div>
     </form>
   )

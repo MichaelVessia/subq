@@ -2,6 +2,9 @@ import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate } from '@scale/shared'
 import { useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
+import { Button } from '../ui/button.js'
+import { Card } from '../ui/card.js'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
 
 export function InjectionLogList() {
@@ -52,50 +55,41 @@ export function InjectionLogList() {
     }).format(new Date(date))
 
   if (Result.isWaiting(logsResult)) {
-    return <div className="loading">Loading...</div>
+    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
   }
 
   const logs = Result.getOrElse(logsResult, () => [])
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 'var(--space-6)',
-        }}
-      >
-        <h2>Injection Log</h2>
-        <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Add Entry
-        </button>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold tracking-tight">Injection Log</h2>
+        <Button onClick={() => setShowForm(true)}>Add Entry</Button>
       </div>
 
       {showForm && (
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
+        <Card className="mb-6 p-6">
           <InjectionLogForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
-        </div>
+        </Card>
       )}
 
       {logs.length > 0 ? (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Drug</th>
-                <th>Dosage</th>
-                <th>Site</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Drug</TableHead>
+                <TableHead>Dosage</TableHead>
+                <TableHead>Site</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {logs.map((log) =>
                 editingLog?.id === log.id ? (
-                  <tr key={log.id}>
-                    <td colSpan={5} style={{ padding: 'var(--space-4)' }}>
+                  <TableRow key={log.id}>
+                    <TableCell colSpan={5} className="p-4">
                       <InjectionLogForm
                         onSubmit={handleCreate}
                         onUpdate={handleUpdate}
@@ -110,37 +104,30 @@ export function InjectionLogList() {
                           notes: log.notes,
                         }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  <tr key={log.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
-                      {formatDate(log.datetime)}
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{log.drug}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{log.dosage}</td>
-                    <td className="text-secondary text-sm">{log.injectionSite ?? '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ marginRight: 'var(--space-2)' }}
-                        onClick={() => handleEdit(log)}
-                      >
+                  <TableRow key={log.id}>
+                    <TableCell className="font-mono text-sm">{formatDate(log.datetime)}</TableCell>
+                    <TableCell className="font-medium">{log.drug}</TableCell>
+                    <TableCell className="font-mono">{log.dosage}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{log.injectionSite ?? '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEdit(log)}>
                         Edit
-                      </button>
-                      <button type="button" className="btn btn-danger" onClick={() => handleDelete(log.id)}>
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(log.id)}>
                         Delete
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ),
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       ) : (
-        <div className="empty-state">No entries yet. Add your first injection log.</div>
+        <div className="text-center py-12 text-muted-foreground">No entries yet. Add your first injection log.</div>
       )}
     </div>
   )

@@ -1,17 +1,8 @@
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { signOut, useSession } from '../../auth.js'
+import { cn } from '../../lib/utils.js'
+import { Button } from '../ui/button.js'
 import { LoginForm } from './LoginForm.js'
-
-const navLinkStyle = (active: boolean): React.CSSProperties => ({
-  padding: '0.25rem 0',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 500,
-  color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
-  borderBottom: active ? '2px solid var(--color-text)' : '2px solid transparent',
-  transition: 'color var(--transition-fast)',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap',
-})
 
 export function RootLayout() {
   const { data: session, isPending } = useSession()
@@ -20,8 +11,8 @@ export function RootLayout() {
 
   if (isPending) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     )
   }
@@ -31,59 +22,59 @@ export function RootLayout() {
   }
 
   return (
-    <div
-      style={{
-        padding: 'var(--space-4) var(--space-4)',
-      }}
-      className="app-container"
-    >
-      <header className="app-header">
-        <div className="header-top">
-          <h1
-            style={{
-              fontSize: 'var(--text-lg)',
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Health Tracker
-          </h1>
+    <div className="max-w-7xl mx-auto p-4 sm:p-6">
+      <header className="flex flex-col gap-3 mb-6 pb-4 border-b sm:mb-8 sm:pb-5">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold tracking-tight">Health Tracker</h1>
 
-          <div className="header-user">
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{session.user.email}</span>
-            <button
-              type="button"
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline text-xs text-muted-foreground">{session.user.email}</span>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 signOut().then(() => {
-                  window.location.href = '/dashboard'
+                  window.location.href = '/stats'
                 })
-              }}
-              style={{
-                padding: 'var(--space-2) var(--space-3)',
-                fontSize: 'var(--text-xs)',
-                color: 'var(--color-text)',
-                background: 'none',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
               }}
             >
               Sign Out
-            </button>
+            </Button>
           </div>
         </div>
 
-        <nav className="app-nav">
-          <Link to="/dashboard" style={navLinkStyle(pathname === '/dashboard')}>
-            Dashboard
-          </Link>
-          <Link to="/stats" style={navLinkStyle(pathname === '/stats')}>
+        <nav className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-hide">
+          <Link
+            to="/stats"
+            className={cn(
+              'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              pathname === '/stats'
+                ? 'text-foreground border-foreground'
+                : 'text-muted-foreground border-transparent hover:text-foreground',
+            )}
+          >
             Stats
           </Link>
-          <Link to="/weight" style={navLinkStyle(pathname === '/weight')}>
+          <Link
+            to="/weight"
+            className={cn(
+              'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              pathname === '/weight'
+                ? 'text-foreground border-foreground'
+                : 'text-muted-foreground border-transparent hover:text-foreground',
+            )}
+          >
             Weight
           </Link>
-          <Link to="/injection" style={navLinkStyle(pathname === '/injection')}>
+          <Link
+            to="/injection"
+            className={cn(
+              'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              pathname === '/injection'
+                ? 'text-foreground border-foreground'
+                : 'text-muted-foreground border-transparent hover:text-foreground',
+            )}
+          >
             Injections
           </Link>
         </nav>
