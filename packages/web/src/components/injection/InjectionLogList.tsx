@@ -1,11 +1,27 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate } from '@scale/shared'
-import { useMemo, useState } from 'react'
+import { MoreHorizontal } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table.js'
+import { DataTable } from '../ui/data-table.js'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu.js'
 import { InjectionLogForm } from './InjectionLogForm.js'
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(date))
 
 export function InjectionLogList() {
   const injectionLogAtom = useMemo(() => createInjectionLogListAtom(), [])
@@ -33,26 +49,77 @@ export function InjectionLogList() {
     setEditingLog(null)
   }
 
-  const handleEdit = (log: InjectionLog) => {
+  const handleEdit = useCallback((log: InjectionLog) => {
     setEditingLog(log)
     setShowForm(false)
-  }
+  }, [])
 
   const handleCancelEdit = () => {
     setEditingLog(null)
   }
 
-  const handleDelete = async (id: InjectionLogId) => {
-    if (confirm('Delete this entry?')) {
-      await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.injectionLogs] })
-    }
-  }
+  const handleDelete = useCallback(
+    async (id: InjectionLogId) => {
+      if (confirm('Delete this entry?')) {
+        await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.injectionLogs] })
+      }
+    },
+    [deleteLog],
+  )
 
-  const formatDate = (date: Date) =>
-    new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(date))
+  const columns: ColumnDef<InjectionLog>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'datetime',
+        header: 'Date',
+        cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
+      },
+      {
+        accessorKey: 'drug',
+        header: 'Drug',
+        cell: ({ row }) => <span className="font-medium">{row.getValue('drug')}</span>,
+      },
+      {
+        accessorKey: 'dosage',
+        header: 'Dosage',
+        cell: ({ row }) => <span className="font-mono">{row.getValue('dosage')}</span>,
+      },
+      {
+        accessorKey: 'injectionSite',
+        header: 'Site',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-sm">{row.getValue('injectionSite') ?? '-'}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+          const log = row.original
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleEdit(log)}>Edit</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(log.id)}>
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ],
+    [handleDelete, handleEdit],
+  )
 
   if (Result.isWaiting(logsResult)) {
     return <div className="p-6 text-center text-muted-foreground">Loading...</div>
@@ -73,59 +140,27 @@ export function InjectionLogList() {
         </Card>
       )}
 
-      {logs.length > 0 ? (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Drug</TableHead>
-                <TableHead>Dosage</TableHead>
-                <TableHead>Site</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) =>
-                editingLog?.id === log.id ? (
-                  <TableRow key={log.id}>
-                    <TableCell colSpan={5} className="p-4">
-                      <InjectionLogForm
-                        onSubmit={handleCreate}
-                        onUpdate={handleUpdate}
-                        onCancel={handleCancelEdit}
-                        initialData={{
-                          id: log.id,
-                          datetime: log.datetime,
-                          drug: log.drug,
-                          source: log.source,
-                          dosage: log.dosage,
-                          injectionSite: log.injectionSite,
-                          notes: log.notes,
-                        }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-mono text-sm">{formatDate(log.datetime)}</TableCell>
-                    <TableCell className="font-medium">{log.drug}</TableCell>
-                    <TableCell className="font-mono">{log.dosage}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{log.injectionSite ?? '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEdit(log)}>
-                        Edit
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(log.id)}>
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ),
-              )}
-            </TableBody>
-          </Table>
+      {editingLog && (
+        <Card className="mb-6 p-6">
+          <InjectionLogForm
+            onSubmit={handleCreate}
+            onUpdate={handleUpdate}
+            onCancel={handleCancelEdit}
+            initialData={{
+              id: editingLog.id,
+              datetime: editingLog.datetime,
+              drug: editingLog.drug,
+              source: editingLog.source,
+              dosage: editingLog.dosage,
+              injectionSite: editingLog.injectionSite,
+              notes: editingLog.notes,
+            }}
+          />
         </Card>
+      )}
+
+      {logs.length > 0 ? (
+        <DataTable columns={columns} data={[...logs]} />
       ) : (
         <div className="text-center py-12 text-muted-foreground">No entries yet. Add your first injection log.</div>
       )}

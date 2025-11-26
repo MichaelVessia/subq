@@ -1,11 +1,27 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import type { ColumnDef } from '@tanstack/react-table'
 import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@scale/shared'
-import { useMemo, useState } from 'react'
+import { MoreHorizontal } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table.js'
+import { DataTable } from '../ui/data-table.js'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu.js'
 import { WeightLogForm } from './WeightLogForm.js'
+
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(date))
 
 export function WeightLogList() {
   const weightLogAtom = useMemo(() => createWeightLogListAtom(), [])
@@ -27,26 +43,74 @@ export function WeightLogList() {
     setEditingLog(null)
   }
 
-  const handleEdit = (log: WeightLog) => {
+  const handleEdit = useCallback((log: WeightLog) => {
     setEditingLog(log)
     setShowForm(false)
-  }
+  }, [])
 
   const handleCancelEdit = () => {
     setEditingLog(null)
   }
 
-  const handleDelete = async (id: WeightLogId) => {
-    if (confirm('Delete this entry?')) {
-      await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.weightLogs] })
-    }
-  }
+  const handleDelete = useCallback(
+    async (id: WeightLogId) => {
+      if (confirm('Delete this entry?')) {
+        await deleteLog({ payload: { id }, reactivityKeys: [ReactivityKeys.weightLogs] })
+      }
+    },
+    [deleteLog],
+  )
 
-  const formatDate = (date: Date) =>
-    new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(date))
+  const columns: ColumnDef<WeightLog>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'datetime',
+        header: 'Date',
+        cell: ({ row }) => <span className="font-mono text-sm">{formatDate(row.getValue('datetime'))}</span>,
+      },
+      {
+        accessorKey: 'weight',
+        header: 'Weight',
+        cell: ({ row }) => (
+          <span className="font-mono font-medium">
+            {row.getValue('weight')} {row.original.unit}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'notes',
+        header: 'Notes',
+        cell: ({ row }) => <span className="text-muted-foreground text-sm">{row.getValue('notes') ?? '-'}</span>,
+      },
+      {
+        id: 'actions',
+        enableHiding: false,
+        cell: ({ row }) => {
+          const log = row.original
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleEdit(log)}>Edit</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(log.id)}>
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ],
+    [handleDelete, handleEdit],
+  )
 
   if (Result.isWaiting(logsResult)) {
     return <div className="p-6 text-center text-muted-foreground">Loading...</div>
@@ -67,57 +131,25 @@ export function WeightLogList() {
         </Card>
       )}
 
-      {logs.length > 0 ? (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Weight</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) =>
-                editingLog?.id === log.id ? (
-                  <TableRow key={log.id}>
-                    <TableCell colSpan={4} className="p-4">
-                      <WeightLogForm
-                        onSubmit={handleCreate}
-                        onUpdate={handleUpdate}
-                        onCancel={handleCancelEdit}
-                        initialData={{
-                          id: log.id,
-                          datetime: log.datetime,
-                          weight: log.weight,
-                          unit: log.unit,
-                          notes: log.notes,
-                        }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-mono text-sm">{formatDate(log.datetime)}</TableCell>
-                    <TableCell className="font-mono font-medium">
-                      {log.weight} {log.unit}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{log.notes ?? '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEdit(log)}>
-                        Edit
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(log.id)}>
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ),
-              )}
-            </TableBody>
-          </Table>
+      {editingLog && (
+        <Card className="mb-6 p-6">
+          <WeightLogForm
+            onSubmit={handleCreate}
+            onUpdate={handleUpdate}
+            onCancel={handleCancelEdit}
+            initialData={{
+              id: editingLog.id,
+              datetime: editingLog.datetime,
+              weight: editingLog.weight,
+              unit: editingLog.unit,
+              notes: editingLog.notes,
+            }}
+          />
         </Card>
+      )}
+
+      {logs.length > 0 ? (
+        <DataTable columns={columns} data={[...logs]} />
       ) : (
         <div className="text-center py-12 text-muted-foreground">No entries yet. Add your first weight log.</div>
       )}
