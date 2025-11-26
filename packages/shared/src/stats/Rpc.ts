@@ -1,8 +1,6 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
 import {
-  DashboardStats,
-  DashboardStatsParams,
   DosageHistoryStats,
   DrugBreakdownStats,
   InjectionDayOfWeekStats,
@@ -18,13 +16,6 @@ import {
 // ============================================
 
 export const StatsRpcs = RpcGroup.make(
-  // Dashboard Stats RPC
-  Rpc.make('GetDashboardStats', {
-    payload: DashboardStatsParams,
-    success: Schema.NullOr(DashboardStats),
-  }),
-
-  // Stats Page RPCs
   Rpc.make('GetWeightStats', {
     payload: StatsParams,
     success: Schema.NullOr(WeightStats),

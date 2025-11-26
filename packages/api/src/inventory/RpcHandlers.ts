@@ -3,6 +3,7 @@ import {
   type InventoryCreate,
   type InventoryListParams,
   type InventoryMarkFinished,
+  type InventoryMarkOpened,
   InventoryRpcs,
 } from '@scale/shared'
 import { Effect, Option } from 'effect'
@@ -65,6 +66,14 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
           yield* Effect.logInfo('InventoryMarkFinished called', { id })
           const result = yield* inventoryRepo.markFinished(id)
           yield* Effect.logInfo('InventoryMarkFinished completed', { id })
+          return result
+        }),
+
+      InventoryMarkOpened: ({ id }: InventoryMarkOpened) =>
+        Effect.gen(function* () {
+          yield* Effect.logInfo('InventoryMarkOpened called', { id })
+          const result = yield* inventoryRepo.markOpened(id)
+          yield* Effect.logInfo('InventoryMarkOpened completed', { id })
           return result
         }),
     }

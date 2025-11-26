@@ -230,9 +230,9 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
     g.append('g').attr('class', 'brush').call(brush).selectAll('rect').attr('rx', 3).attr('ry', 3)
 
     g.select('.brush .selection')
-      .attr('fill', 'rgb(var(--foreground))')
+      .attr('fill', 'var(--foreground)')
       .attr('fill-opacity', 0.1)
-      .attr('stroke', 'rgb(var(--foreground))')
+      .attr('stroke', 'var(--foreground)')
       .attr('stroke-opacity', 0.3)
 
     for (const segment of segments) {
@@ -256,7 +256,7 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .attr('cy', (d) => yScale(d.weight))
       .attr('r', 4)
       .attr('fill', (d) => d.color)
-      .attr('stroke', 'rgb(var(--card))')
+      .attr('stroke', 'var(--card)')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
@@ -588,7 +588,7 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       .attr('cy', (d) => yScale(d.dosageValue))
       .attr('r', 4)
       .attr('fill', (d) => d.color)
-      .attr('stroke', 'rgb(var(--card))')
+      .attr('stroke', 'var(--card)')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { cn } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 
@@ -264,7 +263,6 @@ export function TimeRangeSelector({
             onClick={() => onPresetChange(key)}
             variant={activePreset === key ? 'default' : 'outline'}
             size="sm"
-            className={cn(activePreset === key && 'bg-foreground text-background hover:bg-foreground/90')}
           >
             {TIME_RANGES[key].label}
           </Button>

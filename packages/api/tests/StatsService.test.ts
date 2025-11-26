@@ -1,6 +1,5 @@
 import {
   Count,
-  DashboardStats,
   DayOfWeek,
   DayOfWeekCount,
   DaysBetween,
@@ -17,14 +16,11 @@ import {
   InjectionSiteCount,
   InjectionSiteStats,
   InjectionsPerWeek,
-  Percentage,
   Weight,
-  WeeklyChange,
   WeightRateOfChange,
   WeightStats,
   WeightTrendPoint,
   WeightTrendStats,
-  type DashboardStatsParams,
   type StatsParams,
 } from '@scale/shared'
 import { Effect, Layer } from 'effect'
@@ -72,40 +68,6 @@ const clearData = () => {
 }
 
 const StatsServiceTest = Layer.sync(StatsService, () => ({
-  getDashboardStats: (params: DashboardStatsParams, _userId: string) =>
-    Effect.sync(() => {
-      let filtered = weightStore
-      if (params.startDate) {
-        filtered = filtered.filter((e) => e.datetime >= params.startDate!)
-      }
-      if (params.endDate) {
-        filtered = filtered.filter((e) => e.datetime <= params.endDate!)
-      }
-      filtered.sort((a, b) => a.datetime.getTime() - b.datetime.getTime())
-
-      if (filtered.length < 2) return null
-
-      const startWeight = filtered[0]!.weight
-      const endWeight = filtered[filtered.length - 1]!.weight
-      const totalChange = endWeight - startWeight
-      const percentChange = (totalChange / startWeight) * 100
-      const daysDiff =
-        (filtered[filtered.length - 1]!.datetime.getTime() - filtered[0]!.datetime.getTime()) / (1000 * 60 * 60 * 24)
-      const weeks = daysDiff / 7
-      const weeklyAvg = weeks > 0 ? totalChange / weeks : 0
-
-      return new DashboardStats({
-        startWeight: Weight.make(startWeight),
-        endWeight: Weight.make(endWeight),
-        totalChange: WeeklyChange.make(totalChange),
-        percentChange: Percentage.make(percentChange),
-        weeklyAvg: WeeklyChange.make(weeklyAvg),
-        dataPointCount: Count.make(filtered.length),
-        periodStart: filtered[0]!.datetime,
-        periodEnd: filtered[filtered.length - 1]!.datetime,
-      })
-    }),
-
   getWeightStats: (params: StatsParams, _userId: string) =>
     Effect.sync(() => {
       let filtered = weightStore
@@ -320,66 +282,6 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
 // ============================================
 
 describe('StatsService', () => {
-  describe('getDashboardStats', () => {
-    it.effect('returns null when less than 2 data points', () =>
-      Effect.gen(function* () {
-        clearData()
-        seedWeightData([{ datetime: new Date('2024-01-15T10:00:00Z'), weight: 185 }])
-
-        const stats = yield* StatsService
-        const result = yield* stats.getDashboardStats({}, 'user-123')
-        expect(result).toBeNull()
-      }).pipe(Effect.provide(StatsServiceTest)),
-    )
-
-    it.effect('calculates dashboard stats correctly', () =>
-      Effect.gen(function* () {
-        clearData()
-        seedWeightData([
-          { datetime: new Date('2024-01-01T10:00:00Z'), weight: 200 },
-          { datetime: new Date('2024-01-08T10:00:00Z'), weight: 198 },
-          { datetime: new Date('2024-01-15T10:00:00Z'), weight: 196 },
-        ])
-
-        const stats = yield* StatsService
-        const result = yield* stats.getDashboardStats({}, 'user-123')
-
-        expect(result).not.toBeNull()
-        expect(result!.startWeight).toBe(200)
-        expect(result!.endWeight).toBe(196)
-        expect(result!.totalChange).toBe(-4)
-        expect(result!.percentChange).toBe(-2) // -4/200 * 100
-        expect(result!.dataPointCount).toBe(3)
-      }).pipe(Effect.provide(StatsServiceTest)),
-    )
-
-    it.effect('filters by date range', () =>
-      Effect.gen(function* () {
-        clearData()
-        seedWeightData([
-          { datetime: new Date('2024-01-01T10:00:00Z'), weight: 200 },
-          { datetime: new Date('2024-01-08T10:00:00Z'), weight: 198 },
-          { datetime: new Date('2024-01-15T10:00:00Z'), weight: 196 },
-          { datetime: new Date('2024-01-22T10:00:00Z'), weight: 194 },
-        ])
-
-        const stats = yield* StatsService
-        const result = yield* stats.getDashboardStats(
-          {
-            startDate: new Date('2024-01-07T00:00:00Z'),
-            endDate: new Date('2024-01-20T00:00:00Z'),
-          },
-          'user-123',
-        )
-
-        expect(result).not.toBeNull()
-        expect(result!.startWeight).toBe(198) // Jan 8
-        expect(result!.endWeight).toBe(196) // Jan 15
-        expect(result!.dataPointCount).toBe(2)
-      }).pipe(Effect.provide(StatsServiceTest)),
-    )
-  })
-
   describe('getWeightStats', () => {
     it.effect('returns null when no data', () =>
       Effect.gen(function* () {

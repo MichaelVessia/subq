@@ -7,6 +7,7 @@ import {
   InventoryDelete,
   InventoryListParams,
   InventoryMarkFinished,
+  InventoryMarkOpened,
   InventoryUpdate,
 } from './Inventory.js'
 
@@ -42,6 +43,11 @@ export const InventoryRpcs = RpcGroup.make(
   }),
   Rpc.make('InventoryMarkFinished', {
     payload: InventoryMarkFinished,
+    success: Inventory,
+    error: Schema.Union(InventoryNotFoundError, InventoryDatabaseError),
+  }),
+  Rpc.make('InventoryMarkOpened', {
+    payload: InventoryMarkOpened,
     success: Inventory,
     error: Schema.Union(InventoryNotFoundError, InventoryDatabaseError),
   }),

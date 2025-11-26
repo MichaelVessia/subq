@@ -1,8 +1,6 @@
 import { SqlClient } from '@effect/sql'
 import {
   Count,
-  DashboardStats,
-  type DashboardStatsParams,
   DayOfWeek,
   DayOfWeekCount,
   DaysBetween,
@@ -19,14 +17,12 @@ import {
   InjectionSiteStats,
   InjectionsPerWeek,
   InjectionSite,
-  Percentage,
   type StatsParams,
   Weight,
   WeightRateOfChange,
   WeightStats,
   WeightTrendPoint,
   WeightTrendStats,
-  WeeklyChange,
 } from '@scale/shared'
 import { Effect, Layer, Schema } from 'effect'
 
@@ -39,16 +35,6 @@ const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
   decode: (s) => new Date(s),
   encode: (d) => d.toISOString(),
 })
-
-const StatsRow = Schema.Struct({
-  start_weight: Schema.NullOr(Schema.Number),
-  end_weight: Schema.NullOr(Schema.Number),
-  start_date: Schema.NullOr(DateFromString),
-  end_date: Schema.NullOr(DateFromString),
-  data_point_count: Schema.Number,
-})
-
-const decodeRow = Schema.decodeUnknown(StatsRow)
 
 // Weight stats row schema
 const WeightStatsRow = Schema.Struct({
@@ -113,7 +99,6 @@ const decodeDayOfWeekCountRow = Schema.decodeUnknown(DayOfWeekCountRow)
 export class StatsService extends Effect.Tag('StatsService')<
   StatsService,
   {
-    readonly getDashboardStats: (params: DashboardStatsParams, userId: string) => Effect.Effect<DashboardStats | null>
     readonly getWeightStats: (params: StatsParams, userId: string) => Effect.Effect<WeightStats | null>
     readonly getWeightTrend: (params: StatsParams, userId: string) => Effect.Effect<WeightTrendStats>
     readonly getInjectionSiteStats: (params: StatsParams, userId: string) => Effect.Effect<InjectionSiteStats>
@@ -137,65 +122,6 @@ export const StatsServiceLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     return {
-      getDashboardStats: (params, userId) =>
-        Effect.gen(function* () {
-          // Single query to get first/last weights and count within date range
-          // This is more efficient than fetching all data to the client
-          const startDateStr = params.startDate?.toISOString()
-          const endDateStr = params.endDate?.toISOString()
-          const rows = yield* sql`
-            WITH filtered AS (
-              SELECT datetime, weight
-              FROM weight_logs
-              WHERE user_id = ${userId}
-              ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-              ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-              ORDER BY datetime
-            ),
-            stats AS (
-              SELECT
-                (SELECT weight FROM filtered ORDER BY datetime ASC LIMIT 1) as start_weight,
-                (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1) as end_weight,
-                (SELECT datetime FROM filtered ORDER BY datetime ASC LIMIT 1) as start_date,
-                (SELECT datetime FROM filtered ORDER BY datetime DESC LIMIT 1) as end_date,
-                COUNT(*) as data_point_count
-              FROM filtered
-            )
-            SELECT * FROM stats
-          `
-
-          if (rows.length === 0) return null
-
-          const decoded = yield* decodeRow(rows[0])
-
-          // Need at least 2 data points for meaningful stats
-          const count = decoded.data_point_count
-          if (count < 2 || !decoded.start_weight || !decoded.end_weight || !decoded.start_date || !decoded.end_date) {
-            return null
-          }
-
-          const startWeight = Weight.make(decoded.start_weight)
-          const endWeight = Weight.make(decoded.end_weight)
-          const totalChangeNum = decoded.end_weight - decoded.start_weight
-          const percentChangeNum = (totalChangeNum / decoded.start_weight) * 100
-
-          // Calculate weekly average
-          const daysDiff = (decoded.end_date.getTime() - decoded.start_date.getTime()) / (1000 * 60 * 60 * 24)
-          const weeks = daysDiff / 7
-          const weeklyAvgNum = weeks > 0 ? totalChangeNum / weeks : 0
-
-          return new DashboardStats({
-            startWeight,
-            endWeight,
-            totalChange: WeeklyChange.make(totalChangeNum),
-            percentChange: Percentage.make(percentChangeNum),
-            weeklyAvg: WeeklyChange.make(weeklyAvgNum),
-            dataPointCount: Count.make(count),
-            periodStart: decoded.start_date,
-            periodEnd: decoded.end_date,
-          })
-        }).pipe(Effect.orDie),
-
       getWeightStats: (params, userId) =>
         Effect.gen(function* () {
           const startDateStr = params.startDate?.toISOString()

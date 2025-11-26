@@ -63,6 +63,7 @@ export class InventoryRepo extends Effect.Tag('InventoryRepo')<
     ) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
     readonly delete: (id: string) => Effect.Effect<boolean, InventoryDatabaseError>
     readonly markFinished: (id: string) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
+    readonly markOpened: (id: string) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
   }
 >() {}
 
@@ -191,6 +192,34 @@ export const InventoryRepoLive = Layer.effect(
           yield* sql`
             UPDATE glp1_inventory
             SET status = 'finished', updated_at = ${now}
+            WHERE id = ${id}
+          `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })))
+
+          const rows = yield* sql`
+            SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
+            FROM glp1_inventory
+            WHERE id = ${id}
+          `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
+
+          return yield* decodeAndTransform(rows[0]).pipe(
+            Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })),
+          )
+        }),
+
+      markOpened: (id) =>
+        Effect.gen(function* () {
+          const current = yield* sql`
+            SELECT id FROM glp1_inventory WHERE id = ${id}
+          `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
+
+          if (current.length === 0) {
+            return yield* InventoryNotFoundError.make({ id })
+          }
+
+          const now = new Date().toISOString()
+          yield* sql`
+            UPDATE glp1_inventory
+            SET status = 'opened', updated_at = ${now}
             WHERE id = ${id}
           `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })))
 

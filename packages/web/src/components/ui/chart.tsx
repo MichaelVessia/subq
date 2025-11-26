@@ -105,7 +105,7 @@ export function SimplePieChart({
             labelLine={false}
           >
             {data.map((item, index) => (
-              <Cell key={item.name} fill={colors[index % colors.length]} stroke="rgb(var(--card))" strokeWidth={2} />
+              <Cell key={item.name} fill={colors[index % colors.length]} stroke="var(--card)" strokeWidth={2} />
             ))}
           </Pie>
           <Tooltip
@@ -176,7 +176,7 @@ export function SimpleHorizontalBarChart({ data, colors, className }: SimpleHori
             dataKey="name"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'rgb(var(--foreground))', fontSize: 12 }}
+            tick={{ fill: 'var(--foreground)', fontSize: 12 }}
             width={75}
           />
           <Tooltip
@@ -196,7 +196,7 @@ export function SimpleHorizontalBarChart({ data, colors, className }: SimpleHori
             dataKey="value"
             radius={[0, 4, 4, 0]}
             barSize={24}
-            label={{ position: 'right', fill: 'rgb(var(--muted-foreground))', fontSize: 12 }}
+            label={{ position: 'right', fill: 'var(--muted-foreground)', fontSize: 12 }}
           >
             {data.map((item, index) => (
               <Cell key={item.name} fill={colors[index % colors.length]} />

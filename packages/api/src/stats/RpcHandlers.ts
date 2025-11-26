@@ -1,4 +1,4 @@
-import { AuthContext, type DashboardStatsParams, type StatsParams, StatsRpcs } from '@scale/shared'
+import { AuthContext, type StatsParams, StatsRpcs } from '@scale/shared'
 import { Effect } from 'effect'
 import { StatsService } from './StatsService.js'
 
@@ -8,17 +8,6 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     const statsService = yield* StatsService
 
     return {
-      // Dashboard stats
-      GetDashboardStats: (params: DashboardStatsParams) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('GetDashboardStats called', { userId: user.id, params })
-          const result = yield* statsService.getDashboardStats(params, user.id)
-          yield* Effect.logInfo('GetDashboardStats completed', { userId: user.id, hasData: !!result })
-          return result
-        }),
-
-      // Stats page endpoints
       GetWeightStats: (params: StatsParams) =>
         Effect.gen(function* () {
           const { user } = yield* AuthContext

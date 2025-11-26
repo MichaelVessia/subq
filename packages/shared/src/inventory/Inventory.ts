@@ -76,6 +76,13 @@ export class InventoryMarkFinished extends Schema.Class<InventoryMarkFinished>('
 }) {}
 
 /**
+ * Payload for marking an inventory item as opened.
+ */
+export class InventoryMarkOpened extends Schema.Class<InventoryMarkOpened>('InventoryMarkOpened')({
+  id: InventoryId,
+}) {}
+
+/**
  * Parameters for listing inventory.
  */
 export class InventoryListParams extends Schema.Class<InventoryListParams>('InventoryListParams')({

@@ -36,6 +36,7 @@ export function InventoryList() {
   const updateItem = useAtomSet(ApiClient.mutation('InventoryUpdate'), { mode: 'promise' })
   const deleteItem = useAtomSet(ApiClient.mutation('InventoryDelete'), { mode: 'promise' })
   const markFinished = useAtomSet(ApiClient.mutation('InventoryMarkFinished'), { mode: 'promise' })
+  const markOpened = useAtomSet(ApiClient.mutation('InventoryMarkOpened'), { mode: 'promise' })
 
   const handleCreate = async (data: InventoryCreate) => {
     await createItem({ payload: data, reactivityKeys: [ReactivityKeys.inventory] })
@@ -70,6 +71,13 @@ export function InventoryList() {
       await markFinished({ payload: { id }, reactivityKeys: [ReactivityKeys.inventory] })
     },
     [markFinished],
+  )
+
+  const handleMarkOpened = useCallback(
+    async (id: InventoryId) => {
+      await markOpened({ payload: { id }, reactivityKeys: [ReactivityKeys.inventory] })
+    },
+    [markOpened],
   )
 
   if (Result.isWaiting(inventoryResult)) {
@@ -132,6 +140,9 @@ export function InventoryList() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    {item.status === 'new' && (
+                      <DropdownMenuItem onClick={() => handleMarkOpened(item.id)}>Mark Opened</DropdownMenuItem>
+                    )}
                     {item.status !== 'finished' && (
                       <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>Mark Finished</DropdownMenuItem>
                     )}
