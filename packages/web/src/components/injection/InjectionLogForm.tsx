@@ -203,8 +203,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
         <label htmlFor="drug">
           Medication <span className="required-mark">*</span>
         </label>
-        <input
-          type="text"
+        <select
           id="drug"
           value={drug}
           onChange={(e) => {
@@ -214,15 +213,15 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: 
             }
           }}
           onBlur={(e) => handleBlur('drug', e.target.value)}
-          list="drug-suggestions"
-          placeholder="Select or type medication name"
           className={touched.drug && errors.drug ? 'input-error' : ''}
-        />
-        <datalist id="drug-suggestions">
+        >
+          <option value="">Select medication</option>
           {allDrugs.map((d) => (
-            <option key={d} value={d} />
+            <option key={d} value={d}>
+              {d}
+            </option>
           ))}
-        </datalist>
+        </select>
         {touched.drug && errors.drug && <span className="field-error">{errors.drug}</span>}
       </div>
 
