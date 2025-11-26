@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
-import { Limit, Notes, Offset, Weight, WeightLogId } from './Brand.js'
+import { Limit, Notes, Offset } from '../common/Brand.js'
+import { Weight, WeightLogId } from './Brand.js'
 
 // ============================================
 // Enums / Literals

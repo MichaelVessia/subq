@@ -1,117 +1,15 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
-import { Schema } from 'effect'
 import { AuthRpcMiddleware } from './AuthMiddleware.js'
-import {
-  DashboardStats,
-  DashboardStatsParams,
-  DosageHistoryStats,
-  DrugBreakdownStats,
-  InjectionDayOfWeekStats,
-  InjectionFrequencyStats,
-  InjectionLog,
-  InjectionLogCreate,
-  InjectionLogDelete,
-  InjectionLogListParams,
-  InjectionLogUpdate,
-  InjectionSiteStats,
-  StatsParams,
-  WeightLog,
-  WeightLogCreate,
-  WeightLogDelete,
-  WeightLogListParams,
-  WeightLogUpdate,
-  WeightStats,
-  WeightTrendStats,
-} from './domain/index.js'
+import { InjectionRpcs } from './injection/Rpc.js'
+import { StatsRpcs } from './stats/Rpc.js'
+import { WeightRpcs } from './weight/Rpc.js'
 
 // ============================================
-// Combined App RPCs - All RPCs in one group
+// Combined App RPCs - Merge all domain RPCs
 // ============================================
 
-export const AppRpcs = RpcGroup.make(
-  // Weight Log RPCs
-  Rpc.make('WeightLogList', {
-    payload: WeightLogListParams,
-    success: Schema.Array(WeightLog),
-  }),
-  Rpc.make('WeightLogGet', {
-    payload: Schema.Struct({ id: Schema.String }),
-    success: Schema.NullOr(WeightLog),
-  }),
-  Rpc.make('WeightLogCreate', {
-    payload: WeightLogCreate,
-    success: WeightLog,
-  }),
-  Rpc.make('WeightLogUpdate', {
-    payload: WeightLogUpdate,
-    success: WeightLog,
-  }),
-  Rpc.make('WeightLogDelete', {
-    payload: WeightLogDelete,
-    success: Schema.Boolean,
-  }),
+export const AppRpcs = WeightRpcs.merge(InjectionRpcs).merge(StatsRpcs).middleware(AuthRpcMiddleware)
 
-  // Injection Log RPCs
-  Rpc.make('InjectionLogList', {
-    payload: InjectionLogListParams,
-    success: Schema.Array(InjectionLog),
-  }),
-  Rpc.make('InjectionLogGet', {
-    payload: Schema.Struct({ id: Schema.String }),
-    success: Schema.NullOr(InjectionLog),
-  }),
-  Rpc.make('InjectionLogCreate', {
-    payload: InjectionLogCreate,
-    success: InjectionLog,
-  }),
-  Rpc.make('InjectionLogUpdate', {
-    payload: InjectionLogUpdate,
-    success: InjectionLog,
-  }),
-  Rpc.make('InjectionLogDelete', {
-    payload: InjectionLogDelete,
-    success: Schema.Boolean,
-  }),
-  Rpc.make('InjectionLogGetDrugs', {
-    success: Schema.Array(Schema.String),
-  }),
-  Rpc.make('InjectionLogGetSites', {
-    success: Schema.Array(Schema.String),
-  }),
-
-  // Dashboard Stats RPC
-  Rpc.make('GetDashboardStats', {
-    payload: DashboardStatsParams,
-    success: Schema.NullOr(DashboardStats),
-  }),
-
-  // Stats Page RPCs
-  Rpc.make('GetWeightStats', {
-    payload: StatsParams,
-    success: Schema.NullOr(WeightStats),
-  }),
-  Rpc.make('GetWeightTrend', {
-    payload: StatsParams,
-    success: WeightTrendStats,
-  }),
-  Rpc.make('GetInjectionSiteStats', {
-    payload: StatsParams,
-    success: InjectionSiteStats,
-  }),
-  Rpc.make('GetDosageHistory', {
-    payload: StatsParams,
-    success: DosageHistoryStats,
-  }),
-  Rpc.make('GetInjectionFrequency', {
-    payload: StatsParams,
-    success: Schema.NullOr(InjectionFrequencyStats),
-  }),
-  Rpc.make('GetDrugBreakdown', {
-    payload: StatsParams,
-    success: DrugBreakdownStats,
-  }),
-  Rpc.make('GetInjectionByDayOfWeek', {
-    payload: StatsParams,
-    success: InjectionDayOfWeekStats,
-  }),
-).middleware(AuthRpcMiddleware)
+// Re-export domain RPCs for selective use
+export { WeightRpcs } from './weight/Rpc.js'
+export { InjectionRpcs } from './injection/Rpc.js'
+export { StatsRpcs } from './stats/Rpc.js'

@@ -6,10 +6,10 @@ import { AppRpcs } from '@scale/shared'
 import { Config, Effect, Layer } from 'effect'
 import { Pool } from 'pg'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
-import { RpcHandlersLive } from './RpcHandlers.js'
-import { RepositoriesLive } from './repositories/index.js'
+import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
+import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
+import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { SqlLive } from './Sql.js'
-import { StatsServiceLive } from './services/StatsService.js'
 
 // Auth configuration layer - creates better-auth instance with postgres
 const AuthLive = Layer.unwrapEffect(
@@ -31,6 +31,12 @@ const AuthLive = Layer.unwrapEffect(
     })
   }),
 )
+
+// Combine all domain RPC handlers
+const RpcHandlersLive = Layer.mergeAll(WeightRpcHandlersLive, InjectionRpcHandlersLive, StatsRpcHandlersLive)
+
+// Combined repositories layer
+const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive)
 
 // RPC handler layer with auth middleware
 const RpcLive = RpcServer.layer(AppRpcs).pipe(Layer.provide(RpcHandlersLive), Layer.provide(AuthRpcMiddlewareLive))

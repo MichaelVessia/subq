@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
-import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite, Limit, Notes, Offset } from './Brand.js'
+import { Limit, Notes, Offset } from '../common/Brand.js'
+import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite } from './Brand.js'
 
 // ============================================
 // Core Domain Type
