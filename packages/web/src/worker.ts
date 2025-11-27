@@ -2,7 +2,7 @@
  * Cloudflare Workers entrypoint for web frontend
  *
  * Serves static assets for the SPA.
- * The ASSETS binding is provided by Alchemy's Assets resource.
+ * Falls back to index.html for client-side routing.
  */
 
 interface Env {
@@ -14,7 +14,17 @@ interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Serve static assets
-    return env.ASSETS.fetch(request)
+    const url = new URL(request.url)
+
+    // Try to serve the requested asset
+    let response = await env.ASSETS.fetch(request)
+
+    // If not found and not a file request (no extension), serve index.html for SPA routing
+    if (response.status === 404 && !url.pathname.includes('.')) {
+      const indexRequest = new Request(new URL('/', request.url), request)
+      response = await env.ASSETS.fetch(indexRequest)
+    }
+
+    return response
   },
 }
