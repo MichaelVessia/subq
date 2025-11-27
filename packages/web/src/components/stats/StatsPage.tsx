@@ -214,7 +214,14 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
 
     const baseTopMargin = 40
     const extraMarginPerRow = PILL_HEIGHT + 2
-    const margin = { top: baseTopMargin + maxRow * extraMarginPerRow, right: 30, bottom: 40, left: 60 }
+    // Responsive margins - smaller on mobile
+    const isSmallScreen = containerWidth < 400
+    const margin = {
+      top: baseTopMargin + maxRow * extraMarginPerRow,
+      right: isSmallScreen ? 10 : 30,
+      bottom: 40,
+      left: isSmallScreen ? 35 : 60,
+    }
     const width = containerWidth - margin.left - margin.right
     const totalHeight = 320 + maxRow * extraMarginPerRow
     const height = totalHeight - margin.top - margin.bottom
@@ -583,26 +590,36 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .call(
         d3
           .axisBottom(xScale)
-          .ticks(5)
+          .ticks(isSmallScreen ? 3 : 5)
           .tickFormat(d3.timeFormat('%b %d') as (d: d3.NumberValue) => string),
       )
       .call((sel) => sel.select('.domain').attr('stroke', '#e5e7eb'))
       .call((sel) => sel.selectAll('.tick line').attr('stroke', '#e5e7eb'))
-      .call((sel) => sel.selectAll('.tick text').attr('fill', '#9ca3af').attr('font-size', '11px'))
+      .call((sel) =>
+        sel
+          .selectAll('.tick text')
+          .attr('fill', '#9ca3af')
+          .attr('font-size', isSmallScreen ? '9px' : '11px'),
+      )
 
     g.append('g')
-      .call(d3.axisLeft(yScale).ticks(5))
+      .call(d3.axisLeft(yScale).ticks(isSmallScreen ? 4 : 5))
       .call((sel) => sel.select('.domain').remove())
       .call((sel) => sel.selectAll('.tick line').remove())
-      .call((sel) => sel.selectAll('.tick text').attr('fill', '#9ca3af').attr('font-size', '11px'))
+      .call((sel) =>
+        sel
+          .selectAll('.tick text')
+          .attr('fill', '#9ca3af')
+          .attr('font-size', isSmallScreen ? '9px' : '11px'),
+      )
 
     g.append('text')
       .attr('transform', 'rotate(-90)')
-      .attr('y', -40)
+      .attr('y', isSmallScreen ? -25 : -40)
       .attr('x', -height / 2)
       .attr('text-anchor', 'middle')
       .attr('fill', '#9ca3af')
-      .attr('font-size', '11px')
+      .attr('font-size', isSmallScreen ? '9px' : '11px')
       .text('Weight (lbs)')
 
     // Interactive schedule hover zones at the bottom (rendered last to be on top)
