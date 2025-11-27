@@ -150,6 +150,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
   const svgRef = useRef<SVGSVGElement>(null)
   const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+  const [selectedDosage, setSelectedDosage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!svgRef.current || containerWidth === 0 || weightData.length === 0) return
@@ -356,11 +357,13 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
 
     for (const segment of segments) {
       if (segment.points.length < 2) continue
+      const isSegmentSelected = !selectedDosage || segment.color === getDosageColor(selectedDosage)
       g.append('path')
         .datum(segment.points)
         .attr('fill', 'none')
         .attr('stroke', segment.color)
-        .attr('stroke-width', 2)
+        .attr('stroke-width', isSegmentSelected ? 2 : 1)
+        .attr('opacity', isSegmentSelected ? 1 : 0.15)
         .attr('d', line)
     }
 
@@ -371,10 +374,20 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('class', 'weight-point')
       .attr('cx', (d) => xScale(d.date))
       .attr('cy', (d) => yScale(d.weight))
-      .attr('r', 4)
+      .attr('r', (d) => {
+        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
+        return isSelected ? 4 : 2
+      })
       .attr('fill', (d) => d.color)
       .attr('stroke', 'var(--card)')
-      .attr('stroke-width', 2)
+      .attr('stroke-width', (d) => {
+        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
+        return isSelected ? 2 : 1
+      })
+      .attr('opacity', (d) => {
+        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
+        return isSelected ? 1 : 0.15
+      })
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
         d3.select(this).attr('r', 6)
@@ -498,6 +511,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('class', 'injection-group')
       .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${-28 - rowOffset(d.row)})`)
       .style('cursor', 'pointer')
+      .on('click', (_event, d) => {
+        // Toggle selection: if clicking same dosage, deselect; otherwise select new
+        setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
+        setTooltip(null)
+      })
       .on('mouseenter', (event, d) => {
         setTooltip({
           content: (
@@ -505,6 +523,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
               <div className="font-semibold mb-0.5">Started {d.item.dosage}</div>
               <div className="opacity-70">{formatDate(d.item.displayDate)}</div>
               <div className="mt-1 text-[9px] opacity-60">{d.item.drug}</div>
+              {!selectedDosage && <div className="mt-1 text-[9px] opacity-50">Click to filter</div>}
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -524,6 +543,10 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('width', PILL_WIDTH_SINGLE)
       .attr('height', PILL_HEIGHT)
       .attr('fill', (d) => d.item.color)
+      .attr('opacity', (d) => {
+        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
+        return isSelected ? 1 : 0.25
+      })
 
     injectionGroup
       .append('text')
@@ -532,6 +555,10 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('fill', '#fff')
       .attr('font-size', '10px')
       .attr('font-weight', '600')
+      .attr('opacity', (d) => {
+        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
+        return isSelected ? 1 : 0.4
+      })
       .text((d) => d.item.dosage)
 
     g.selectAll('.injection-line')
@@ -546,7 +573,10 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('stroke', (d) => d.item.color)
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '3,3')
-      .attr('opacity', 0.4)
+      .attr('opacity', (d) => {
+        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
+        return isSelected ? 0.4 : 0.1
+      })
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -645,13 +675,22 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
           setTooltip(null)
         })
     }
-  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth])
+  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth, selectedDosage])
 
   return (
     <div ref={containerRef} className="relative w-full">
       <svg ref={svgRef} className="block cursor-crosshair" />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
-      {!zoomRange && (
+      {selectedDosage && (
+        <button
+          type="button"
+          onClick={() => setSelectedDosage(null)}
+          className="absolute top-2 right-2 text-xs bg-muted/80 hover:bg-muted px-2 py-1 rounded-md text-muted-foreground"
+        >
+          Clear filter: {selectedDosage}
+        </button>
+      )}
+      {!zoomRange && !selectedDosage && (
         <div className="absolute bottom-2 right-2 text-xs text-muted-foreground opacity-60">Drag to zoom</div>
       )}
     </div>
