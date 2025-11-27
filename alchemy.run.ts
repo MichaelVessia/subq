@@ -17,6 +17,7 @@ export const db = await D1Database("db", {
 export const api = await Worker("api", {
   name: `subq-api-${app.stage}`,
   entrypoint: "./packages/api/src/worker.ts",
+  adopt: true,
   url: true,
   domains: [{ domainName: "api.subq.vessia.net", adopt: true }],
   compatibility: "node",
@@ -36,6 +37,7 @@ const webAssets = await Assets({
 export const web = await Worker("web", {
   name: `subq-web-${app.stage}`,
   entrypoint: "./packages/web/src/worker.ts",
+  adopt: true,
   url: true,
   domains: [{ domainName: "subq.vessia.net", adopt: true }],
   bindings: {
