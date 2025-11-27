@@ -11,8 +11,12 @@ import { AppRpcs } from '@scale/shared'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle } from 'drizzle-orm/d1'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Schema } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, toWebHandler as authToWebHandler } from './auth/index.js'
+
+class AuthError extends Schema.TaggedError<AuthError>()('AuthError', {
+  cause: Schema.Defect,
+}) {}
 import * as schema from './db/schema.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
@@ -174,9 +178,30 @@ export default {
 
     // Auth routes
     if (url.pathname.startsWith('/api/auth/')) {
-      const auth = createAuth(env)
-      const authHandler = authToWebHandler(auth)
-      const response = await authHandler(request)
+      const program = Effect.try({
+        try: () => {
+          const auth = createAuth(env)
+          return authToWebHandler(auth)
+        },
+        catch: (error) => AuthError.make({ cause: error }),
+      }).pipe(
+        Effect.flatMap((authHandler) =>
+          Effect.tryPromise({
+            try: () => authHandler(request),
+            catch: (error) => AuthError.make({ cause: error }),
+          }),
+        ),
+        Effect.catchAll((error) => {
+          console.error('Auth error:', error.cause)
+          return Effect.succeed(
+            new Response(JSON.stringify({ error: 'Internal auth error', message: String(error.cause) }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          )
+        }),
+      )
+      const response = await Effect.runPromise(program)
       return withCors(request, response)
     }
 
