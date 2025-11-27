@@ -443,6 +443,100 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       `
     }
     console.log(`Inserted ${retatrutideEntries.length} Retatrutide injections linked to schedule`)
+
+    // Seed historical inventory matching injections
+    yield* sql`DELETE FROM glp1_inventory WHERE user_id = ${userId}`
+    console.log('Inserting historical inventory...')
+
+    // Semaglutide inventory (weeks 1-20, 5 vials for 5 dose phases)
+    const semaVials = [
+      { totalAmount: '10mg', weekStart: 1, weekEnd: 4, dose: '2.5mg', injections: 4 }, // 4 x 2.5mg = 10mg
+      { totalAmount: '20mg', weekStart: 5, weekEnd: 8, dose: '5mg', injections: 4 }, // 4 x 5mg = 20mg
+      { totalAmount: '30mg', weekStart: 9, weekEnd: 12, dose: '7.5mg', injections: 4 }, // 4 x 7.5mg = 30mg
+      { totalAmount: '40mg', weekStart: 13, weekEnd: 16, dose: '10mg', injections: 4 }, // 4 x 10mg = 40mg
+      { totalAmount: '60mg', weekStart: 17, weekEnd: 20, dose: '15mg', injections: 4 }, // 4 x 15mg = 60mg
+    ]
+
+    for (const vial of semaVials) {
+      const vialId = crypto.randomUUID()
+      const openedDate = new Date(startDate)
+      openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
+      // Beyond use date = 28 days after opening (typical for compounded vials)
+      const beyondUseDate = new Date(openedDate)
+      beyondUseDate.setDate(beyondUseDate.getDate() + 28)
+
+      yield* sql`
+        INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
+        VALUES (${vialId}, ${'Semaglutide'}, ${'Pharmacy'}, ${'vial'}, ${vial.totalAmount}, ${'finished'}, ${beyondUseDate.toISOString()}, ${userId}, ${openedDate.toISOString()}, ${now})
+      `
+    }
+    console.log(`Inserted ${semaVials.length} Semaglutide vials`)
+
+    // Tirzepatide inventory (weeks 21-40, 5 vials for 5 dose phases)
+    const tirzVials = [
+      { totalAmount: '10mg', weekStart: 21, weekEnd: 24, dose: '2.5mg', injections: 4 },
+      { totalAmount: '20mg', weekStart: 25, weekEnd: 28, dose: '5mg', injections: 4 },
+      { totalAmount: '30mg', weekStart: 29, weekEnd: 32, dose: '7.5mg', injections: 4 },
+      { totalAmount: '40mg', weekStart: 33, weekEnd: 36, dose: '10mg', injections: 4 },
+      { totalAmount: '60mg', weekStart: 37, weekEnd: 40, dose: '15mg', injections: 4 },
+    ]
+
+    for (const vial of tirzVials) {
+      const vialId = crypto.randomUUID()
+      const openedDate = new Date(startDate)
+      openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
+      const beyondUseDate = new Date(openedDate)
+      beyondUseDate.setDate(beyondUseDate.getDate() + 28)
+
+      yield* sql`
+        INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
+        VALUES (${vialId}, ${'Tirzepatide'}, ${'Pharmacy'}, ${'vial'}, ${vial.totalAmount}, ${'finished'}, ${beyondUseDate.toISOString()}, ${userId}, ${openedDate.toISOString()}, ${now})
+      `
+    }
+    console.log(`Inserted ${tirzVials.length} Tirzepatide vials`)
+
+    // Retatrutide inventory (weeks 41+) - calculate based on actual entries
+    // Group by dose phases: 1mg (2 weeks), 2mg (2 weeks), 4mg (2 weeks), 8mg (2 weeks), 12mg (ongoing)
+    const retatVials = [
+      { totalAmount: '2mg', weekStart: 41, dose: '1mg', injections: 2 }, // 2 x 1mg = 2mg
+      { totalAmount: '4mg', weekStart: 43, dose: '2mg', injections: 2 }, // 2 x 2mg = 4mg
+      { totalAmount: '8mg', weekStart: 45, dose: '4mg', injections: 2 }, // 2 x 4mg = 8mg
+      { totalAmount: '16mg', weekStart: 47, dose: '8mg', injections: 2 }, // 2 x 8mg = 16mg
+    ]
+
+    for (const vial of retatVials) {
+      const vialId = crypto.randomUUID()
+      const openedDate = new Date(startDate)
+      openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
+
+      // Skip if in the future
+      if (openedDate > new Date()) continue
+
+      const beyondUseDate = new Date(openedDate)
+      beyondUseDate.setDate(beyondUseDate.getDate() + 28)
+
+      yield* sql`
+        INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
+        VALUES (${vialId}, ${'Retatrutide (Compounded)'}, ${'Compounding Pharmacy'}, ${'vial'}, ${vial.totalAmount}, ${'finished'}, ${beyondUseDate.toISOString()}, ${userId}, ${openedDate.toISOString()}, ${now})
+      `
+    }
+
+    // Current Retatrutide vial (12mg maintenance) - opened status
+    const currentRetatStart = new Date(startDate)
+    currentRetatStart.setDate(currentRetatStart.getDate() + (49 - 1) * 7) // Week 49
+    if (currentRetatStart <= new Date()) {
+      const currentVialId = crypto.randomUUID()
+      const beyondUseDate = new Date(currentRetatStart)
+      beyondUseDate.setDate(beyondUseDate.getDate() + 28)
+
+      yield* sql`
+        INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
+        VALUES (${currentVialId}, ${'Retatrutide (Compounded)'}, ${'Compounding Pharmacy'}, ${'vial'}, ${'48mg'}, ${'opened'}, ${beyondUseDate.toISOString()}, ${userId}, ${currentRetatStart.toISOString()}, ${now})
+      `
+      console.log('Inserted current Retatrutide vial (opened)')
+    }
+
+    console.log('Inserted Retatrutide vials')
   })
 
 // Seed sparse user
