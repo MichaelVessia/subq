@@ -24,3 +24,4 @@ cookies.txt
 
 # SQLite local data
 packages/api/data/
+.alchemy/
