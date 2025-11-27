@@ -515,6 +515,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
     // Pills render inside the chart area at the top
     const rowOffset = (row: number) => row * (PILL_HEIGHT + PILL_VERTICAL_GAP)
 
+    // Track long-press state for mobile filter activation
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null
+    let longPressTriggered = false
+    const LONG_PRESS_DURATION = 500 // ms
+
     const injectionGroup = g
       .selectAll('.injection-group')
       .data(dosageChanges)
@@ -524,9 +529,19 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${12 + rowOffset(d.row)})`)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
-        // Toggle selection: if clicking same dosage, deselect; otherwise select new
-        setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
-        setTooltip(null)
+        // On desktop (non-touch), click toggles filter
+        // On mobile, only short taps show tooltip (long press filters)
+        if (!longPressTriggered) {
+          // Check if touch device - if so, show tooltip on tap instead of filtering
+          if ('ontouchstart' in window) {
+            // Mobile: tap shows tooltip, let long-press handle filter
+            return
+          }
+          // Desktop: click toggles filter
+          setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
+          setTooltip(null)
+        }
+        longPressTriggered = false
       })
       .on('mouseenter', (event, d) => {
         setTooltip({
@@ -545,6 +560,47 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
       })
       .on('mouseleave', () => setTooltip(null))
+      // Touch events for mobile: tap shows tooltip, long-press filters
+      .on('touchstart', (event, d) => {
+        event.preventDefault()
+        longPressTriggered = false
+        const touch = event.touches[0]
+        // Show tooltip immediately on touch
+        setTooltip({
+          content: (
+            <div>
+              <div className="font-semibold mb-0.5">Started {d.item.dosage}</div>
+              <div className="opacity-70">{formatDate(d.item.displayDate)}</div>
+              <div className="mt-1 text-[9px] opacity-60">{d.item.drug}</div>
+              {!selectedDosage && <div className="mt-1 text-[9px] opacity-50">Hold to filter</div>}
+            </div>
+          ),
+          position: { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 },
+        })
+        // Start long-press timer for filter
+        longPressTimer = setTimeout(() => {
+          longPressTriggered = true
+          setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
+          setTooltip(null)
+        }, LONG_PRESS_DURATION)
+      })
+      .on('touchend', () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer)
+          longPressTimer = null
+        }
+        // Keep tooltip visible briefly after tap, then hide
+        if (!longPressTriggered) {
+          setTimeout(() => setTooltip(null), 1500)
+        }
+      })
+      .on('touchmove', () => {
+        // Cancel long-press if user moves finger
+        if (longPressTimer) {
+          clearTimeout(longPressTimer)
+          longPressTimer = null
+        }
+      })
 
     injectionGroup
       .append('rect')
