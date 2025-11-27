@@ -146,11 +146,20 @@ interface WeightTrendChartProps {
   onZoom: (range: { start: Date; end: Date }) => void
 }
 
+interface DrugDosageFilter {
+  drug: string
+  dosage: string
+}
+
+function makeDrugDosageKey(drug: string, dosage: string): string {
+  return `${drug}::${dosage}`
+}
+
 function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRange, onZoom }: WeightTrendChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
-  const [selectedDosage, setSelectedDosage] = useState<string | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState<DrugDosageFilter | null>(null)
 
   useEffect(() => {
     if (!svgRef.current || containerWidth === 0 || weightData.length === 0) return
@@ -312,29 +321,47 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       }
     }
 
-    const weightPointsWithColors: WeightPointWithColor[] = sortedWeight.map((wp) => {
-      const recentInjection = sortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
-      const color = recentInjection ? getDosageColor(recentInjection.dosage) : '#94a3b8'
-      return { ...wp, color }
+    interface WeightPointWithDrugDosage extends WeightPointWithColor {
+      drug: string | null
+      dosage: string | null
+    }
+    const weightPointsWithColors: WeightPointWithDrugDosage[] = sortedWeight.map((wp) => {
+      // Use allSortedInjections to find the most recent injection before this weight entry
+      // (not sortedInjections which is filtered by zoom range)
+      const recentInjection = allSortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
+      const color = recentInjection
+        ? getDosageColor(makeDrugDosageKey(recentInjection.drug, recentInjection.dosage))
+        : '#94a3b8'
+      return { ...wp, color, drug: recentInjection?.drug ?? null, dosage: recentInjection?.dosage ?? null }
     })
 
-    const segments: { points: WeightPointWithColor[]; color: string }[] = []
-    let currentSegment: WeightPointWithColor[] = []
+    interface Segment {
+      points: WeightPointWithDrugDosage[]
+      color: string
+      drug: string | null
+      dosage: string | null
+    }
+    const segments: Segment[] = []
+    let currentSegment: WeightPointWithDrugDosage[] = []
     let currentColor = ''
+    let currentDrug: string | null = null
+    let currentDosage: string | null = null
 
     for (const point of weightPointsWithColors) {
       if (point.color !== currentColor) {
         if (currentSegment.length > 0) {
-          segments.push({ points: currentSegment, color: currentColor })
+          segments.push({ points: currentSegment, color: currentColor, drug: currentDrug, dosage: currentDosage })
           const lastPoint = currentSegment[currentSegment.length - 1]
           if (lastPoint) currentSegment = [lastPoint]
         }
         currentColor = point.color
+        currentDrug = point.drug
+        currentDosage = point.dosage
       }
       currentSegment.push(point)
     }
     if (currentSegment.length > 0) {
-      segments.push({ points: currentSegment, color: currentColor })
+      segments.push({ points: currentSegment, color: currentColor, drug: currentDrug, dosage: currentDosage })
     }
 
     const line = d3
@@ -368,7 +395,8 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
 
     for (const segment of segments) {
       if (segment.points.length < 2) continue
-      const isSegmentSelected = !selectedDosage || segment.color === getDosageColor(selectedDosage)
+      const isSegmentSelected =
+        !selectedFilter || (segment.drug === selectedFilter.drug && segment.dosage === selectedFilter.dosage)
       g.append('path')
         .datum(segment.points)
         .attr('fill', 'none')
@@ -378,6 +406,9 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         .attr('d', line)
     }
 
+    const isPointSelected = (d: WeightPointWithDrugDosage) =>
+      !selectedFilter || (d.drug === selectedFilter.drug && d.dosage === selectedFilter.dosage)
+
     g.selectAll('.weight-point')
       .data(weightPointsWithColors)
       .enter()
@@ -385,20 +416,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('class', 'weight-point')
       .attr('cx', (d) => xScale(d.date))
       .attr('cy', (d) => yScale(d.weight))
-      .attr('r', (d) => {
-        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
-        return isSelected ? 4 : 2
-      })
+      .attr('r', (d) => (isPointSelected(d) ? 4 : 2))
       .attr('fill', (d) => d.color)
       .attr('stroke', 'var(--card)')
-      .attr('stroke-width', (d) => {
-        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
-        return isSelected ? 2 : 1
-      })
-      .attr('opacity', (d) => {
-        const isSelected = !selectedDosage || d.color === getDosageColor(selectedDosage)
-        return isSelected ? 1 : 0.15
-      })
+      .attr('stroke-width', (d) => (isPointSelected(d) ? 2 : 1))
+      .attr('opacity', (d) => (isPointSelected(d) ? 1 : 0.15))
       .style('cursor', 'pointer')
       .on('mouseenter', function (event, d) {
         d3.select(this).attr('r', 6)
@@ -538,8 +560,12 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
             // Mobile: tap shows tooltip, let long-press handle filter
             return
           }
-          // Desktop: click toggles filter
-          setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
+          // Desktop: click toggles filter by drug+dosage
+          setSelectedFilter((prev: DrugDosageFilter | null) =>
+            prev?.drug === d.item.drug && prev?.dosage === d.item.dosage
+              ? null
+              : { drug: d.item.drug, dosage: d.item.dosage },
+          )
           setTooltip(null)
         }
         longPressTriggered = false
@@ -548,10 +574,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         setTooltip({
           content: (
             <div>
-              <div className="font-semibold mb-0.5">Started {d.item.dosage}</div>
+              <div className="font-semibold mb-0.5">
+                {d.item.drug} {d.item.dosage}
+              </div>
               <div className="opacity-70">{formatDate(d.item.displayDate)}</div>
-              <div className="mt-1 text-[9px] opacity-60">{d.item.drug}</div>
-              {!selectedDosage && <div className="mt-1 text-[9px] opacity-50">Click to filter</div>}
+              {!selectedFilter && <div className="mt-1 text-[9px] opacity-50">Click to filter</div>}
             </div>
           ),
           position: { x: event.clientX, y: event.clientY },
@@ -570,10 +597,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         setTooltip({
           content: (
             <div>
-              <div className="font-semibold mb-0.5">Started {d.item.dosage}</div>
+              <div className="font-semibold mb-0.5">
+                {d.item.drug} {d.item.dosage}
+              </div>
               <div className="opacity-70">{formatDate(d.item.displayDate)}</div>
-              <div className="mt-1 text-[9px] opacity-60">{d.item.drug}</div>
-              {!selectedDosage && <div className="mt-1 text-[9px] opacity-50">Hold to filter</div>}
+              {!selectedFilter && <div className="mt-1 text-[9px] opacity-50">Hold to filter</div>}
             </div>
           ),
           position: { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 },
@@ -581,7 +609,11 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         // Start long-press timer for filter
         longPressTimer = setTimeout(() => {
           longPressTriggered = true
-          setSelectedDosage((prev) => (prev === d.item.dosage ? null : d.item.dosage))
+          setSelectedFilter((prev: DrugDosageFilter | null) =>
+            prev?.drug === d.item.drug && prev?.dosage === d.item.dosage
+              ? null
+              : { drug: d.item.drug, dosage: d.item.dosage },
+          )
           setTooltip(null)
         }, LONG_PRESS_DURATION)
       })
@@ -603,6 +635,9 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         }
       })
 
+    const isPillSelected = (d: DosageChange) =>
+      !selectedFilter || (d.item.drug === selectedFilter.drug && d.item.dosage === selectedFilter.dosage)
+
     injectionGroup
       .append('rect')
       .attr('rx', 10)
@@ -612,10 +647,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('width', PILL_WIDTH_SINGLE)
       .attr('height', PILL_HEIGHT)
       .attr('fill', (d) => d.item.color)
-      .attr('opacity', (d) => {
-        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
-        return isSelected ? 1 : 0.25
-      })
+      .attr('opacity', (d) => (isPillSelected(d) ? 1 : 0.25))
 
     injectionGroup
       .append('text')
@@ -624,10 +656,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('fill', '#fff')
       .attr('font-size', '10px')
       .attr('font-weight', '600')
-      .attr('opacity', (d) => {
-        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
-        return isSelected ? 1 : 0.4
-      })
+      .attr('opacity', (d) => (isPillSelected(d) ? 1 : 0.4))
       .text((d) => d.item.dosage)
 
     g.selectAll('.injection-line')
@@ -642,10 +671,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('stroke', (d) => d.item.color)
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '3,3')
-      .attr('opacity', (d) => {
-        const isSelected = !selectedDosage || d.item.dosage === selectedDosage
-        return isSelected ? 0.4 : 0.1
-      })
+      .attr('opacity', (d) => (isPillSelected(d) ? 0.4 : 0.1))
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -757,22 +783,22 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
           setTooltip(null)
         })
     }
-  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth, selectedDosage])
+  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth, selectedFilter])
 
   return (
     <div ref={containerRef} className="relative w-full">
       <svg ref={svgRef} className="block cursor-crosshair" />
       <Tooltip content={tooltip?.content} position={tooltip?.position ?? null} />
-      {selectedDosage && (
+      {selectedFilter && (
         <button
           type="button"
-          onClick={() => setSelectedDosage(null)}
+          onClick={() => setSelectedFilter(null)}
           className="absolute top-2 right-2 text-xs bg-muted/80 hover:bg-muted px-2 py-1 rounded-md text-muted-foreground"
         >
-          Clear filter: {selectedDosage}
+          Clear filter: {selectedFilter.drug} {selectedFilter.dosage}
         </button>
       )}
-      {!zoomRange && !selectedDosage && (
+      {!zoomRange && !selectedFilter && (
         <div className="absolute bottom-2 right-2 text-xs text-muted-foreground opacity-60">Drag to zoom</div>
       )}
     </div>
