@@ -173,6 +173,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
     const PILL_WIDTH_SINGLE = 44
     const PILL_HEIGHT = 18
     const MIN_GAP_X = 4
+    const PILL_VERTICAL_GAP = 4
 
     const tempXScale = d3
       .scaleTime()
@@ -212,18 +213,17 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       maxRow = Math.max(maxRow, row)
     }
 
-    const baseTopMargin = 40
-    const extraMarginPerRow = PILL_HEIGHT + 2
     // Responsive margins - smaller on mobile
+    // Pills now render inside chart area, so we don't need extra top margin for rows
     const isSmallScreen = containerWidth < 400
     const margin = {
-      top: baseTopMargin + maxRow * extraMarginPerRow,
+      top: 20,
       right: isSmallScreen ? 10 : 30,
       bottom: 40,
       left: isSmallScreen ? 35 : 60,
     }
     const width = containerWidth - margin.left - margin.right
-    const totalHeight = 320 + maxRow * extraMarginPerRow
+    const totalHeight = 320
     const height = totalHeight - margin.top - margin.bottom
 
     svg.attr('width', containerWidth).attr('height', totalHeight)
@@ -236,10 +236,14 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .range([0, width])
 
     const weightExtent = d3.extent(sortedWeight, (d) => d.weight) as [number, number]
-    const yPadding = (weightExtent[1] - weightExtent[0]) * 0.15 || 5
+    const yPaddingBottom = (weightExtent[1] - weightExtent[0]) * 0.1 || 5
+    // Reserve space at top for pill rows (each row ~22px, convert to data units)
+    const pillSpacePixels = (maxRow + 1) * (PILL_HEIGHT + PILL_VERTICAL_GAP) + 20
+    const pixelsPerUnit = height / (weightExtent[1] - weightExtent[0] + yPaddingBottom * 2 || 10)
+    const yPaddingTop = pillSpacePixels / pixelsPerUnit
     const yScale = d3
       .scaleLinear()
-      .domain([weightExtent[0] - yPadding, weightExtent[1] + yPadding])
+      .domain([weightExtent[0] - yPaddingBottom, weightExtent[1] + yPaddingTop])
       .range([height, 0])
 
     g.append('g')
@@ -508,7 +512,8 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       change.row = row
     }
 
-    const rowOffset = (row: number) => row * (PILL_HEIGHT + 2)
+    // Pills render inside the chart area at the top
+    const rowOffset = (row: number) => row * (PILL_HEIGHT + PILL_VERTICAL_GAP)
 
     const injectionGroup = g
       .selectAll('.injection-group')
@@ -516,7 +521,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .enter()
       .append('g')
       .attr('class', 'injection-group')
-      .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${-28 - rowOffset(d.row)})`)
+      .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${12 + rowOffset(d.row)})`)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
         // Toggle selection: if clicking same dosage, deselect; otherwise select new
@@ -575,7 +580,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('class', 'injection-line')
       .attr('x1', (d) => Math.max(PILL_WIDTH_SINGLE / 2, d.x))
       .attr('x2', (d) => Math.max(PILL_WIDTH_SINGLE / 2, d.x))
-      .attr('y1', (d) => -20 - rowOffset(d.row))
+      .attr('y1', (d) => 20 + rowOffset(d.row))
       .attr('y2', (d) => yScale(d.item.weight))
       .attr('stroke', (d) => d.item.color)
       .attr('stroke-width', 1)
@@ -613,14 +618,17 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
           .attr('font-size', isSmallScreen ? '9px' : '11px'),
       )
 
-    g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('y', isSmallScreen ? -25 : -40)
-      .attr('x', -height / 2)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#9ca3af')
-      .attr('font-size', isSmallScreen ? '9px' : '11px')
-      .text('Weight (lbs)')
+    // Hide y-axis label on small screens to save space
+    if (!isSmallScreen) {
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -40)
+        .attr('x', -height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#9ca3af')
+        .attr('font-size', '11px')
+        .text('Weight (lbs)')
+    }
 
     // Interactive schedule hover zones at the bottom (rendered last to be on top)
     const HOVER_ZONE_HEIGHT = 24
