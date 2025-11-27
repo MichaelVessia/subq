@@ -824,6 +824,7 @@ function InjectionSitePieChart({ data }: { data: InjectionSiteStats }) {
 
 interface DosagePointWithColor {
   date: Date
+  drug: string
   dosage: string
   dosageValue: number
   color: string
@@ -851,9 +852,10 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((p) => ({
         date: new Date(p.date),
+        drug: p.drug,
         dosage: p.dosage,
         dosageValue: p.dosageValue,
-        color: getDosageColor(p.dosage),
+        color: getDosageColor(`${p.drug}::${p.dosage}`),
       }))
 
     const xScale = d3
@@ -931,7 +933,9 @@ function DosageHistoryChart({ data }: { data: DosageHistoryStats }) {
         setTooltip({
           content: (
             <div>
-              <div className="font-semibold mb-0.5">{d.dosage}</div>
+              <div className="font-semibold mb-0.5">
+                {d.drug} {d.dosage}
+              </div>
               <div className="opacity-70">{formatDate(d.date)}</div>
             </div>
           ),

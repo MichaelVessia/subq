@@ -65,6 +65,7 @@ const decodeInjectionSiteRow = Schema.decodeUnknown(InjectionSiteRow)
 // Dosage history row schema
 const DosageHistoryRow = Schema.Struct({
   datetime: DateFromString,
+  drug: Schema.String,
   dosage: Schema.String,
 })
 const decodeDosageHistoryRow = Schema.decodeUnknown(DosageHistoryRow)
@@ -223,7 +224,7 @@ export const StatsServiceLive = Layer.effect(
           const startDateStr = params.startDate?.toISOString()
           const endDateStr = params.endDate?.toISOString()
           const rows = yield* sql`
-            SELECT datetime, dosage
+            SELECT datetime, drug, dosage
             FROM injection_logs
             WHERE user_id = ${userId}
             ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
@@ -239,6 +240,7 @@ export const StatsServiceLive = Layer.effect(
             points.push(
               new DosageHistoryPoint({
                 date: decoded.datetime,
+                drug: DrugName.make(decoded.drug),
                 dosage: Dosage.make(decoded.dosage),
                 dosageValue: DosageValue.make(dosageValueNum),
               }),

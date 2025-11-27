@@ -63,6 +63,7 @@ export class InjectionSiteStats extends Schema.Class<InjectionSiteStats>('Inject
 
 export class DosageHistoryPoint extends Schema.Class<DosageHistoryPoint>('DosageHistoryPoint')({
   date: Schema.Date,
+  drug: DrugName,
   dosage: Dosage,
   /** Numeric value extracted from dosage string (e.g. 5 from "5mg") */
   dosageValue: DosageValue,

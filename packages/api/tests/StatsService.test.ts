@@ -165,6 +165,7 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
         const dosageValue = match ? Number.parseFloat(match[1]!) : 0
         return new DosageHistoryPoint({
           date: e.datetime,
+          drug: DrugName.make(e.drug),
           dosage: Dosage.make(e.dosage),
           dosageValue: DosageValue.make(dosageValue),
         })
