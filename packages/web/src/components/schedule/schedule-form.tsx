@@ -289,10 +289,10 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
             id: initialData.id as InjectionScheduleId,
             name: ScheduleName.make(name),
             drug: DrugName.make(drug),
-            source: Option.some(null), // Source is not required for schedules
+            source: null, // Source is not required for schedules
             frequency,
             startDate: new Date(startDate),
-            notes: Option.some(notes ? Notes.make(notes) : null),
+            notes: notes ? Notes.make(notes) : null,
             phases: phasesData,
           }),
         )

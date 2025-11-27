@@ -237,11 +237,11 @@ export const ScheduleRepoLive = Layer.effect(
 
           const newName = data.name ?? curr.name
           const newDrug = data.drug ?? curr.drug
-          const newSource = Option.isSome(data.source) ? data.source.value : curr.source
+          const newSource = data.source !== undefined ? data.source : curr.source
           const newFrequency = data.frequency ?? curr.frequency
           const newStartDate = data.startDate ? data.startDate.toISOString() : curr.start_date
           const newIsActive = data.isActive ?? curr.is_active === 1
-          const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
+          const newNotes = data.notes !== undefined ? data.notes : curr.notes
           const now = new Date().toISOString()
 
           // If activating this schedule, deactivate others

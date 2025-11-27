@@ -104,11 +104,11 @@ export class InjectionScheduleUpdate extends Schema.Class<InjectionScheduleUpdat
   id: InjectionScheduleId,
   name: Schema.optional(ScheduleName),
   drug: Schema.optional(DrugName),
-  source: Schema.optionalWith(Schema.NullOr(DrugSource), { as: 'Option' }),
+  source: Schema.optional(Schema.NullOr(DrugSource)),
   frequency: Schema.optional(Frequency),
   startDate: Schema.optional(Schema.Date),
   isActive: Schema.optional(Schema.Boolean),
-  notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
+  notes: Schema.optional(Schema.NullOr(Notes)),
   phases: Schema.optional(Schema.Array(SchedulePhaseCreate)),
 }) {}
 
