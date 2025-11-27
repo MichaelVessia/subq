@@ -16,6 +16,7 @@ export const api = await Worker("api", {
   name: `scalability-api-${app.stage}`,
   entrypoint: "./packages/api/src/worker.ts",
   url: true,
+  domains: ["api.glp.vessia.net"],
   compatibility: "node",
   bindings: {
     DB: db,

@@ -17,11 +17,13 @@ const FetchWithCredentials = FetchHttpClient.layer.pipe(
   Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { credentials: 'include' })),
 )
 
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
 // Use AtomRpc.Tag for automatic atom integration
 export class ApiClient extends AtomRpc.Tag<ApiClient>()('@scale/ApiClient', {
   group: AppRpcs,
   protocol: RpcClient.layerProtocolHttp({
-    url: 'http://localhost:3001/rpc',
+    url: `${apiUrl}/rpc`,
   }).pipe(Layer.provide(RpcSerialization.layerNdjson), Layer.provide(FetchWithCredentials)),
 }) {}
 

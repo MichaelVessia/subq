@@ -13,6 +13,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle } from 'drizzle-orm/d1'
 import { Effect, Layer } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, toWebHandler as authToWebHandler } from './auth/index.js'
+import * as schema from './db/schema.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
@@ -27,21 +28,30 @@ interface Env {
   BETTER_AUTH_URL: string
 }
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, traceparent, b3',
-  'Access-Control-Allow-Credentials': 'true',
+// Allowed origins for CORS
+const allowedOrigins = ['https://glp.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173']
+
+// Get CORS headers for a specific origin
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0]!
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, traceparent, b3',
+    'Access-Control-Allow-Credentials': 'true',
+  }
 }
 
 // Handle CORS preflight
-function handleOptions(): Response {
-  return new Response(null, { headers: corsHeaders })
+function handleOptions(request: Request): Response {
+  const origin = request.headers.get('Origin')
+  return new Response(null, { headers: getCorsHeaders(origin) })
 }
 
 // Add CORS headers to response
-function withCors(response: Response): Response {
+function withCors(request: Request, response: Response): Response {
+  const origin = request.headers.get('Origin')
+  const corsHeaders = getCorsHeaders(origin)
   const newHeaders = new Headers(response.headers)
   for (const [key, value] of Object.entries(corsHeaders)) {
     newHeaders.set(key, value)
@@ -59,12 +69,12 @@ type AnyD1Database = any
 
 // Create auth instance for D1
 function createAuth(env: Env) {
-  const d1Db = drizzle(env.DB as AnyD1Database)
+  const d1Db = drizzle(env.DB as AnyD1Database, { schema })
   return betterAuth({
-    database: drizzleAdapter(d1Db, { provider: 'sqlite' }),
+    database: drizzleAdapter(d1Db, { provider: 'sqlite', schema }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    trustedOrigins: [env.BETTER_AUTH_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    trustedOrigins: [env.BETTER_AUTH_URL, 'https://glp.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173'],
     emailAndPassword: {
       enabled: true,
     },
@@ -142,12 +152,13 @@ export default {
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
-      return handleOptions()
+      return handleOptions(request)
     }
 
     // Health check
     if (url.pathname === '/health') {
       return withCors(
+        request,
         new Response(JSON.stringify({ status: 'ok' }), {
           headers: { 'Content-Type': 'application/json' },
         }),
@@ -158,7 +169,7 @@ export default {
     if (url.pathname === '/rpc') {
       const { handler } = getRpcHandler(env)
       const response = await handler(request)
-      return withCors(response)
+      return withCors(request, response)
     }
 
     // Auth routes
@@ -166,11 +177,12 @@ export default {
       const auth = createAuth(env)
       const authHandler = authToWebHandler(auth)
       const response = await authHandler(request)
-      return withCors(response)
+      return withCors(request, response)
     }
 
     // 404 for unknown routes
     return withCors(
+      request,
       new Response(JSON.stringify({ error: 'Not Found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },

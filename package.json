@@ -24,7 +24,10 @@
     "coverage": "vitest run --coverage",
     "prepare": "effect-language-service patch",
     "seed": "bun run --filter @scale/api seed",
-    "migrate": "bun run --filter @scale/api migrate"
+    "seed:prod": "bun run scripts/seed-prod.ts",
+    "migrate": "bun run --filter @scale/api migrate",
+    "deploy": "bun run build && bun run alchemy.run.ts",
+    "deploy:destroy": "bun run alchemy.run.ts --destroy"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",
