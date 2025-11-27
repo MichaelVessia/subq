@@ -6,13 +6,10 @@ import { betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'
 import { Config, Effect } from 'effect'
 import { SqlLive } from '../src/sql.js'
-import { generateConsistentUserData, generateSparseUserData } from './seed-data.js'
+import { generateConsistentUserData } from './seed-data.js'
 
 // Test user credentials
-const TEST_USERS = [
-  { email: 'consistent@example.com', password: 'testpassword123', name: 'Consistent User' },
-  { email: 'sparse@example.com', password: 'testpassword123', name: 'Sparse User' },
-]
+const TEST_USER = { email: 'consistent@example.com', password: 'testpassword123', name: 'Demo User' }
 
 // Helper to create or get a user
 const getOrCreateUser = (
@@ -68,25 +65,16 @@ const seedData = Effect.gen(function* () {
 
   const auth = betterAuth(authOptions)
 
-  // Create users
-  console.log('Setting up test users...')
-  const userIds: string[] = []
-  for (const user of TEST_USERS) {
-    const userId = yield* getOrCreateUser(sql, auth, user.email, user.password, user.name)
-    userIds.push(userId)
-  }
+  // Create user
+  console.log('Setting up test user...')
+  const userId = yield* getOrCreateUser(sql, auth, TEST_USER.email, TEST_USER.password, TEST_USER.name)
 
-  // Seed data for first user (consistent data)
-  yield* seedConsistentUser(sql, userIds[0]!)
-
-  // Seed data for second user (sparse/irregular data)
-  yield* seedSparseUser(sql, userIds[1]!)
+  // Seed data
+  yield* seedConsistentUser(sql, userId)
 
   console.log('\nSeed data complete!')
   console.log(`\nTest user credentials:`)
-  for (const user of TEST_USERS) {
-    console.log(`  ${user.name}: ${user.email} / ${user.password}`)
-  }
+  console.log(`  ${TEST_USER.name}: ${TEST_USER.email} / ${TEST_USER.password}`)
 
   // Clean up the sqlite connection
   sqlite.close()
@@ -150,38 +138,6 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       `
     }
     console.log(`Inserted ${data.inventory.length} inventory items`)
-  })
-
-// Seed sparse user using shared generators
-const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
-  Effect.gen(function* () {
-    yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
-    yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
-    yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
-    yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
-    yield* sql`DELETE FROM glp1_inventory WHERE user_id = ${userId}`
-
-    console.log(`\nGenerating sparse/irregular data for user ${userId}...`)
-
-    const data = generateSparseUserData()
-
-    // Insert injections (no schedules for sparse user)
-    for (const inj of data.injections) {
-      yield* sql`
-        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
-        VALUES (${inj.id}, ${inj.datetime}, ${inj.drug}, ${inj.source}, ${inj.dosage}, ${inj.injectionSite}, ${inj.notes}, ${null}, ${userId}, ${inj.createdAt}, ${inj.updatedAt})
-      `
-    }
-    console.log(`Inserted ${data.injections.length} injection logs`)
-
-    // Insert weights
-    for (const weight of data.weights) {
-      yield* sql`
-        INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
-        VALUES (${weight.id}, ${weight.datetime}, ${weight.weight}, ${weight.unit}, ${weight.notes}, ${userId}, ${weight.createdAt}, ${weight.updatedAt})
-      `
-    }
-    console.log(`Inserted ${data.weights.length} weight logs`)
   })
 
 // Run it

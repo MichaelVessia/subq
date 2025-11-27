@@ -3,10 +3,7 @@ import { signIn, signUp } from '../../auth.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 
-const DEMO_USERS = [
-  { email: 'consistent@example.com', password: 'testpassword123', label: 'Demo: Consistent data' },
-  { email: 'sparse@example.com', password: 'testpassword123', label: 'Demo: Irregular data' },
-]
+const DEMO_USER = { email: 'consistent@example.com', password: 'testpassword123', label: 'Demo Account' }
 
 export function LoginForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -66,20 +63,15 @@ export function LoginForm() {
       {mode === 'signin' && (
         <div className="mb-6">
           <p className="text-xs text-muted-foreground mb-3">Try a demo account:</p>
-          <div className="flex flex-col gap-2">
-            {DEMO_USERS.map((user) => (
-              <Button
-                key={user.email}
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={() => handleDemoLogin(user.email, user.password)}
-                className="justify-start text-xs"
-              >
-                {user.label}
-              </Button>
-            ))}
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            onClick={() => handleDemoLogin(DEMO_USER.email, DEMO_USER.password)}
+            className="justify-start text-xs"
+          >
+            {DEMO_USER.label}
+          </Button>
         </div>
       )}
 
