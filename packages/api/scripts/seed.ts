@@ -412,13 +412,37 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       }
     }
 
+    // Create Retatrutide schedule with indefinite final phase
+    const retatScheduleId = crypto.randomUUID()
+    yield* sql`
+      INSERT INTO injection_schedules (id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at)
+      VALUES (${retatScheduleId}, ${'Retatrutide Maintenance'}, ${'Retatrutide (Compounded)'}, ${'Compounding Pharmacy'}, ${'weekly'}, ${retatStartDate.toISOString()}, ${1}, ${'Active maintenance schedule with indefinite final phase'}, ${userId}, ${now}, ${now})
+    `
+
+    // Retatrutide phases: titration then indefinite maintenance
+    const retatPhases = [
+      { order: 1, durationDays: 14, dosage: '1mg' }, // weeks 1-2
+      { order: 2, durationDays: 14, dosage: '2mg' }, // weeks 3-4
+      { order: 3, durationDays: 14, dosage: '4mg' }, // weeks 5-6
+      { order: 4, durationDays: 14, dosage: '8mg' }, // weeks 7-8
+      { order: 5, durationDays: null, dosage: '12mg' }, // indefinite maintenance
+    ]
+    for (const phase of retatPhases) {
+      const phaseId = crypto.randomUUID()
+      yield* sql`
+        INSERT INTO schedule_phases (id, schedule_id, "order", duration_days, dosage, created_at, updated_at)
+        VALUES (${phaseId}, ${retatScheduleId}, ${phase.order}, ${phase.durationDays}, ${phase.dosage}, ${now}, ${now})
+      `
+    }
+    console.log('Created Retatrutide schedule with indefinite maintenance phase')
+
     for (const entry of retatrutideEntries) {
       yield* sql`
         INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
-        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${null}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${retatScheduleId}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
       `
     }
-    console.log(`Inserted ${retatrutideEntries.length} UNLINKED Retatrutide injections (for bulk link testing)`)
+    console.log(`Inserted ${retatrutideEntries.length} Retatrutide injections linked to schedule`)
   })
 
 // Seed sparse user

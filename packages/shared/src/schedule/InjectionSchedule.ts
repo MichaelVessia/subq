@@ -17,12 +17,13 @@ import {
 /**
  * A phase represents one step in a titration schedule.
  * E.g., "Month 1: 10 units weekly" would be one phase.
+ * If durationDays is null, the phase is indefinite (maintenance phase).
  */
 export class SchedulePhase extends Schema.Class<SchedulePhase>('SchedulePhase')({
   id: SchedulePhaseId,
   scheduleId: InjectionScheduleId,
   order: PhaseOrder,
-  durationDays: PhaseDurationDays,
+  durationDays: Schema.NullOr(PhaseDurationDays),
   dosage: Dosage,
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
@@ -30,7 +31,7 @@ export class SchedulePhase extends Schema.Class<SchedulePhase>('SchedulePhase')(
 
 export class SchedulePhaseCreate extends Schema.Class<SchedulePhaseCreate>('SchedulePhaseCreate')({
   order: PhaseOrder,
-  durationDays: PhaseDurationDays,
+  durationDays: Schema.NullOr(PhaseDurationDays),
   dosage: Dosage,
 }) {}
 
@@ -126,22 +127,24 @@ export class PhaseInjectionSummary extends Schema.Class<PhaseInjectionSummary>('
 
 /**
  * Progress and details for a single phase in the schedule view.
+ * If durationDays is null, the phase is indefinite (no end date).
  */
 export class SchedulePhaseView extends Schema.Class<SchedulePhaseView>('SchedulePhaseView')({
   id: SchedulePhaseId,
   order: PhaseOrder,
-  durationDays: PhaseDurationDays,
+  durationDays: Schema.NullOr(PhaseDurationDays),
   dosage: Dosage,
   startDate: Schema.Date,
-  endDate: Schema.Date,
+  endDate: Schema.NullOr(Schema.Date),
   status: Schema.Literal('completed', 'current', 'upcoming'),
-  expectedInjections: Schema.Number,
+  expectedInjections: Schema.NullOr(Schema.Number), // null for indefinite
   completedInjections: Schema.Number,
   injections: Schema.Array(PhaseInjectionSummary),
 }) {}
 
 /**
  * Full schedule view with all phases and their progress.
+ * If endDate is null, the schedule has an indefinite final phase.
  */
 export class ScheduleView extends Schema.Class<ScheduleView>('ScheduleView')({
   id: InjectionScheduleId,
@@ -150,10 +153,10 @@ export class ScheduleView extends Schema.Class<ScheduleView>('ScheduleView')({
   source: Schema.NullOr(DrugSource),
   frequency: Frequency,
   startDate: Schema.Date,
-  endDate: Schema.Date,
+  endDate: Schema.NullOr(Schema.Date),
   isActive: Schema.Boolean,
   notes: Schema.NullOr(Notes),
-  totalExpectedInjections: Schema.Number,
+  totalExpectedInjections: Schema.NullOr(Schema.Number), // null if indefinite
   totalCompletedInjections: Schema.Number,
   phases: Schema.Array(SchedulePhaseView),
   createdAt: Schema.Date,

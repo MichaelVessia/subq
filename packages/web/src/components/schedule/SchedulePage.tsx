@@ -37,7 +37,8 @@ function ScheduleCard({
   onDelete: () => void
   onActivate: () => void
 }) {
-  const totalDays = schedule.phases.reduce((sum, p) => sum + p.durationDays, 0)
+  const hasIndefinitePhase = schedule.phases.some((p) => p.durationDays === null)
+  const totalDays = hasIndefinitePhase ? null : schedule.phases.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
 
   return (
     <Card className={`p-4 ${schedule.isActive ? 'ring-2 ring-primary' : ''}`}>
@@ -82,7 +83,7 @@ function ScheduleCard({
           <span>Started {formatDate(schedule.startDate)}</span>
         </div>
         <span>{frequencyLabels[schedule.frequency] ?? schedule.frequency}</span>
-        <span>{totalDays} days total</span>
+        <span>{totalDays !== null ? `${totalDays} days total` : 'Indefinite'}</span>
       </div>
 
       <div className="space-y-1">
@@ -90,7 +91,9 @@ function ScheduleCard({
           <div key={phase.id} className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground w-16">Phase {phase.order}</span>
             <span className="font-mono">{phase.dosage}</span>
-            <span className="text-muted-foreground">for {phase.durationDays} days</span>
+            <span className="text-muted-foreground">
+              {phase.durationDays !== null ? `for ${phase.durationDays} days` : '(ongoing)'}
+            </span>
           </div>
         ))}
       </div>

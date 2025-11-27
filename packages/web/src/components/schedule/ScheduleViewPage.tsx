@@ -32,8 +32,11 @@ const frequencyLabels: Record<string, string> = {
 }
 
 function PhaseCard({ phase, isLast }: { phase: SchedulePhaseView; isLast: boolean }) {
+  const isIndefinite = phase.durationDays === null
   const progressPercent =
-    phase.expectedInjections > 0 ? Math.round((phase.completedInjections / phase.expectedInjections) * 100) : 0
+    !isIndefinite && phase.expectedInjections !== null && phase.expectedInjections > 0
+      ? Math.round((phase.completedInjections / phase.expectedInjections) * 100)
+      : 0
 
   const statusColors = {
     completed: 'bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-700',
@@ -87,10 +90,10 @@ function PhaseCard({ phase, isLast }: { phase: SchedulePhaseView; isLast: boolea
           <div className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
             <span>
-              {formatDateShort(phase.startDate)} - {formatDateShort(phase.endDate)}
+              {formatDateShort(phase.startDate)} - {phase.endDate ? formatDateShort(phase.endDate) : 'Indefinite'}
             </span>
           </div>
-          <span>{phase.durationDays} days</span>
+          <span>{phase.durationDays !== null ? `${phase.durationDays} days` : 'Indefinite'}</span>
         </div>
 
         {/* Progress bar */}
@@ -98,21 +101,24 @@ function PhaseCard({ phase, isLast }: { phase: SchedulePhaseView; isLast: boolea
           <div className="flex items-center justify-between text-sm mb-1">
             <span className="text-muted-foreground">Progress</span>
             <span className="font-medium">
-              {phase.completedInjections} / {phase.expectedInjections} injections
+              {phase.completedInjections}
+              {phase.expectedInjections !== null ? ` / ${phase.expectedInjections}` : ''} injections
             </span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                phase.status === 'completed'
-                  ? 'bg-green-500'
-                  : phase.status === 'current'
-                    ? 'bg-blue-500'
-                    : 'bg-muted-foreground/30'
-              }`}
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+          {!isIndefinite && (
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${
+                  phase.status === 'completed'
+                    ? 'bg-green-500'
+                    : phase.status === 'current'
+                      ? 'bg-blue-500'
+                      : 'bg-muted-foreground/30'
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Injection list */}
@@ -141,8 +147,9 @@ function PhaseCard({ phase, isLast }: { phase: SchedulePhaseView; isLast: boolea
 }
 
 function ScheduleViewContent({ view }: { view: ScheduleView }) {
+  const hasIndefinitePhase = view.endDate === null
   const overallProgress =
-    view.totalExpectedInjections > 0
+    !hasIndefinitePhase && view.totalExpectedInjections !== null && view.totalExpectedInjections > 0
       ? Math.round((view.totalCompletedInjections / view.totalExpectedInjections) * 100)
       : 0
 
@@ -170,7 +177,7 @@ function ScheduleViewContent({ view }: { view: ScheduleView }) {
           <div>
             <p className="text-sm text-muted-foreground">Schedule Period</p>
             <p className="font-medium">
-              {formatDate(view.startDate)} - {formatDate(view.endDate)}
+              {formatDate(view.startDate)} - {view.endDate ? formatDate(view.endDate) : 'Indefinite'}
             </p>
           </div>
           <div>
@@ -188,21 +195,24 @@ function ScheduleViewContent({ view }: { view: ScheduleView }) {
           <div>
             <p className="text-sm text-muted-foreground">Total Injections</p>
             <p className="font-medium">
-              {view.totalCompletedInjections} / {view.totalExpectedInjections}
+              {view.totalCompletedInjections}
+              {view.totalExpectedInjections !== null ? ` / ${view.totalExpectedInjections}` : ''}
             </p>
           </div>
         </div>
 
         {/* Overall progress bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-sm mb-1">
-            <span className="text-muted-foreground">Overall Progress</span>
-            <span className="font-medium">{overallProgress}%</span>
+        {!hasIndefinitePhase && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="text-muted-foreground">Overall Progress</span>
+              <span className="font-medium">{overallProgress}%</span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${overallProgress}%` }} />
+            </div>
           </div>
-          <div className="h-3 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${overallProgress}%` }} />
-          </div>
-        </div>
+        )}
 
         {view.notes && <p className="text-sm text-muted-foreground mt-4 italic border-t pt-4">{view.notes}</p>}
       </Card>

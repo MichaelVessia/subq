@@ -93,7 +93,7 @@ export const schedulePhases = sqliteTable(
       .notNull()
       .references(() => injectionSchedules.id, { onDelete: 'cascade' }),
     order: integer('order').notNull(), // 1-based phase order
-    durationDays: integer('duration_days').notNull(), // How long this phase lasts
+    durationDays: integer('duration_days'), // How long this phase lasts (NULL = indefinite)
     dosage: text('dosage').notNull(), // e.g., "2.5mg", "10 units"
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),

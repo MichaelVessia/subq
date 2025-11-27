@@ -53,8 +53,9 @@ const FREQUENCIES: { value: Frequency; label: string }[] = [
 
 interface PhaseInput {
   order: number
-  durationDays: string
+  durationDays: string // empty string = indefinite
   dosage: string
+  isIndefinite: boolean
 }
 
 interface ScheduleFormProps {
@@ -71,7 +72,7 @@ interface ScheduleFormProps {
  * and calculates duration as days between first injection of phase N and phase N+1.
  */
 function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
-  if (injections.length === 0) return [{ order: 1, durationDays: '28', dosage: '' }]
+  if (injections.length === 0) return [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
 
   // Group injections by dosage
   const byDosage = new Map<string, Date[]>()
@@ -96,8 +97,9 @@ function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i]
     if (!phase) continue
+    const isLastPhase = i === phases.length - 1
     let durationDays = 28 // default for last phase
-    if (i < phases.length - 1) {
+    if (!isLastPhase) {
       const nextPhase = phases[i + 1]
       if (nextPhase) {
         const diffMs = nextPhase.earliestDate.getTime() - phase.earliestDate.getTime()
@@ -106,12 +108,13 @@ function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
     }
     result.push({
       order: i + 1,
-      durationDays: String(durationDays),
+      durationDays: isLastPhase ? '' : String(durationDays),
       dosage: phase.dosage,
+      isIndefinite: isLastPhase, // Last phase defaults to indefinite
     })
   }
 
-  return result.length > 0 ? result : [{ order: 1, durationDays: '28', dosage: '' }]
+  return result.length > 0 ? result : [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
 }
 
 interface FormErrors {
@@ -140,7 +143,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
       : toLocalDateString(new Date())
   const inferredPhases = inferredFromInjections
     ? inferPhasesFromInjections(preselectedInjections)
-    : [{ order: 1, durationDays: '28', dosage: '' }]
+    : [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
 
   const [name, setName] = useState(initialData?.name ?? (inferredFromInjections ? `${inferredDrug} Schedule` : ''))
   const [drug, setDrug] = useState(initialData?.drug ?? inferredDrug)
@@ -150,8 +153,9 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
   const [phases, setPhases] = useState<PhaseInput[]>(
     initialData?.phases?.map((p) => ({
       order: p.order,
-      durationDays: String(p.durationDays),
+      durationDays: p.durationDays === null ? '' : String(p.durationDays),
       dosage: p.dosage,
+      isIndefinite: p.durationDays === null,
     })) ?? inferredPhases,
   )
   const [loading, setLoading] = useState(false)
@@ -184,7 +188,13 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
   const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS])]
 
   const addPhase = () => {
-    setPhases((prev) => [...prev, { order: prev.length + 1, durationDays: '28', dosage: '' }])
+    setPhases((prev) => {
+      // If last phase was indefinite, make it definite when adding a new phase after it
+      const updated = prev.map((p, i) =>
+        i === prev.length - 1 && p.isIndefinite ? { ...p, isIndefinite: false, durationDays: '28' } : p,
+      )
+      return [...updated, { order: prev.length + 1, durationDays: '28', dosage: '', isIndefinite: false }]
+    })
   }
 
   const removePhase = (index: number) => {
@@ -215,14 +225,24 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
   }, [])
 
   const validatePhases = useCallback((): boolean => {
-    for (const phase of phases) {
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i]
+      if (!phase) continue
       if (!phase.dosage.trim()) {
         setErrors((prev) => ({ ...prev, phases: 'All phases must have a dosage' }))
         return false
       }
+      // Skip duration validation for indefinite phases (only last phase can be indefinite)
+      const isLastPhase = i === phases.length - 1
+      if (isLastPhase && phase.isIndefinite) continue
       const duration = Number.parseInt(phase.durationDays, 10)
       if (Number.isNaN(duration) || duration < 1) {
-        setErrors((prev) => ({ ...prev, phases: 'All phases must have valid duration' }))
+        setErrors((prev) => ({
+          ...prev,
+          phases: isLastPhase
+            ? 'Phase must have valid duration or be marked as ongoing'
+            : 'All phases must have valid duration',
+        }))
         return false
       }
     }
@@ -258,7 +278,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
         (p) =>
           new SchedulePhaseCreate({
             order: p.order as PhaseOrder,
-            durationDays: Number.parseInt(p.durationDays, 10) as PhaseDurationDays,
+            durationDays: p.isIndefinite ? null : (Number.parseInt(p.durationDays, 10) as PhaseDurationDays),
             dosage: Dosage.make(p.dosage),
           }),
       )
@@ -294,7 +314,11 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
     }
   }
 
-  const isValid = name.trim() && drug.trim() && startDate && phases.every((p) => p.dosage.trim())
+  const isValid =
+    name.trim() &&
+    drug.trim() &&
+    startDate &&
+    phases.every((p) => p.dosage.trim() && (p.isIndefinite || p.durationDays))
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -393,7 +417,8 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Define each phase of your titration schedule. Duration is in days (28 = ~1 month).
+          Define each phase of your titration schedule. Duration is in days (28 = ~1 month). Mark the final phase as
+          "Indefinite" for maintenance doses that continue indefinitely.
         </p>
 
         <div className="space-y-3">
@@ -415,9 +440,31 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
                   onChange={(e) => updatePhase(index, 'durationDays', e.target.value)}
                   placeholder="Days"
                   min={1}
+                  disabled={phase.isIndefinite}
                 />
               </div>
-              <span className="text-sm text-muted-foreground">days</span>
+              {index === phases.length - 1 && (
+                <label
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer whitespace-nowrap"
+                  title="Mark as ongoing maintenance phase with no end date"
+                >
+                  <input
+                    type="checkbox"
+                    checked={phase.isIndefinite}
+                    onChange={(e) => {
+                      setPhases((prev) =>
+                        prev.map((p, i) =>
+                          i === index
+                            ? { ...p, isIndefinite: e.target.checked, durationDays: e.target.checked ? '' : '28' }
+                            : p,
+                        ),
+                      )
+                    }}
+                    className="rounded border-muted-foreground/50"
+                  />
+                  Indefinite
+                </label>
+              )}
               {phases.length > 1 && (
                 <Button
                   type="button"

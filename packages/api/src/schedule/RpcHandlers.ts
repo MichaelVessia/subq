@@ -129,6 +129,11 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
           for (let i = 0; i < schedule.phases.length; i++) {
             const phase = schedule.phases[i]
             if (!phase) continue
+            // Indefinite phase (null duration) - we're in this phase and stay here
+            if (phase.durationDays === null) {
+              currentPhaseIndex = i
+              break
+            }
             if (daysSinceStart < cumulativeDays + phase.durationDays) {
               currentPhaseIndex = i
               break
@@ -211,12 +216,22 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
             const phaseStartDate = new Date(schedule.startDate)
             phaseStartDate.setDate(phaseStartDate.getDate() + cumulativeDays)
 
-            const phaseEndDate = new Date(phaseStartDate)
-            phaseEndDate.setDate(phaseEndDate.getDate() + phase.durationDays - 1)
+            // Indefinite phase has no end date
+            const isIndefinite = phase.durationDays === null
+            const phaseEndDate = isIndefinite
+              ? null
+              : (() => {
+                  const end = new Date(phaseStartDate)
+                  end.setDate(end.getDate() + phase.durationDays - 1)
+                  return end
+                })()
 
             // Determine phase status
             let status: 'completed' | 'current' | 'upcoming'
-            if (now > phaseEndDate) {
+            if (isIndefinite) {
+              // Indefinite phase is current if we've reached it, never completed
+              status = now >= phaseStartDate ? 'current' : 'upcoming'
+            } else if (phaseEndDate && now > phaseEndDate) {
               status = 'completed'
             } else if (now >= phaseStartDate) {
               status = 'current'
@@ -224,16 +239,22 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
               status = 'upcoming'
             }
 
-            // Calculate expected injections for this phase
-            const expectedInjections = Math.ceil(phase.durationDays / intervalDays)
+            // Calculate expected injections for this phase (null for indefinite)
+            const expectedInjections = isIndefinite ? null : Math.ceil(phase.durationDays / intervalDays)
 
             // Find injections that fall within this phase's date range
+            // For indefinite phases, include all injections from start date onwards
             const phaseInjections = injections.filter((inj) => {
               const injDate = new Date(inj.datetime)
-              return injDate >= phaseStartDate && injDate <= phaseEndDate
+              if (isIndefinite) {
+                return injDate >= phaseStartDate
+              }
+              return phaseEndDate && injDate >= phaseStartDate && injDate <= phaseEndDate
             })
 
-            cumulativeDays += phase.durationDays
+            if (!isIndefinite && phase.durationDays !== null) {
+              cumulativeDays += phase.durationDays
+            }
 
             return new SchedulePhaseView({
               id: phase.id,
@@ -257,12 +278,21 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
             })
           })
 
-          // Calculate total schedule end date
-          const totalDays = schedule.phases.reduce((sum, p) => sum + p.durationDays, 0)
-          const scheduleEndDate = new Date(schedule.startDate)
-          scheduleEndDate.setDate(scheduleEndDate.getDate() + totalDays - 1)
+          // Calculate total schedule end date (null if any phase is indefinite)
+          const hasIndefinitePhase = schedule.phases.some((p) => p.durationDays === null)
+          const scheduleEndDate = hasIndefinitePhase
+            ? null
+            : (() => {
+                const totalDays = schedule.phases.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+                const end = new Date(schedule.startDate)
+                end.setDate(end.getDate() + totalDays - 1)
+                return end
+              })()
 
-          const totalExpectedInjections = phaseViews.reduce((sum, p) => sum + p.expectedInjections, 0)
+          // Total expected is null if any phase is indefinite
+          const totalExpectedInjections = hasIndefinitePhase
+            ? null
+            : phaseViews.reduce((sum, p) => sum + (p.expectedInjections ?? 0), 0)
           const totalCompletedInjections = phaseViews.reduce((sum, p) => sum + p.completedInjections, 0)
 
           const view = new ScheduleView({
