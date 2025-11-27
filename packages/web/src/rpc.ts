@@ -112,3 +112,7 @@ export const ActiveScheduleAtom = ApiClient.query('ScheduleGetActive', undefined
 export const NextDoseAtom = ApiClient.query('ScheduleGetNextDose', undefined, {
   reactivityKeys: [ReactivityKeys.schedule, ReactivityKeys.injectionLogs],
 })
+
+export const LastInjectionSiteAtom = ApiClient.query('InjectionLogGetLastSite', undefined, {
+  reactivityKeys: [ReactivityKeys.injectionLogs],
+})

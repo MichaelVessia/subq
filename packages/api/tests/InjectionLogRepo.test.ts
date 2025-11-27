@@ -115,6 +115,12 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
         }
         return Array.from(sites).sort()
       }),
+
+    getLastSite: (_userId: string) =>
+      Effect.sync(() => {
+        const logs = Array.from(store.values()).sort((a, b) => b.datetime.getTime() - a.datetime.getTime())
+        return logs[0]?.injectionSite ?? null
+      }),
   }
 })
 
@@ -421,6 +427,58 @@ describe('InjectionLogRepo', () => {
 
       const sites = yield* repo.getUniqueSites('user-123')
       expect(sites).toEqual(['abdomen', 'left ventrogluteal'])
+    }).pipe(Effect.provide(InjectionLogRepoTest)),
+  )
+
+  it.effect('gets last injection site', () =>
+    Effect.gen(function* () {
+      const repo = yield* InjectionLogRepo
+
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-15T10:00:00Z'),
+          drug: DrugName.make('Testosterone'),
+          source: Option.none(),
+          dosage: Dosage.make('200mg'),
+          injectionSite: Option.some(InjectionSite.make('Left abdomen')),
+          notes: Option.none(),
+        },
+        'user-123',
+      )
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-17T10:00:00Z'),
+          drug: DrugName.make('Testosterone'),
+          source: Option.none(),
+          dosage: Dosage.make('200mg'),
+          injectionSite: Option.some(InjectionSite.make('Right abdomen')),
+          notes: Option.none(),
+        },
+        'user-123',
+      )
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-16T10:00:00Z'),
+          drug: DrugName.make('Testosterone'),
+          source: Option.none(),
+          dosage: Dosage.make('200mg'),
+          injectionSite: Option.some(InjectionSite.make('Left thigh')),
+          notes: Option.none(),
+        },
+        'user-123',
+      )
+
+      const lastSite = yield* repo.getLastSite('user-123')
+      // Should return the most recent by datetime (Jan 17 = Right abdomen)
+      expect(lastSite).toBe('Right abdomen')
+    }).pipe(Effect.provide(InjectionLogRepoTest)),
+  )
+
+  it.effect('returns null when no injection logs exist', () =>
+    Effect.gen(function* () {
+      const repo = yield* InjectionLogRepo
+      const lastSite = yield* repo.getLastSite('user-123')
+      expect(lastSite).toBeNull()
     }).pipe(Effect.provide(InjectionLogRepoTest)),
   )
 })

@@ -5,7 +5,7 @@ CREATE TABLE `injection_schedules` (
 	`source` text,
 	`frequency` text NOT NULL,
 	`start_date` text NOT NULL,
-	`is_active` integer DEFAULT true NOT NULL,
+	`is_active` integer DEFAULT 1 NOT NULL,
 	`notes` text,
 	`user_id` text,
 	`created_at` text NOT NULL,

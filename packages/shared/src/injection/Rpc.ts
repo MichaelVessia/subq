@@ -47,4 +47,8 @@ export const InjectionRpcs = RpcGroup.make(
     success: Schema.Array(Schema.String),
     error: InjectionLogDatabaseError,
   }),
+  Rpc.make('InjectionLogGetLastSite', {
+    success: Schema.NullOr(Schema.String),
+    error: InjectionLogDatabaseError,
+  }),
 )

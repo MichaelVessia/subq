@@ -157,7 +157,7 @@ export function InjectionLogList() {
 
   return (
     <div>
-      <NextDoseBanner onLogDose={handleLogScheduledDose} />
+      <NextDoseBanner onLogDose={handleLogScheduledDose} onQuickLogSuccess={() => setShowForm(false)} />
 
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold tracking-tight">Injection Log</h2>

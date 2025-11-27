@@ -65,6 +65,14 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
           yield* Effect.logInfo('InjectionLogGetSites completed', { userId: user.id, count: result.length })
           return result
         }),
+      InjectionLogGetLastSite: () =>
+        Effect.gen(function* () {
+          const { user } = yield* AuthContext
+          yield* Effect.logDebug('InjectionLogGetLastSite called', { userId: user.id })
+          const result = yield* injectionLogRepo.getLastSite(user.id)
+          yield* Effect.logInfo('InjectionLogGetLastSite completed', { userId: user.id, site: result })
+          return result
+        }),
     }
   }).pipe(Effect.tap(() => Effect.logInfo('Injection RPC handlers initialized'))),
 )

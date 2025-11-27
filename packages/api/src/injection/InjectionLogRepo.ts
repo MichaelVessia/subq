@@ -76,6 +76,7 @@ export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
     readonly delete: (id: string) => Effect.Effect<boolean, InjectionLogDatabaseError>
     readonly getUniqueDrugs: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
     readonly getUniqueSites: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
+    readonly getLastSite: (userId: string) => Effect.Effect<string | null, InjectionLogDatabaseError>
   }
 >() {}
 
@@ -218,6 +219,19 @@ export const InjectionLogRepoLive = Layer.effect(
             ORDER BY injection_site
           `
           return rows.map((r) => r.injection_site)
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+
+      getLastSite: (userId) =>
+        Effect.gen(function* () {
+          const rows = yield* sql<{ injection_site: string | null }>`
+            SELECT injection_site 
+            FROM injection_logs 
+            WHERE user_id = ${userId}
+            ORDER BY datetime DESC
+            LIMIT 1
+          `
+          const row = rows[0]
+          return row ? row.injection_site : null
         }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
     }
   }),

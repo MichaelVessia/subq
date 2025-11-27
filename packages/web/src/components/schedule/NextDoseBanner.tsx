@@ -1,11 +1,32 @@
-import { Result, useAtomValue } from '@effect-atom/atom-react'
-import type { NextScheduledDose } from '@scale/shared'
-import { Calendar, Clock, Pill } from 'lucide-react'
-import { NextDoseAtom } from '../../rpc.js'
+import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { Dosage, DrugName, InjectionLogCreate, InjectionSite, type NextScheduledDose } from '@scale/shared'
+import { Option } from 'effect'
+import { Calendar, Clock, Pill, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { ApiClient, LastInjectionSiteAtom, NextDoseAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
+
+// Standard injection site rotation order
+const SITE_ROTATION = [
+  'Left abdomen',
+  'Right abdomen',
+  'Left thigh',
+  'Right thigh',
+  'Left upper arm',
+  'Right upper arm',
+]
+
+function getNextSite(lastSite: string | null): string {
+  const defaultSite = SITE_ROTATION[0] ?? 'Left abdomen'
+  if (!lastSite) return defaultSite
+  const currentIndex = SITE_ROTATION.indexOf(lastSite)
+  if (currentIndex === -1) return defaultSite
+  return SITE_ROTATION[(currentIndex + 1) % SITE_ROTATION.length] ?? defaultSite
+}
 
 interface NextDoseBannerProps {
   onLogDose: (nextDose: NextScheduledDose) => void
+  onQuickLogSuccess?: () => void
 }
 
 function formatDate(date: Date): string {
@@ -16,8 +37,11 @@ function formatDate(date: Date): string {
   }).format(new Date(date))
 }
 
-export function NextDoseBanner({ onLogDose }: NextDoseBannerProps) {
+export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerProps) {
   const nextDoseResult = useAtomValue(NextDoseAtom)
+  const lastSiteResult = useAtomValue(LastInjectionSiteAtom)
+  const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
+  const [quickLogging, setQuickLogging] = useState(false)
 
   if (Result.isWaiting(nextDoseResult)) {
     return null // Don't show loading state for banner
@@ -26,6 +50,29 @@ export function NextDoseBanner({ onLogDose }: NextDoseBannerProps) {
   const nextDose = Result.getOrElse(nextDoseResult, () => null)
   if (!nextDose) {
     return null // No active schedule
+  }
+
+  const lastSite = Result.getOrElse(lastSiteResult, () => null)
+  const nextSite = getNextSite(lastSite)
+
+  const handleQuickLog = async () => {
+    setQuickLogging(true)
+    try {
+      await createLog({
+        payload: new InjectionLogCreate({
+          datetime: new Date(),
+          drug: DrugName.make(nextDose.drug),
+          source: Option.none(),
+          dosage: Dosage.make(nextDose.dosage),
+          injectionSite: Option.some(InjectionSite.make(nextSite)),
+          notes: Option.none(),
+        }),
+        reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
+      })
+      onQuickLogSuccess?.()
+    } finally {
+      setQuickLogging(false)
+    }
   }
 
   const dueText =
@@ -82,11 +129,21 @@ export function NextDoseBanner({ onLogDose }: NextDoseBannerProps) {
               <span className="font-medium">{dueText}</span>
             </div>
           </div>
+
+          <p className="text-xs text-muted-foreground mt-2">
+            Quick log will use: <span className="font-medium">{nextSite}</span>
+          </p>
         </div>
 
-        <Button onClick={() => onLogDose(nextDose)} size="sm">
-          Log This Dose
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handleQuickLog} size="sm" disabled={quickLogging}>
+            <Zap className="h-4 w-4 mr-1" />
+            {quickLogging ? 'Logging...' : 'Quick Log Now'}
+          </Button>
+          <Button onClick={() => onLogDose(nextDose)} size="sm" variant="outline">
+            Customize Entry
+          </Button>
+        </div>
       </div>
     </div>
   )
