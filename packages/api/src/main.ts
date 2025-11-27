@@ -74,7 +74,7 @@ const corsMiddleware = HttpMiddleware.cors({
   credentials: true,
   allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   // Include tracing headers (traceparent, b3) that Effect RPC client sends
-  allowedHeaders: ['Content-Type', 'Authorization', 'traceparent', 'b3'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'traceparent', 'b3', 'user-agent'],
 })
 
 // Auth routes layer - adds auth routes to the default router

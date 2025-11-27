@@ -41,7 +41,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, traceparent, b3',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, traceparent, b3, user-agent',
     'Access-Control-Allow-Credentials': 'true',
   }
 }
