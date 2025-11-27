@@ -1,8 +1,10 @@
 import alchemy from "alchemy";
 import { Assets, D1Database, Worker } from "alchemy/cloudflare";
+import { CloudflareStateStore } from "alchemy/state";
 
 const app = await alchemy("subq", {
   phase: process.argv.includes("--destroy") ? "destroy" : "up",
+  stateStore: (scope) => new CloudflareStateStore(scope),
 });
 
 // D1 database (SQLite at the edge)
