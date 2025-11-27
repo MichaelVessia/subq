@@ -148,7 +148,7 @@ export const ScheduleRepoLive = Layer.effect(
             SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
             FROM injection_schedules
             WHERE user_id = ${userId}
-            ORDER BY created_at DESC
+            ORDER BY start_date DESC
           `
           const schedules: InjectionSchedule[] = []
           for (const row of rows) {
