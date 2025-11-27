@@ -4,9 +4,10 @@ import type {
   InjectionScheduleCreate,
   InjectionScheduleId,
   InjectionScheduleUpdate,
+  SchedulePhase,
 } from '@subq/shared'
 import { Link } from '@tanstack/react-router'
-import { Calendar, Edit, Eye, Pill, Trash2 } from 'lucide-react'
+import { Calendar, Check, Edit, Eye, Pill, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ApiClient, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
@@ -24,6 +25,32 @@ const frequencyLabels: Record<string, string> = {
   weekly: 'Weekly',
   every_2_weeks: 'Every 2 weeks',
   monthly: 'Monthly',
+}
+
+type PhaseStatus = 'completed' | 'current' | 'upcoming'
+
+function computePhaseStatus(
+  phase: SchedulePhase,
+  scheduleStartDate: Date,
+  allPhases: readonly SchedulePhase[],
+): PhaseStatus {
+  const now = new Date()
+  let phaseStart = new Date(scheduleStartDate)
+
+  // Sum durations of previous phases to get this phase's start date
+  for (const p of allPhases) {
+    if (p.order < phase.order && p.durationDays !== null) {
+      phaseStart = new Date(phaseStart.getTime() + p.durationDays * 24 * 60 * 60 * 1000)
+    }
+  }
+
+  // Indefinite phase or phase with duration
+  const phaseEnd =
+    phase.durationDays !== null ? new Date(phaseStart.getTime() + phase.durationDays * 24 * 60 * 60 * 1000) : null
+
+  if (now < phaseStart) return 'upcoming'
+  if (phaseEnd && now >= phaseEnd) return 'completed'
+  return 'current'
 }
 
 function ScheduleCard({
@@ -87,15 +114,35 @@ function ScheduleCard({
       </div>
 
       <div className="space-y-1">
-        {schedule.phases.map((phase) => (
-          <div key={phase.id} className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground w-16">Phase {phase.order}</span>
-            <span className="font-mono">{phase.dosage}</span>
-            <span className="text-muted-foreground">
-              {phase.durationDays !== null ? `for ${phase.durationDays} days` : '(ongoing)'}
-            </span>
-          </div>
-        ))}
+        {schedule.phases.map((phase) => {
+          const status = computePhaseStatus(phase, schedule.startDate, schedule.phases)
+          const statusStyles = {
+            completed: 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700',
+            current: 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700',
+            upcoming: 'bg-muted border-muted-foreground/20',
+          }
+          const iconStyles = {
+            completed: 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200',
+            current: 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200',
+            upcoming: 'bg-muted text-muted-foreground',
+          }
+          return (
+            <div
+              key={phase.id}
+              className={`flex items-center gap-2 text-sm p-2 rounded border ${statusStyles[status]}`}
+            >
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${iconStyles[status]}`}
+              >
+                {status === 'completed' ? <Check className="h-3 w-3" /> : phase.order}
+              </div>
+              <span className="font-mono">{phase.dosage}</span>
+              <span className="text-muted-foreground">
+                {phase.durationDays !== null ? `for ${phase.durationDays} days` : '(ongoing)'}
+              </span>
+            </div>
+          )
+        })}
       </div>
 
       {schedule.notes && <p className="text-sm text-muted-foreground mt-3 italic">{schedule.notes}</p>}
