@@ -25,3 +25,7 @@ cookies.txt
 # SQLite local data
 packages/api/data/
 .alchemy/
+
+# Playwright
+packages/web/playwright-report/
+packages/web/test-results/

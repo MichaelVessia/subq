@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "bunx vite",
-    "build": "bunx vite build"
+    "build": "bunx vite build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@effect-atom/atom": "^0.3.4",
@@ -31,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251127.0",
+    "@playwright/test": "1.54.2",
     "@tailwindcss/vite": "^4.1.17",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
