@@ -3,6 +3,7 @@ import {
   DrugName,
   DrugSource,
   InjectionLog,
+  type InjectionLogBulkAssignSchedule,
   type InjectionLogCreate,
   InjectionLogId,
   type InjectionLogListParams,
@@ -59,6 +60,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
           dosage: data.dosage,
           injectionSite: Option.isSome(data.injectionSite) ? data.injectionSite.value : null,
           notes: Option.isSome(data.notes) ? data.notes.value : null,
+          scheduleId: data.scheduleId && Option.isSome(data.scheduleId) ? data.scheduleId.value : null,
           createdAt: now,
           updatedAt: now,
         })
@@ -76,13 +78,12 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
           ...current,
           datetime: data.datetime ?? current.datetime,
           drug: data.drug ?? current.drug,
-          source: data.source !== undefined && Option.isSome(data.source) ? data.source.value : current.source,
+          source: data.source && Option.isSome(data.source) ? data.source.value : current.source,
           dosage: data.dosage ?? current.dosage,
           injectionSite:
-            data.injectionSite !== undefined && Option.isSome(data.injectionSite)
-              ? data.injectionSite.value
-              : current.injectionSite,
-          notes: data.notes !== undefined && Option.isSome(data.notes) ? data.notes.value : current.notes,
+            data.injectionSite && Option.isSome(data.injectionSite) ? data.injectionSite.value : current.injectionSite,
+          notes: data.notes && Option.isSome(data.notes) ? data.notes.value : current.notes,
+          scheduleId: data.scheduleId && Option.isSome(data.scheduleId) ? data.scheduleId.value : current.scheduleId,
           updatedAt: new Date(),
         })
         store.set(data.id, updated)
@@ -120,6 +121,24 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
       Effect.sync(() => {
         const logs = Array.from(store.values()).sort((a, b) => b.datetime.getTime() - a.datetime.getTime())
         return logs[0]?.injectionSite ?? null
+      }),
+
+    bulkAssignSchedule: (data: InjectionLogBulkAssignSchedule, _userId: string) =>
+      Effect.sync(() => {
+        let count = 0
+        for (const id of data.ids) {
+          const log = store.get(id)
+          if (log) {
+            const updated = new InjectionLog({
+              ...log,
+              scheduleId: data.scheduleId,
+              updatedAt: new Date(),
+            })
+            store.set(id, updated)
+            count++
+          }
+        }
+        return count
       }),
   }
 })

@@ -27,6 +27,7 @@ export const injectionLogs = sqliteTable(
     dosage: text('dosage').notNull(),
     injectionSite: text('injection_site'),
     notes: text('notes'),
+    scheduleId: text('schedule_id').references(() => injectionSchedules.id, { onDelete: 'set null' }),
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -35,6 +36,7 @@ export const injectionLogs = sqliteTable(
     index('idx_injection_logs_datetime').on(table.datetime),
     index('idx_injection_logs_drug').on(table.drug),
     index('idx_injection_logs_user_id').on(table.userId),
+    index('idx_injection_logs_schedule_id').on(table.scheduleId),
   ],
 )
 

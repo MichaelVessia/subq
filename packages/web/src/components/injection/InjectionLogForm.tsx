@@ -162,6 +162,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             dosage: Dosage.make(dosage),
             injectionSite: Option.some(injectionSite ? InjectionSite.make(injectionSite) : null),
             notes: Option.some(notes ? Notes.make(notes) : null),
+            scheduleId: Option.none(), // Don't change scheduleId when editing via form
           }),
         )
       } else {
@@ -173,6 +174,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             dosage: Dosage.make(dosage),
             injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
+            scheduleId: Option.none(),
           }),
         )
         // Mark inventory as finished if requested

@@ -1,4 +1,10 @@
-import { AuthContext, type InjectionLogCreate, InjectionRpcs, type InjectionLogListParams } from '@scale/shared'
+import {
+  AuthContext,
+  type InjectionLogBulkAssignSchedule,
+  type InjectionLogCreate,
+  type InjectionLogListParams,
+  InjectionRpcs,
+} from '@scale/shared'
 import { Effect, Option } from 'effect'
 import { InjectionLogRepo } from './InjectionLogRepo.js'
 
@@ -71,6 +77,18 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
           yield* Effect.logDebug('InjectionLogGetLastSite called', { userId: user.id })
           const result = yield* injectionLogRepo.getLastSite(user.id)
           yield* Effect.logInfo('InjectionLogGetLastSite completed', { userId: user.id, site: result })
+          return result
+        }),
+      InjectionLogBulkAssignSchedule: (data: InjectionLogBulkAssignSchedule) =>
+        Effect.gen(function* () {
+          const { user } = yield* AuthContext
+          yield* Effect.logInfo('InjectionLogBulkAssignSchedule called', {
+            userId: user.id,
+            count: data.ids.length,
+            scheduleId: data.scheduleId,
+          })
+          const result = yield* injectionLogRepo.bulkAssignSchedule(data, user.id)
+          yield* Effect.logInfo('InjectionLogBulkAssignSchedule completed', { userId: user.id, updated: result })
           return result
         }),
     }

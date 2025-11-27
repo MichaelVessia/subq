@@ -5,13 +5,17 @@ import type {
   InjectionLogCreate,
   InjectionLogId,
   InjectionLogUpdate,
+  InjectionSchedule,
+  InjectionScheduleId,
   InventoryId,
   NextScheduledDose,
 } from '@scale/shared'
-import { MoreHorizontal } from 'lucide-react'
+import { InjectionLogBulkAssignSchedule } from '@scale/shared'
+import { Calendar, ChevronDown, MoreHorizontal, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
-import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
+import { ApiClient, createInjectionLogListAtom, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { NextDoseBanner } from '../schedule/NextDoseBanner.js'
+import { ScheduleForm } from '../schedule/ScheduleForm.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
 import { DataTable } from '../ui/data-table.js'
@@ -34,14 +38,19 @@ const formatDate = (date: Date) =>
 export function InjectionLogList() {
   const injectionLogAtom = useMemo(() => createInjectionLogListAtom(), [])
   const logsResult = useAtomValue(injectionLogAtom)
+  const schedulesResult = useAtomValue(ScheduleListAtom)
   const [showForm, setShowForm] = useState(false)
   const [editingLog, setEditingLog] = useState<InjectionLog | null>(null)
   const [prefillData, setPrefillData] = useState<{ drug: string; dosage: string } | null>(null)
+  const [selectedLogs, setSelectedLogs] = useState<InjectionLog[]>([])
+  const [showNewScheduleForm, setShowNewScheduleForm] = useState(false)
 
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const updateLog = useAtomSet(ApiClient.mutation('InjectionLogUpdate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
   const markFinished = useAtomSet(ApiClient.mutation('InventoryMarkFinished'), { mode: 'promise' })
+  const bulkAssign = useAtomSet(ApiClient.mutation('InjectionLogBulkAssignSchedule'), { mode: 'promise' })
+  const createSchedule = useAtomSet(ApiClient.mutation('ScheduleCreate'), { mode: 'promise' })
 
   const handleCreate = async (data: InjectionLogCreate) => {
     await createLog({
@@ -78,6 +87,25 @@ export function InjectionLogList() {
     setEditingLog(null)
   }, [])
 
+  const handleBulkAssignSchedule = useCallback(
+    async (scheduleId: InjectionScheduleId | null) => {
+      if (selectedLogs.length === 0) return
+      await bulkAssign({
+        payload: new InjectionLogBulkAssignSchedule({
+          ids: selectedLogs.map((log) => log.id),
+          scheduleId,
+        }),
+        reactivityKeys: [ReactivityKeys.injectionLogs],
+      })
+      setSelectedLogs([])
+    },
+    [selectedLogs, bulkAssign],
+  )
+
+  const handleSelectionChange = useCallback((rows: InjectionLog[]) => {
+    setSelectedLogs(rows)
+  }, [])
+
   const handleDelete = useCallback(
     async (id: InjectionLogId) => {
       if (confirm('Delete this entry?')) {
@@ -87,8 +115,34 @@ export function InjectionLogList() {
     [deleteLog],
   )
 
+  const schedules = Result.getOrElse(schedulesResult, () => [] as InjectionSchedule[])
+
   const columns: ColumnDef<InjectionLog>[] = useMemo(
     () => [
+      {
+        id: 'select',
+        size: 40,
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300"
+            checked={row.getIsSelected()}
+            onChange={(e) => row.toggleSelected(e.target.checked)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         accessorKey: 'datetime',
         header: 'Date',
@@ -116,6 +170,24 @@ export function InjectionLogList() {
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">{row.getValue('injectionSite') ?? '-'}</span>
         ),
+      },
+      {
+        id: 'schedule',
+        header: 'Schedule',
+        size: 140,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const log = row.original
+          const schedule = schedules.find((s) => s.id === log.scheduleId)
+          return schedule ? (
+            <span className="text-sm flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {schedule.name}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">-</span>
+          )
+        },
       },
       {
         id: 'actions',
@@ -146,14 +218,14 @@ export function InjectionLogList() {
         },
       },
     ],
-    [handleDelete, handleEdit],
+    [handleDelete, handleEdit, schedules],
   )
 
-  if (Result.isWaiting(logsResult)) {
+  if (Result.isWaiting(logsResult) || Result.isWaiting(schedulesResult)) {
     return <div className="p-6 text-center text-muted-foreground">Loading...</div>
   }
 
-  const logs = Result.getOrElse(logsResult, () => [])
+  const logs = Result.getOrElse(logsResult, () => [] as InjectionLog[])
 
   return (
     <div>
@@ -204,8 +276,99 @@ export function InjectionLogList() {
         </Card>
       )}
 
+      {/* Bulk action bar */}
+      {selectedLogs.length > 0 && (
+        <Card className="mb-4 p-3 bg-muted/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{selectedLogs.length} selected</span>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedLogs([])}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Assign to Schedule
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Existing Schedules</DropdownMenuLabel>
+                  {schedules.length > 0 ? (
+                    schedules.map((schedule) => (
+                      <DropdownMenuItem key={schedule.id} onClick={() => handleBulkAssignSchedule(schedule.id)}>
+                        {schedule.name}
+                        <span className="ml-auto text-xs text-muted-foreground">{schedule.drug}</span>
+                      </DropdownMenuItem>
+                    ))
+                  ) : (
+                    <DropdownMenuItem disabled>No schedules available</DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowNewScheduleForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Schedule
+                  </DropdownMenuItem>
+                  {selectedLogs.some((log) => log.scheduleId) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleBulkAssignSchedule(null)}>
+                        <X className="h-4 w-4 mr-2" />
+                        Unassign from Schedule
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* New schedule form (pre-filled from selected injections) */}
+      {showNewScheduleForm && selectedLogs.length > 0 && (
+        <Card className="mb-6 p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">Create Schedule from Selected Injections</h3>
+            <p className="text-sm text-muted-foreground">
+              Will link {selectedLogs.length} injection{selectedLogs.length > 1 ? 's' : ''} to this schedule after
+              creation.
+            </p>
+          </div>
+          <ScheduleForm
+            onSubmit={async (data) => {
+              const schedule = await createSchedule({
+                payload: data,
+                reactivityKeys: [ReactivityKeys.schedule],
+              })
+              // Bulk assign the selected logs to the new schedule
+              await bulkAssign({
+                payload: new InjectionLogBulkAssignSchedule({
+                  ids: selectedLogs.map((log) => log.id),
+                  scheduleId: schedule.id,
+                }),
+                reactivityKeys: [ReactivityKeys.injectionLogs],
+              })
+              setShowNewScheduleForm(false)
+              setSelectedLogs([])
+            }}
+            onCancel={() => setShowNewScheduleForm(false)}
+            preselectedInjections={selectedLogs}
+          />
+        </Card>
+      )}
+
       {logs.length > 0 ? (
-        <DataTable columns={columns} data={[...logs]} />
+        <DataTable
+          columns={columns}
+          data={[...logs]}
+          enableRowSelection
+          onSelectionChange={handleSelectionChange}
+          getRowId={(row) => row.id}
+        />
       ) : (
         <div className="text-center py-12 text-muted-foreground">No entries yet. Add your first injection log.</div>
       )}

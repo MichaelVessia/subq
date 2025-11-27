@@ -1,5 +1,12 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import { Dosage, DrugName, InjectionLogCreate, InjectionSite, type NextScheduledDose } from '@scale/shared'
+import {
+  Dosage,
+  DrugName,
+  InjectionLogCreate,
+  type InjectionScheduleId,
+  InjectionSite,
+  type NextScheduledDose,
+} from '@scale/shared'
 import { Option } from 'effect'
 import { Calendar, Clock, Pill, Zap } from 'lucide-react'
 import { useState } from 'react'
@@ -66,6 +73,7 @@ export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerP
           dosage: Dosage.make(nextDose.dosage),
           injectionSite: Option.some(InjectionSite.make(nextSite)),
           notes: Option.none(),
+          scheduleId: Option.some(nextDose.scheduleId as InjectionScheduleId),
         }),
         reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
       })

@@ -3,32 +3,49 @@ import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
+  getFilteredRowModel,
   getSortedRowModel,
+  type RowSelectionState,
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from './button.js'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table.js'
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  enableRowSelection?: boolean
+  onSelectionChange?: (selectedRows: TData[]) => void
+  getRowId?: (row: TData) => string
 }
 
-export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  enableRowSelection = false,
+  onSelectionChange,
+  getRowId,
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection,
+    getRowId: getRowId as (row: TData) => string,
     state: {
       sorting,
+      rowSelection,
     },
     initialState: {
       pagination: {
@@ -36,6 +53,15 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
       },
     },
   })
+
+  // Notify parent of selection changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection is needed to trigger effect when selection changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      const selectedRows = table.getFilteredSelectedRowModel().rows.map((row) => row.original)
+      onSelectionChange(selectedRows)
+    }
+  }, [rowSelection, onSelectionChange, table])
 
   return (
     <div className="w-full">

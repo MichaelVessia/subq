@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
 import { Limit, Notes, Offset } from '../common/Brand.js'
+import { InjectionScheduleId } from '../schedule/Brand.js'
 import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite } from './Brand.js'
 
 // ============================================
@@ -28,6 +29,7 @@ export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
   dosage: Dosage,
   injectionSite: Schema.NullOr(InjectionSite),
   notes: Schema.NullOr(Notes),
+  scheduleId: Schema.NullOr(InjectionScheduleId),
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
 }) {}
@@ -46,6 +48,7 @@ export class InjectionLogCreate extends Schema.Class<InjectionLogCreate>('Inject
   dosage: Dosage,
   injectionSite: Schema.optionalWith(InjectionSite, { as: 'Option' }),
   notes: Schema.optionalWith(Notes, { as: 'Option' }),
+  scheduleId: Schema.optionalWith(InjectionScheduleId, { as: 'Option' }),
 }) {}
 
 /**
@@ -61,6 +64,7 @@ export class InjectionLogUpdate extends Schema.Class<InjectionLogUpdate>('Inject
     as: 'Option',
   }),
   notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
+  scheduleId: Schema.optionalWith(Schema.NullOr(InjectionScheduleId), { as: 'Option' }),
 }) {}
 
 /**
@@ -79,4 +83,14 @@ export class InjectionLogListParams extends Schema.Class<InjectionLogListParams>
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
   drug: Schema.optional(DrugName), // Filter by specific drug
+}) {}
+
+/**
+ * Payload for bulk assigning injection logs to a schedule.
+ */
+export class InjectionLogBulkAssignSchedule extends Schema.Class<InjectionLogBulkAssignSchedule>(
+  'InjectionLogBulkAssignSchedule',
+)({
+  ids: Schema.Array(InjectionLogId),
+  scheduleId: Schema.NullOr(InjectionScheduleId), // null to unassign
 }) {}

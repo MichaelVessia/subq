@@ -3,6 +3,7 @@ import { Schema } from 'effect'
 import { InjectionLogDatabaseError, InjectionLogNotFoundError } from '../errors/index.js'
 import {
   InjectionLog,
+  InjectionLogBulkAssignSchedule,
   InjectionLogCreate,
   InjectionLogDelete,
   InjectionLogListParams,
@@ -49,6 +50,11 @@ export const InjectionRpcs = RpcGroup.make(
   }),
   Rpc.make('InjectionLogGetLastSite', {
     success: Schema.NullOr(Schema.String),
+    error: InjectionLogDatabaseError,
+  }),
+  Rpc.make('InjectionLogBulkAssignSchedule', {
+    payload: InjectionLogBulkAssignSchedule,
+    success: Schema.Number, // returns count of updated rows
     error: InjectionLogDatabaseError,
   }),
 )

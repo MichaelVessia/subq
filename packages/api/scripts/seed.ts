@@ -97,6 +97,8 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     // Clear existing data for this user
     yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
     yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
+    yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
+    yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
 
     console.log(`\nGenerating 1 year of consistent data for user ${userId}...`)
 
@@ -105,15 +107,22 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     startDate.setFullYear(startDate.getFullYear() - 1)
     startDate.setHours(8, 0, 0, 0)
 
-    // Dose schedule
-    const getDrugAndDose = (weekNum: number): { drug: string; dose: string } => {
-      if (weekNum <= 26) {
-        const dose = Math.min(weekNum * 2.5, 15)
-        return { drug: 'Semaglutide', dose: `${dose}mg` }
+    // Dose schedule - Semaglutide weeks 1-20, Tirzepatide weeks 21-40, then Retatrutide (unlinked)
+    const getDrugAndDose = (weekNum: number): { drug: string; dose: string } | null => {
+      if (weekNum <= 20) {
+        // Semaglutide: 2.5mg weeks 1-4, 5mg weeks 5-8, 7.5mg weeks 9-12, 10mg weeks 13-16, 15mg weeks 17-20
+        const phase = Math.ceil(weekNum / 4)
+        const doses = ['2.5mg', '5mg', '7.5mg', '10mg', '15mg']
+        return { drug: 'Semaglutide', dose: doses[Math.min(phase - 1, 4)] ?? '15mg' }
       }
-      const tirzWeek = weekNum - 26
-      const dose = Math.min(tirzWeek * 2.5, 15)
-      return { drug: 'Tirzepatide', dose: `${dose}mg` }
+      if (weekNum <= 40) {
+        // Tirzepatide: same pattern
+        const tirzWeek = weekNum - 20
+        const phase = Math.ceil(tirzWeek / 4)
+        const doses = ['2.5mg', '5mg', '7.5mg', '10mg', '15mg']
+        return { drug: 'Tirzepatide', dose: doses[Math.min(phase - 1, 4)] ?? '15mg' }
+      }
+      return null // Weeks 41+ handled by Retatrutide (unlinked)
     }
 
     // Weight loss model
@@ -149,22 +158,24 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       updatedAt: string
     }> = []
 
-    for (let week = 1; week <= 52; week++) {
+    for (let week = 1; week <= 40; week++) {
+      const drugDose = getDrugAndDose(week)
+      if (!drugDose) continue
+
+      const { drug, dose } = drugDose
       const injectionDate = new Date(startDate)
       injectionDate.setDate(startDate.getDate() + (week - 1) * 7)
       injectionDate.setHours(18, Math.floor(Math.random() * 30), 0, 0)
 
-      const { drug, dose } = getDrugAndDose(week)
       const site = sites[(week - 1) % sites.length]
       const prevDrugDose = week > 1 ? getDrugAndDose(week - 1) : null
 
       let notes: string | null = null
       if (week === 1) notes = 'First injection - starting journey'
-      else if (week === 27) notes = 'Switching to Tirzepatide'
+      else if (week === 21) notes = 'Switching to Tirzepatide'
       else if (prevDrugDose && dose !== prevDrugDose.dose && drug === prevDrugDose.drug)
         notes = `Dose increase to ${dose}`
-      else if (week === 52) notes = '1 year milestone!'
-      else if (week % 12 === 0) notes = `${week} weeks in`
+      else if (week === 40) notes = 'Completing Tirzepatide, trying Retatrutide next'
 
       const now = new Date().toISOString()
       injectionEntries.push({
@@ -180,13 +191,70 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       })
     }
 
-    for (const entry of injectionEntries) {
+    // Create schedules for Semaglutide and Tirzepatide
+    const now = new Date().toISOString()
+
+    // Semaglutide schedule (weeks 1-20) - completed
+    const semaScheduleId = crypto.randomUUID()
+    const semaStartDate = new Date(startDate)
+    yield* sql`
+      INSERT INTO injection_schedules (id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at)
+      VALUES (${semaScheduleId}, ${'Semaglutide Titration'}, ${'Semaglutide'}, ${null}, ${'weekly'}, ${semaStartDate.toISOString()}, ${0}, ${'Completed 20-week titration'}, ${userId}, ${now}, ${now})
+    `
+
+    // Semaglutide phases: 4 weeks each dose level
+    const semaPhases = [
+      { order: 1, durationDays: 28, dosage: '2.5mg' }, // weeks 1-4
+      { order: 2, durationDays: 28, dosage: '5mg' }, // weeks 5-8
+      { order: 3, durationDays: 28, dosage: '7.5mg' }, // weeks 9-12
+      { order: 4, durationDays: 28, dosage: '10mg' }, // weeks 13-16
+      { order: 5, durationDays: 28, dosage: '15mg' }, // weeks 17-20
+    ]
+    for (const phase of semaPhases) {
+      const phaseId = crypto.randomUUID()
       yield* sql`
-        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, user_id, created_at, updated_at)
-        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+        INSERT INTO schedule_phases (id, schedule_id, "order", duration_days, dosage, created_at, updated_at)
+        VALUES (${phaseId}, ${semaScheduleId}, ${phase.order}, ${phase.durationDays}, ${phase.dosage}, ${now}, ${now})
       `
     }
-    console.log(`Inserted ${injectionEntries.length} injection logs`)
+
+    // Tirzepatide schedule (weeks 21-40) - completed (user moved on to Retatrutide)
+    const tirzScheduleId = crypto.randomUUID()
+    const tirzStartDate = new Date(startDate)
+    tirzStartDate.setDate(tirzStartDate.getDate() + 20 * 7) // Start at week 21
+    yield* sql`
+      INSERT INTO injection_schedules (id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at)
+      VALUES (${tirzScheduleId}, ${'Tirzepatide Titration'}, ${'Tirzepatide'}, ${null}, ${'weekly'}, ${tirzStartDate.toISOString()}, ${0}, ${'Completed - switched to Retatrutide'}, ${userId}, ${now}, ${now})
+    `
+
+    // Tirzepatide phases: 4 weeks each dose level
+    const tirzPhases = [
+      { order: 1, durationDays: 28, dosage: '2.5mg' }, // weeks 21-24
+      { order: 2, durationDays: 28, dosage: '5mg' }, // weeks 25-28
+      { order: 3, durationDays: 28, dosage: '7.5mg' }, // weeks 29-32
+      { order: 4, durationDays: 28, dosage: '10mg' }, // weeks 33-36
+      { order: 5, durationDays: 28, dosage: '15mg' }, // weeks 37-40
+    ]
+    for (const phase of tirzPhases) {
+      const phaseId = crypto.randomUUID()
+      yield* sql`
+        INSERT INTO schedule_phases (id, schedule_id, "order", duration_days, dosage, created_at, updated_at)
+        VALUES (${phaseId}, ${tirzScheduleId}, ${phase.order}, ${phase.durationDays}, ${phase.dosage}, ${now}, ${now})
+      `
+    }
+
+    console.log('Created 2 schedules with phases')
+
+    // Insert injections with schedule_id linked
+    for (const entry of injectionEntries) {
+      // Link to appropriate schedule based on drug
+      const scheduleId = entry.drug === 'Semaglutide' ? semaScheduleId : tirzScheduleId
+      yield* sql`
+        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${scheduleId}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+      `
+    }
+    console.log(`Inserted ${injectionEntries.length} injection logs (linked to schedules)`)
 
     // Generate weight logs
     console.log('Inserting weight logs...')
@@ -286,6 +354,71 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     }
 
     console.log(`Inserted ${weightEntries.length} weight logs`)
+
+    // Add UNLINKED injections for a different drug (Retatrutide) to test bulk linking
+    // These start AFTER the Tirzepatide schedule ends (which was weeks 27-52, so after week 52)
+    console.log('Adding unlinked Retatrutide injections for bulk link testing...')
+    const retatrutideEntries: Array<{
+      id: string
+      datetime: string
+      drug: string
+      source: string
+      dosage: string
+      injectionSite: string
+      notes: string | null
+      createdAt: string
+      updatedAt: string
+    }> = []
+
+    // Simulate 12 weeks of Retatrutide titration starting after week 40
+    // This represents switching to a new drug after completing the Tirzepatide schedule
+    const retatStartDate = new Date(startDate)
+    retatStartDate.setDate(retatStartDate.getDate() + 40 * 7) // Start after week 40
+
+    const retatDoses = [
+      { weeks: [1, 2], dose: '1mg' },
+      { weeks: [3, 4], dose: '2mg' },
+      { weeks: [5, 6], dose: '4mg' },
+      { weeks: [7, 8], dose: '8mg' },
+      { weeks: [9, 10, 11, 12], dose: '12mg' },
+    ]
+
+    for (const doseGroup of retatDoses) {
+      for (const week of doseGroup.weeks) {
+        const injDate = new Date(retatStartDate)
+        injDate.setDate(retatStartDate.getDate() + (week - 1) * 7)
+        injDate.setHours(9, Math.floor(Math.random() * 30), 0, 0)
+
+        // Only add if the date is in the past
+        if (injDate > new Date()) continue
+
+        const site = sites[(week - 1) % sites.length]
+        let notes: string | null = null
+        if (week === 1) notes = 'Starting Retatrutide - switching from Tirzepatide'
+        else if (doseGroup.weeks[0] === week && week > 1) notes = `Increased to ${doseGroup.dose}`
+
+        const now = new Date().toISOString()
+        retatrutideEntries.push({
+          id: crypto.randomUUID(),
+          datetime: injDate.toISOString(),
+          drug: 'Retatrutide (Compounded)',
+          source: 'Compounding Pharmacy',
+          dosage: doseGroup.dose,
+          injectionSite: site,
+          notes,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+    }
+
+    for (const entry of retatrutideEntries) {
+      yield* sql`
+        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${null}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+      `
+    }
+    console.log(`Inserted ${retatrutideEntries.length} UNLINKED Retatrutide injections (for bulk link testing)`)
   })
 
 // Seed sparse user
@@ -293,6 +426,8 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
   Effect.gen(function* () {
     yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
     yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
+    yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
+    yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
 
     console.log(`\nGenerating sparse/irregular data for user ${userId}...`)
 
@@ -381,8 +516,8 @@ const seedSparseUser = (sql: SqlClient.SqlClient, userId: string) =>
 
     for (const entry of injectionEntries) {
       yield* sql`
-        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, user_id, created_at, updated_at)
-        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
+        INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
+        VALUES (${entry.id}, ${entry.datetime}, ${entry.drug}, ${entry.source}, ${entry.dosage}, ${entry.injectionSite}, ${entry.notes}, ${null}, ${userId}, ${entry.createdAt}, ${entry.updatedAt})
       `
     }
     console.log(`Inserted ${injectionEntries.length} injection logs`)

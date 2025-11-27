@@ -2,8 +2,8 @@ import { Result, useAtomValue } from '@effect-atom/atom-react'
 import {
   Dosage,
   DrugName,
-  DrugSource,
   type Frequency,
+  type InjectionLog,
   type InjectionSchedule,
   InjectionScheduleCreate,
   type InjectionScheduleId,
@@ -16,7 +16,7 @@ import {
 } from '@scale/shared'
 import { Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { InjectionDrugsAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -62,6 +62,56 @@ interface ScheduleFormProps {
   onUpdate?: (data: InjectionScheduleUpdate) => Promise<void>
   onCancel: () => void
   initialData?: InjectionSchedule
+  preselectedInjections?: InjectionLog[]
+}
+
+/**
+ * Infer phases from a list of injections.
+ * Groups by dosage, sorts by earliest injection date per dosage,
+ * and calculates duration as days between first injection of phase N and phase N+1.
+ */
+function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
+  if (injections.length === 0) return [{ order: 1, durationDays: '28', dosage: '' }]
+
+  // Group injections by dosage
+  const byDosage = new Map<string, Date[]>()
+  for (const inj of injections) {
+    const dates = byDosage.get(inj.dosage) ?? []
+    dates.push(new Date(inj.datetime))
+    byDosage.set(inj.dosage, dates)
+  }
+
+  // Get earliest date per dosage and sort phases by that date
+  const phases: { dosage: string; earliestDate: Date }[] = []
+  for (const [dosage, dates] of byDosage) {
+    const firstDate = dates[0]
+    if (!firstDate) continue
+    const earliestDate = dates.reduce((min, d) => (d < min ? d : min), firstDate)
+    phases.push({ dosage, earliestDate })
+  }
+  phases.sort((a, b) => a.earliestDate.getTime() - b.earliestDate.getTime())
+
+  // Calculate duration as days between phase starts
+  const result: PhaseInput[] = []
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i]
+    if (!phase) continue
+    let durationDays = 28 // default for last phase
+    if (i < phases.length - 1) {
+      const nextPhase = phases[i + 1]
+      if (nextPhase) {
+        const diffMs = nextPhase.earliestDate.getTime() - phase.earliestDate.getTime()
+        durationDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)))
+      }
+    }
+    result.push({
+      order: i + 1,
+      durationDays: String(durationDays),
+      dosage: phase.dosage,
+    })
+  }
+
+  return result.length > 0 ? result : [{ order: 1, durationDays: '28', dosage: '' }]
 }
 
 interface FormErrors {
@@ -72,24 +122,62 @@ interface FormErrors {
   phases?: string | undefined
 }
 
-export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData }: ScheduleFormProps) {
+export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, preselectedInjections }: ScheduleFormProps) {
   const isEditing = !!initialData
-  const [name, setName] = useState(initialData?.name ?? '')
-  const [drug, setDrug] = useState(initialData?.drug ?? '')
-  const [source, setSource] = useState(initialData?.source ?? '')
+
+  // Infer initial values from preselected injections
+  const inferredFromInjections = preselectedInjections && preselectedInjections.length > 0
+  const firstInjection = preselectedInjections?.[0]
+  const inferredDrug = firstInjection?.drug ?? ''
+  const inferredStartDate =
+    inferredFromInjections && firstInjection
+      ? toLocalDateString(
+          preselectedInjections.reduce(
+            (min, inj) => (new Date(inj.datetime) < min ? new Date(inj.datetime) : min),
+            new Date(firstInjection.datetime),
+          ),
+        )
+      : toLocalDateString(new Date())
+  const inferredPhases = inferredFromInjections
+    ? inferPhasesFromInjections(preselectedInjections)
+    : [{ order: 1, durationDays: '28', dosage: '' }]
+
+  const [name, setName] = useState(initialData?.name ?? (inferredFromInjections ? `${inferredDrug} Schedule` : ''))
+  const [drug, setDrug] = useState(initialData?.drug ?? inferredDrug)
   const [frequency, setFrequency] = useState<Frequency>(initialData?.frequency ?? 'weekly')
-  const [startDate, setStartDate] = useState(toLocalDateString(initialData?.startDate ?? new Date()))
+  const [startDate, setStartDate] = useState(initialData ? toLocalDateString(initialData.startDate) : inferredStartDate)
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [phases, setPhases] = useState<PhaseInput[]>(
     initialData?.phases?.map((p) => ({
       order: p.order,
       durationDays: String(p.durationDays),
       dosage: p.dosage,
-    })) ?? [{ order: 1, durationDays: '28', dosage: '' }],
+    })) ?? inferredPhases,
   )
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+
+  // Update form when preselected injections change
+  useEffect(() => {
+    if (preselectedInjections && preselectedInjections.length > 0 && !initialData) {
+      const firstInj = preselectedInjections[0]
+      if (!firstInj) return
+      const drug = firstInj.drug
+      const startDate = toLocalDateString(
+        preselectedInjections.reduce(
+          (min, inj) => (new Date(inj.datetime) < min ? new Date(inj.datetime) : min),
+          new Date(firstInj.datetime),
+        ),
+      )
+      const inferredPhases = inferPhasesFromInjections(preselectedInjections)
+
+      setName(`${drug} Schedule`)
+      setDrug(drug)
+      setStartDate(startDate)
+      setPhases(inferredPhases)
+    }
+  }, [preselectedInjections, initialData])
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const userDrugs = Result.getOrElse(drugsResult, () => [])
@@ -181,7 +269,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData }: Sche
             id: initialData.id as InjectionScheduleId,
             name: ScheduleName.make(name),
             drug: DrugName.make(drug),
-            source: Option.some(source ? DrugSource.make(source) : null),
+            source: Option.some(null), // Source is not required for schedules
             frequency,
             startDate: new Date(startDate),
             notes: Option.some(notes ? Notes.make(notes) : null),
@@ -193,7 +281,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData }: Sche
           new InjectionScheduleCreate({
             name: ScheduleName.make(name),
             drug: DrugName.make(drug),
-            source: source ? Option.some(DrugSource.make(source)) : Option.none(),
+            source: Option.none(), // Source is not required for schedules
             frequency,
             startDate: new Date(startDate),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
@@ -231,45 +319,30 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData }: Sche
         {touched.name && errors.name && <span className="block text-xs text-destructive mt-1">{errors.name}</span>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <Label htmlFor="drug" className="mb-2 block">
-            Medication <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            id="drug"
-            value={drug}
-            onChange={(e) => {
-              setDrug(e.target.value)
-              if (touched.drug) {
-                setErrors((prev) => ({ ...prev, drug: validateField('drug', e.target.value) }))
-              }
-            }}
-            onBlur={(e) => handleBlur('drug', e.target.value)}
-            error={touched.drug && !!errors.drug}
-          >
-            <option value="">Select medication</option>
-            {allDrugs.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </Select>
-          {touched.drug && errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug}</span>}
-        </div>
-
-        <div>
-          <Label htmlFor="source" className="mb-2 block">
-            Source
-          </Label>
-          <Input
-            type="text"
-            id="source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="e.g., CVS, Pharmacy"
-          />
-        </div>
+      <div className="mb-4">
+        <Label htmlFor="drug" className="mb-2 block">
+          Medication <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          id="drug"
+          value={drug}
+          onChange={(e) => {
+            setDrug(e.target.value)
+            if (touched.drug) {
+              setErrors((prev) => ({ ...prev, drug: validateField('drug', e.target.value) }))
+            }
+          }}
+          onBlur={(e) => handleBlur('drug', e.target.value)}
+          error={touched.drug && !!errors.drug}
+        >
+          <option value="">Select medication</option>
+          {allDrugs.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </Select>
+        {touched.drug && errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug}</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
