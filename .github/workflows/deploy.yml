@@ -45,3 +45,20 @@ jobs:
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+  e2e:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+        working-directory: packages/web
+      - name: Run E2E tests
+        run: bun run test:e2e
+        working-directory: packages/web
+        env:
+          BASE_URL: https://subq.vessia.net

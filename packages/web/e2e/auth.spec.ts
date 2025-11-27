@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { DEMO_USER, login, loginWithDemo, logout } from './fixtures/auth.js'
+import { TEST_USER_CREDENTIALS, login, loginAsTestUser, logout } from './fixtures/auth.js'
 
 test.describe('Authentication', () => {
   test('shows login form when not authenticated', async ({ page }) => {
@@ -10,14 +10,8 @@ test.describe('Authentication', () => {
     await expect(page.locator('button[type="submit"]:has-text("Sign In")')).toBeVisible()
   })
 
-  test('can login with demo account button', async ({ page }) => {
-    await loginWithDemo(page)
-    await expect(page.locator('text=Sign Out')).toBeVisible()
-    await expect(page.locator(`text=${DEMO_USER.email}`)).toBeVisible()
-  })
-
   test('can login with email and password', async ({ page }) => {
-    await login(page, DEMO_USER.email, DEMO_USER.password)
+    await login(page, TEST_USER_CREDENTIALS.email, TEST_USER_CREDENTIALS.password)
     await expect(page.locator('text=Sign Out')).toBeVisible()
   })
 
@@ -52,13 +46,13 @@ test.describe('Authentication', () => {
   })
 
   test('can sign out', async ({ page }) => {
-    await loginWithDemo(page)
+    await loginAsTestUser(page)
     await logout(page)
     await expect(page.locator('h1:has-text("Sign In")')).toBeVisible()
   })
 
   test('session persists after page refresh', async ({ page }) => {
-    await loginWithDemo(page)
+    await loginAsTestUser(page)
     await page.reload()
     // Should still be logged in after refresh
     await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })

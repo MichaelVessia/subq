@@ -1,9 +1,9 @@
 import { test as base, expect, type Page } from '@playwright/test'
 
-// Demo user credentials (seeded in DB)
-export const DEMO_USER = {
-  email: 'consistent@example.com',
-  password: 'testpassword123',
+// Test user credentials - use env vars in CI, fallback to demo for local dev
+export const TEST_USER_CREDENTIALS = {
+  email: process.env.TEST_USER_EMAIL || 'consistent@example.com',
+  password: process.env.TEST_USER_PASSWORD || 'testpassword123',
 }
 
 // Test user for CRUD operations (to avoid polluting demo data)
@@ -13,7 +13,11 @@ export const TEST_USER = {
   name: 'Test User',
 }
 
-export async function login(page: Page, email = DEMO_USER.email, password = DEMO_USER.password) {
+export async function login(
+  page: Page,
+  email = TEST_USER_CREDENTIALS.email,
+  password = TEST_USER_CREDENTIALS.password,
+) {
   await page.goto('/stats')
   // Wait for login form
   await page.waitForSelector('text=Sign In')
@@ -24,11 +28,8 @@ export async function login(page: Page, email = DEMO_USER.email, password = DEMO
   await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
 }
 
-export async function loginWithDemo(page: Page) {
-  await page.goto('/stats')
-  await page.waitForSelector('text=Sign In')
-  await page.click('button:has-text("Demo Account")')
-  await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
+export async function loginAsTestUser(page: Page) {
+  await login(page, TEST_USER_CREDENTIALS.email, TEST_USER_CREDENTIALS.password)
 }
 
 export async function logout(page: Page) {
@@ -51,7 +52,7 @@ export async function signUp(page: Page, email: string, password: string, name: 
 // Extended test fixture with authenticated page
 export const test = base.extend<{ authedPage: Page }>({
   authedPage: async ({ page }, use) => {
-    await loginWithDemo(page)
+    await loginAsTestUser(page)
     await use(page)
   },
 })
