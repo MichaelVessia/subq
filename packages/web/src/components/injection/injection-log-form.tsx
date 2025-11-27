@@ -10,7 +10,7 @@ import {
   InjectionSite,
   type InventoryId,
   Notes,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'

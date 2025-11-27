@@ -9,7 +9,7 @@ import {
   Limit,
   StatsParams,
   WeightLogListParams,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Layer } from 'effect'
 
 // FetchHttpClient layer with credentials for auth cookies
@@ -20,7 +20,7 @@ const FetchWithCredentials = FetchHttpClient.layer.pipe(
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 // Use AtomRpc.Tag for automatic atom integration
-export class ApiClient extends AtomRpc.Tag<ApiClient>()('@scale/ApiClient', {
+export class ApiClient extends AtomRpc.Tag<ApiClient>()('@subq/ApiClient', {
   group: AppRpcs,
   protocol: RpcClient.layerProtocolHttp({
     url: `${apiUrl}/rpc`,

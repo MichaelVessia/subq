@@ -12,7 +12,7 @@ import {
   SchedulePhaseView,
   ScheduleRpcs,
   ScheduleView,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { InjectionLogRepo } from '../injection/injection-log-repo.js'
 import { ScheduleRepo } from './schedule-repo.js'

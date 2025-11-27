@@ -1,22 +1,22 @@
 import alchemy from "alchemy";
 import { Assets, D1Database, Worker } from "alchemy/cloudflare";
 
-const app = await alchemy("scalability", {
+const app = await alchemy("subq", {
   phase: process.argv.includes("--destroy") ? "destroy" : "up",
 });
 
 // D1 database (SQLite at the edge)
 export const db = await D1Database("db", {
-  name: `scalability-${app.stage}`,
+  name: `subq-${app.stage}`,
   migrationsDir: "./packages/api/drizzle",
 });
 
 // API Worker
 export const api = await Worker("api", {
-  name: `scalability-api-${app.stage}`,
+  name: `subq-api-${app.stage}`,
   entrypoint: "./packages/api/src/worker.ts",
   url: true,
-  domains: ["api.glp.vessia.net"],
+  domains: ["api.subq.vessia.net"],
   compatibility: "node",
   bindings: {
     DB: db,
@@ -32,10 +32,10 @@ const webAssets = await Assets({
 
 // Web frontend Worker (serves SPA)
 export const web = await Worker("web", {
-  name: `scalability-web-${app.stage}`,
+  name: `subq-web-${app.stage}`,
   entrypoint: "./packages/web/src/worker.ts",
   url: true,
-  domains: ["glp.vessia.net"],
+  domains: ["subq.vessia.net"],
   bindings: {
     ASSETS: webAssets,
   },

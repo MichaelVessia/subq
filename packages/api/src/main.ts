@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
-import { AppRpcs } from '@scale/shared'
+import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
@@ -18,7 +18,7 @@ const AuthLive = Layer.unwrapEffect(
   Effect.gen(function* () {
     yield* Effect.logInfo('Initializing auth service...')
 
-    const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
+    const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/subq.db'))
     const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
     const authUrl = yield* Config.string('BETTER_AUTH_URL')
 

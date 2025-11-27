@@ -7,7 +7,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { HttpApp } from '@effect/platform'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
-import { AppRpcs } from '@scale/shared'
+import { AppRpcs } from '@subq/shared'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle } from 'drizzle-orm/d1'
@@ -33,7 +33,7 @@ interface Env {
 }
 
 // Allowed origins for CORS
-const allowedOrigins = ['https://glp.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173']
+const allowedOrigins = ['https://subq.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173']
 
 // Get CORS headers for a specific origin
 function getCorsHeaders(origin: string | null): Record<string, string> {
@@ -78,7 +78,7 @@ function createAuth(env: Env) {
     database: drizzleAdapter(d1Db, { provider: 'sqlite', schema }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    trustedOrigins: [env.BETTER_AUTH_URL, 'https://glp.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    trustedOrigins: [env.BETTER_AUTH_URL, 'https://subq.vessia.net', 'http://localhost:5173', 'http://127.0.0.1:5173'],
     emailAndPassword: {
       enabled: true,
     },

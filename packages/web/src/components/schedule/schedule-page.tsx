@@ -4,7 +4,7 @@ import type {
   InjectionScheduleCreate,
   InjectionScheduleId,
   InjectionScheduleUpdate,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Link } from '@tanstack/react-router'
 import { Calendar, Edit, Eye, Pill, Trash2 } from 'lucide-react'
 import { useState } from 'react'

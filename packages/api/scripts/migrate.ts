@@ -4,8 +4,8 @@ import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 
-// Path to the SQLite database (default: ./data/scalability.db)
-const DATABASE_PATH = process.env.DATABASE_PATH || './data/scalability.db'
+// Path to the SQLite database (default: ./data/subq.db)
+const DATABASE_PATH = process.env.DATABASE_PATH || './data/subq.db'
 
 async function runMigrations() {
   // Ensure the data directory exists

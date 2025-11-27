@@ -29,7 +29,7 @@ devShells = forAllSystems (pkgs: {
     shellHook = ''
       export PGDATA="$PWD/.postgres/data"
       export PGHOST="$PWD/.postgres"
-      export PGDATABASE="scalability_dev"
+      export PGDATABASE="subq_dev"
       
       if [ ! -d "$PGDATA" ]; then
         echo "Initializing PostgreSQL database..."
@@ -51,10 +51,10 @@ Add to `.gitignore`:
 pg_ctl start -l .postgres/log
 
 # Create the database (first time only)
-createdb scalability_dev
+createdb subq_dev
 
 # Connect to verify
-psql -d scalability_dev
+psql -d subq_dev
 
 # Stop postgres when done
 pg_ctl stop
@@ -70,7 +70,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: scalability_dev
+      POSTGRES_DB: subq_dev
     ports:
       - "5432:5432"
     volumes:
@@ -86,12 +86,12 @@ volumes:
 
 Create `packages/api/.env.example`:
 ```
-DATABASE_URL=postgres://localhost/scalability_dev
+DATABASE_URL=postgres://localhost/subq_dev
 ```
 
 Create `packages/api/.env` (gitignored):
 ```
-DATABASE_URL=postgres://localhost/scalability_dev
+DATABASE_URL=postgres://localhost/subq_dev
 ```
 
 Update `.gitignore`:
@@ -115,7 +115,7 @@ import { Config, Layer, Secret } from "effect"
 // Configuration for postgres connection
 const SqlConfig = Config.all({
   url: Config.string("DATABASE_URL").pipe(
-    Config.withDefault("postgres://localhost/scalability_dev")
+    Config.withDefault("postgres://localhost/subq_dev")
   ),
 })
 
@@ -312,7 +312,7 @@ Effect.runPromise(migrate.pipe(Effect.provide(SqlLive)))
 **Usage:**
 ```bash
 # Run all pending migrations
-bun run --filter @scale/api migrate
+bun run --filter @subq/api migrate
 
 # Or from packages/api directory
 bun run migrate
@@ -681,7 +681,7 @@ import {
   WeightLogCreate, 
   WeightLogUpdate,
   WeightLogListParams 
-} from "@scale/shared"
+} from "@subq/shared"
 
 // ============================================
 // Database Row Schema
@@ -870,7 +870,7 @@ import {
   InjectionLogCreate,
   InjectionLogUpdate,
   InjectionLogListParams,
-} from "@scale/shared"
+} from "@subq/shared"
 
 // ============================================
 // Database Row Schema
@@ -1177,7 +1177,7 @@ export class AppRpcs extends RpcGroup.make(
 ```typescript
 import { Rpc } from "@effect/rpc"
 import { Effect, Layer, Option } from "effect"
-import { AppRpcs } from "@scale/shared"
+import { AppRpcs } from "@subq/shared"
 import { WeightLogRepo } from "./repositories/WeightLogRepo.js"
 import { InjectionLogRepo } from "./repositories/InjectionLogRepo.js"
 import { Greeter } from "./Greeter.js"
@@ -1320,7 +1320,7 @@ export const RpcHandlersLive = Layer.mergeAll(
 import { HttpMiddleware, HttpRouter } from "@effect/platform"
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node"
 import { RpcSerialization, RpcServer } from "@effect/rpc"
-import { AppRpcs } from "@scale/shared"
+import { AppRpcs } from "@subq/shared"
 import { Layer } from "effect"
 import { createServer } from "node:http"
 import { RpcHandlersLive } from "./RpcHandlers.js"
@@ -1392,7 +1392,7 @@ packages/web/src/
 import { RpcClient, RpcSerialization } from "@effect/rpc"
 import { FetchHttpClient } from "@effect/platform"
 import { Effect, Layer } from "effect"
-import { AppRpcs } from "@scale/shared"
+import { AppRpcs } from "@subq/shared"
 
 // Create RPC client layer
 const RpcClientLive = RpcClient.layer(AppRpcs).pipe(
@@ -1512,7 +1512,7 @@ export const useRpcClient = () => {
 ```tsx
 import { useState } from "react"
 import { Option } from "effect"
-import { WeightLogCreate, WeightUnit } from "@scale/shared"
+import { WeightLogCreate, WeightUnit } from "@subq/shared"
 
 interface WeightLogFormProps {
   onSubmit: (data: WeightLogCreate) => Promise<void>
@@ -1637,7 +1637,7 @@ export function WeightLogForm({ onSubmit, onCancel, initialData }: WeightLogForm
 
 ```tsx
 import { useState, useEffect } from "react"
-import { WeightLog } from "@scale/shared"
+import { WeightLog } from "@subq/shared"
 import { useRpcClient } from "../../rpc"
 import { WeightLogForm } from "./WeightLogForm"
 
@@ -1776,7 +1776,7 @@ export function App() {
 
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Health Tracker</h1>
+      <h1 className="text-2xl font-bold mb-4">SubQ</h1>
       
       <div className="flex gap-2 mb-4 border-b">
         <button
@@ -1822,23 +1822,23 @@ direnv reload
 pg_ctl start -l .postgres/log
 
 # Create database (first time only)
-createdb scalability_dev
+createdb subq_dev
 ```
 
 ### Step 2: Run Migrations
 
 ```bash
-bun run --filter @scale/api migrate
+bun run --filter @subq/api migrate
 ```
 
 ### Step 3: Start Development Servers
 
 ```bash
 # Terminal 1: API
-bun run --filter @scale/api dev
+bun run --filter @subq/api dev
 
 # Terminal 2: Web
-bun run --filter @scale/web dev
+bun run --filter @subq/web dev
 ```
 
 ### Step 4: Verify
@@ -1865,7 +1865,7 @@ bun run --filter @scale/web dev
 ### Phase 1: PostgreSQL Infrastructure
 - [ ] 1.1.1 Update flake.nix with postgres
 - [ ] 1.1.2 Add .postgres to .gitignore
-- [ ] 1.1.3 Create database scalability_dev
+- [ ] 1.1.3 Create database subq_dev
 - [ ] 1.2.1 Create packages/api/src/Sql.ts
 - [ ] 1.2.2 Create packages/api/.env.example
 - [ ] 1.2.3 Add .env to .gitignore

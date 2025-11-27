@@ -14,7 +14,7 @@ import {
   InjectionScheduleId,
   InjectionSite,
   Notes,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================

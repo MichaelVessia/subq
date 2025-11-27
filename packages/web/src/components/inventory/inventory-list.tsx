@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import type { Inventory, InventoryCreate, InventoryId, InventoryUpdate } from '@scale/shared'
+import type { Inventory, InventoryCreate, InventoryId, InventoryUpdate } from '@subq/shared'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInventoryListAtom, ReactivityKeys } from '../../rpc.js'

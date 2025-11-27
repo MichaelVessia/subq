@@ -6,7 +6,7 @@ import {
   type InjectionScheduleId,
   InjectionSite,
   type NextScheduledDose,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Option } from 'effect'
 import { Calendar, Clock, Pill, Zap } from 'lucide-react'
 import { useState } from 'react'

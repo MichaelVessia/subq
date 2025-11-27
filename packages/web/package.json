@@ -1,5 +1,5 @@
 {
-  "name": "@scale/web",
+  "name": "@subq/web",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "@effect/platform-browser": "^0.72.0",
     "@effect/rpc": "^0.71.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@scale/shared": "workspace:*",
+    "@subq/shared": "workspace:*",
     "@tanstack/react-router": "^1.139.6",
     "@tanstack/react-table": "^8.21.3",
     "@types/d3": "^7.4.3",

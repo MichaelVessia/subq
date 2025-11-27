@@ -1,4 +1,4 @@
-import { AuthContext, type WeightLogCreate, WeightRpcs, type WeightLogListParams } from '@scale/shared'
+import { AuthContext, type WeightLogCreate, WeightRpcs, type WeightLogListParams } from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { WeightLogRepo } from './weight-log-repo.js'
 

@@ -10,7 +10,7 @@ import {
   InventoryNotFoundError,
   type InventoryUpdate,
   TotalAmount,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================

@@ -13,7 +13,7 @@ import {
   type PhaseOrder,
   ScheduleName,
   SchedulePhaseCreate,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'

@@ -1,5 +1,5 @@
 {
-  "name": "scalability",
+  "name": "subq",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter '@scale/*' dev",
-    "dev:api": "bun run --filter @scale/api dev",
-    "dev:web": "bun run --filter @scale/web dev",
+    "dev": "bun run --filter '@subq/*' dev",
+    "dev:api": "bun run --filter @subq/api dev",
+    "dev:web": "bun run --filter @subq/web dev",
     "build": "bun run --filter '*' build",
     "typecheck": "tsc -b tsconfig.json && tsc -p packages/web --noEmit",
     "check": "bun run typecheck && bun run lint && bun run format && bun run test",
@@ -23,9 +23,9 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "prepare": "effect-language-service patch",
-    "seed": "bun run --filter @scale/api seed",
+    "seed": "bun run --filter @subq/api seed",
     "seed:prod": "bun run scripts/seed-prod.ts",
-    "migrate": "bun run --filter @scale/api migrate",
+    "migrate": "bun run --filter @subq/api migrate",
     "deploy": "bun run build && bun run alchemy.run.ts",
     "deploy:destroy": "bun run alchemy.run.ts --destroy"
   },

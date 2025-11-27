@@ -11,7 +11,7 @@ import {
   type InjectionLogUpdate,
   InjectionSite,
   Notes,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'

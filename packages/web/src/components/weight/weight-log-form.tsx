@@ -1,4 +1,4 @@
-import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId, type WeightUnit } from '@scale/shared'
+import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId, type WeightUnit } from '@subq/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { Button } from '../ui/button.js'

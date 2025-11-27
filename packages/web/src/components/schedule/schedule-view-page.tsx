@@ -1,5 +1,5 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
-import type { InjectionScheduleId, SchedulePhaseView, ScheduleView } from '@scale/shared'
+import type { InjectionScheduleId, SchedulePhaseView, ScheduleView } from '@subq/shared'
 import { Link, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Calendar, Check, Clock, Syringe } from 'lucide-react'
 import { useMemo } from 'react'

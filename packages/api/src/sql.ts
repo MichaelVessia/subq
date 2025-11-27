@@ -5,7 +5,7 @@ import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { Config, type ConfigError, type Layer } from 'effect'
 
 // Local dev: SQLite file
-const SqliteConfig = Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
+const SqliteConfig = Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/subq.db'))
 
 export const SqliteLive: Layer.Layer<SqlClient.SqlClient, ConfigError.ConfigError> = SqliteClient.layerConfig(
   Config.map(SqliteConfig, (filename) => ({ filename })),

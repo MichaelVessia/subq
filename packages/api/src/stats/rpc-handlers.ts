@@ -1,4 +1,4 @@
-import { AuthContext, type StatsParams, StatsRpcs } from '@scale/shared'
+import { AuthContext, type StatsParams, StatsRpcs } from '@subq/shared'
 import { Effect } from 'effect'
 import { StatsService } from './stats-service.js'
 

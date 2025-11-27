@@ -5,7 +5,7 @@ import {
   type InventoryMarkFinished,
   type InventoryMarkOpened,
   InventoryRpcs,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { InventoryRepo } from './inventory-repo.js'
 

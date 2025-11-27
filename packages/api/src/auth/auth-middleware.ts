@@ -1,5 +1,5 @@
 import type { Headers } from '@effect/platform/Headers'
-import { AuthRpcMiddleware, Unauthorized } from '@scale/shared'
+import { AuthRpcMiddleware, Unauthorized } from '@subq/shared'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import { AuthService } from './auth-service.js'

@@ -17,7 +17,7 @@ import {
   SchedulePhase,
   type SchedulePhaseCreate,
   SchedulePhaseId,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================

@@ -4,7 +4,7 @@ import {
   type InjectionLogCreate,
   type InjectionLogListParams,
   InjectionRpcs,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { InjectionLogRepo } from './injection-log-repo.js'
 

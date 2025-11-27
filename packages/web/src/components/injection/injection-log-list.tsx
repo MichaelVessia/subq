@@ -10,8 +10,8 @@ import type {
   InjectionScheduleId,
   InventoryId,
   NextScheduledDose,
-} from '@scale/shared'
-import { InjectionLogBulkAssignSchedule } from '@scale/shared'
+} from '@subq/shared'
+import { InjectionLogBulkAssignSchedule } from '@subq/shared'
 import { Calendar, ChevronDown, MoreHorizontal, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'

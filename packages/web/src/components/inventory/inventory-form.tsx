@@ -1,4 +1,4 @@
-import { DrugName, DrugSource, InventoryCreate, type InventoryId, InventoryUpdate, TotalAmount } from '@scale/shared'
+import { DrugName, DrugSource, InventoryCreate, type InventoryId, InventoryUpdate, TotalAmount } from '@subq/shared'
 import { Option } from 'effect'
 import { useState } from 'react'
 import { Button } from '../ui/button.js'

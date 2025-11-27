@@ -23,7 +23,7 @@ import {
   WeightStats,
   WeightTrendPoint,
   WeightTrendStats,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Schema } from 'effect'
 
 // ============================================

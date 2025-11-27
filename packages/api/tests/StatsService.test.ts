@@ -22,7 +22,7 @@ import {
   WeightTrendPoint,
   WeightTrendStats,
   type StatsParams,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { StatsService } from '../src/stats/stats-service.js'

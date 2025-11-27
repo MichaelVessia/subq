@@ -10,7 +10,7 @@ import {
   type InjectionSiteStats,
   type WeightStats,
   type WeightTrendStats,
-} from '@scale/shared'
+} from '@subq/shared'
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'

@@ -7,7 +7,7 @@ import {
   type WeightLogListParams,
   WeightLogNotFoundError,
   type WeightLogUpdate,
-} from '@scale/shared'
+} from '@subq/shared'
 import { Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { WeightLogRepo } from '../src/weight/weight-log-repo.js'

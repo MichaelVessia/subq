@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@scale/shared'
+import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@subq/shared'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'

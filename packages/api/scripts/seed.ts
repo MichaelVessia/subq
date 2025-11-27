@@ -43,7 +43,7 @@ const getOrCreateUser = (
 
 const seedData = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
-  const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/scalability.db'))
+  const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/subq.db'))
   const authSecret = yield* Config.string('BETTER_AUTH_SECRET')
   const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
