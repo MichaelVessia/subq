@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
-import { InventoryForm } from './InventoryForm.js'
+import { InventoryForm } from './inventory-form.js'
 
 const formatDate = (date: Date | null) => {
   if (!date) return '-'

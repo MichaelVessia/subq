@@ -6,6 +6,7 @@ import type {
   InjectionLogId,
   InjectionLogUpdate,
   InjectionSchedule,
+  InjectionScheduleCreate,
   InjectionScheduleId,
   InventoryId,
   NextScheduledDose,
@@ -14,8 +15,8 @@ import { InjectionLogBulkAssignSchedule } from '@scale/shared'
 import { Calendar, ChevronDown, MoreHorizontal, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
-import { NextDoseBanner } from '../schedule/NextDoseBanner.js'
-import { ScheduleForm } from '../schedule/ScheduleForm.js'
+import { NextDoseBanner } from '../schedule/next-dose-banner.js'
+import { ScheduleForm } from '../schedule/schedule-form.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
 import { DataTable } from '../ui/data-table.js'
@@ -27,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
-import { InjectionLogForm } from './InjectionLogForm.js'
+import { InjectionLogForm } from './injection-log-form.js'
 
 const formatDate = (date: Date) =>
   new Intl.DateTimeFormat('en-US', {
@@ -347,7 +348,7 @@ export function InjectionLogList() {
             </p>
           </div>
           <ScheduleForm
-            onSubmit={async (data) => {
+            onSubmit={async (data: InjectionScheduleCreate) => {
               const schedule = await createSchedule({
                 payload: data,
                 reactivityKeys: [ReactivityKeys.schedule],

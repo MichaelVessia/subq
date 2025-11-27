@@ -1,6 +1,6 @@
 import { AuthContext, type StatsParams, StatsRpcs } from '@scale/shared'
 import { Effect } from 'effect'
-import { StatsService } from './StatsService.js'
+import { StatsService } from './stats-service.js'
 
 export const StatsRpcHandlersLive = StatsRpcs.toLayer(
   Effect.gen(function* () {

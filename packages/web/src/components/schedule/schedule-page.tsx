@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { ApiClient, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
-import { ScheduleForm } from './ScheduleForm.js'
+import { ScheduleForm } from './schedule-form.js'
 
 const formatDate = (date: Date) =>
   new Intl.DateTimeFormat('en-US', {

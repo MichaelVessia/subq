@@ -1,15 +1,16 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
-import { InventoryDatabaseError, InventoryNotFoundError } from '../errors/index.js'
 import {
   Inventory,
   InventoryCreate,
+  InventoryDatabaseError,
   InventoryDelete,
   InventoryListParams,
   InventoryMarkFinished,
   InventoryMarkOpened,
+  InventoryNotFoundError,
   InventoryUpdate,
-} from './Inventory.js'
+} from './domain.js'
 
 // ============================================
 // Inventory RPCs

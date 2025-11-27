@@ -14,8 +14,8 @@ import {
   ScheduleView,
 } from '@scale/shared'
 import { Effect, Option } from 'effect'
-import { InjectionLogRepo } from '../injection/InjectionLogRepo.js'
-import { ScheduleRepo } from './ScheduleRepo.js'
+import { InjectionLogRepo } from '../injection/injection-log-repo.js'
+import { ScheduleRepo } from './schedule-repo.js'
 
 // Frequency to days mapping
 const frequencyToDays = (frequency: string): number => {

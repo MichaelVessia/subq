@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { signOut, useSession } from '../../auth.js'
 import { cn } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
-import { LoginForm } from './LoginForm.js'
+import { LoginForm } from './login-form.js'
 
 export function RootLayout() {
   const { data: session, isPending } = useSession()

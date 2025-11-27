@@ -10,7 +10,7 @@ import {
 } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { WeightLogRepo } from '../src/weight/WeightLogRepo.js'
+import { WeightLogRepo } from '../src/weight/weight-log-repo.js'
 
 // ============================================
 // Test Layer for WeightLogRepo

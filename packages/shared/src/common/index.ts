@@ -1,1 +1,1 @@
-export * from './Brand.js'
+export * from './domain.js'

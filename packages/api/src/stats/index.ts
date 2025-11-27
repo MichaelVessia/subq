@@ -1,2 +1,2 @@
-export * from './StatsService.js'
-export * from './RpcHandlers.js'
+export * from './stats-service.js'
+export * from './rpc-handlers.js'

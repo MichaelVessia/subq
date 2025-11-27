@@ -1,6 +1,6 @@
 import { useLocation, useRouter } from '@tanstack/react-router'
 import { useCallback, useMemo } from 'react'
-import { TIME_RANGES, type TimeRangeKey } from '../components/shared/chartUtils.js'
+import { TIME_RANGES, type TimeRangeKey } from '../components/shared/chart-utils.js'
 
 export interface DateRange {
   start: Date | undefined

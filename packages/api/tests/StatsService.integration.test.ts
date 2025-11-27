@@ -2,7 +2,7 @@ import { SqlClient } from '@effect/sql'
 import { SqliteClient } from '@effect/sql-sqlite-node'
 import { Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { StatsService, StatsServiceLive } from '../src/stats/StatsService.js'
+import { StatsService, StatsServiceLive } from '../src/stats/stats-service.js'
 
 // ============================================
 // In-memory SQLite test layer (using node driver for vitest compatibility)

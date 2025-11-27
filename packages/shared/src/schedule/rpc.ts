@@ -1,6 +1,6 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
-import { InjectionScheduleId } from './Brand.js'
+import { InjectionScheduleId } from './domain.js'
 import {
   InjectionSchedule,
   InjectionScheduleCreate,
@@ -8,7 +8,7 @@ import {
   InjectionScheduleUpdate,
   NextScheduledDose,
   ScheduleView,
-} from './InjectionSchedule.js'
+} from './domain.js'
 
 // ============================================
 // Schedule Errors

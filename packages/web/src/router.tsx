@@ -1,11 +1,11 @@
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
-import { InjectionLogList } from './components/injection/InjectionLogList.js'
-import { InventoryList } from './components/inventory/InventoryList.js'
-import { SchedulePage } from './components/schedule/SchedulePage.js'
-import { ScheduleViewPage } from './components/schedule/ScheduleViewPage.js'
+import { InjectionLogList } from './components/injection/injection-log-list.js'
+import { InventoryList } from './components/inventory/inventory-list.js'
+import { SchedulePage } from './components/schedule/schedule-page.js'
+import { ScheduleViewPage } from './components/schedule/schedule-view-page.js'
 import { StatsPage } from './components/stats/StatsPage.js'
-import { WeightLogList } from './components/weight/WeightLogList.js'
-import { RootLayout } from './components/layout/RootLayout.js'
+import { WeightLogList } from './components/weight/weight-log-list.js'
+import { RootLayout } from './components/layout/root-layout.js'
 
 // Search params type for pages with date range filtering
 export interface DateRangeSearchParams {

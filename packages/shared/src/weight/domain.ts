@@ -1,6 +1,5 @@
 import { Schema } from 'effect'
-import { Limit, Notes, Offset } from '../common/Brand.js'
-import { Weight, WeightLogId } from './Brand.js'
+import { Limit, Notes, Offset } from '../common/domain.js'
 
 // ============================================
 // Enums / Literals
@@ -13,6 +12,54 @@ import { Weight, WeightLogId } from './Brand.js'
  */
 export const WeightUnit = Schema.Literal('lbs', 'kg')
 export type WeightUnit = typeof WeightUnit.Type
+
+// ============================================
+// Weight Domain Entity ID
+// ============================================
+
+/** UUID identifier for weight log entries */
+export const WeightLogId = Schema.String.pipe(Schema.brand('WeightLogId'))
+export type WeightLogId = typeof WeightLogId.Type
+
+// ============================================
+// Weight Domain Primitives
+// ============================================
+
+/** Weight measurement value (positive number) */
+export const Weight = Schema.Number.pipe(Schema.positive(), Schema.brand('Weight'))
+export type Weight = typeof Weight.Type
+
+/** Percentage value */
+export const Percentage = Schema.Number.pipe(Schema.brand('Percentage'))
+export type Percentage = typeof Percentage.Type
+
+/** Weekly average change value */
+export const WeeklyChange = Schema.Number.pipe(Schema.brand('WeeklyChange'))
+export type WeeklyChange = typeof WeeklyChange.Type
+
+/** Rate of change in lbs per week */
+export const WeightRateOfChange = Schema.Number.pipe(Schema.brand('WeightRateOfChange'))
+export type WeightRateOfChange = typeof WeightRateOfChange.Type
+
+// ============================================
+// Weight Domain Errors
+// ============================================
+
+export class WeightLogNotFoundError extends Schema.TaggedError<WeightLogNotFoundError>()('WeightLogNotFoundError', {
+  id: Schema.String,
+}) {}
+
+export class WeightLogDatabaseError extends Schema.TaggedError<WeightLogDatabaseError>()('WeightLogDatabaseError', {
+  operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+  cause: Schema.Defect,
+}) {}
+
+// ============================================
+// Union Types for Convenience
+// ============================================
+
+export const WeightLogError = Schema.Union(WeightLogNotFoundError, WeightLogDatabaseError)
+export type WeightLogError = typeof WeightLogError.Type
 
 // ============================================
 // Core Domain Type

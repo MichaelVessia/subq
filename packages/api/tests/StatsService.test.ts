@@ -25,7 +25,7 @@ import {
 } from '@scale/shared'
 import { Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { StatsService } from '../src/stats/StatsService.js'
+import { StatsService } from '../src/stats/stats-service.js'
 
 // ============================================
 // Test Layer for StatsService

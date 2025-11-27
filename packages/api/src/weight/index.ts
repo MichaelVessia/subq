@@ -1,2 +1,2 @@
-export * from './WeightLogRepo.js'
-export * from './RpcHandlers.js'
+export * from './weight-log-repo.js'
+export * from './rpc-handlers.js'

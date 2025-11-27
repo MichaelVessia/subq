@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
-import { WeightLogForm } from './WeightLogForm.js'
+import { WeightLogForm } from './weight-log-form.js'
 
 const formatDate = (date: Date) =>
   new Intl.DateTimeFormat('en-US', {

@@ -1,8 +1,48 @@
+import { Dosage, DrugName, DrugSource, Limit, Notes, Offset } from '../common/domain.js'
 import { Schema } from 'effect'
-import { Limit, Notes, Offset } from '../common/Brand.js'
-import { InjectionScheduleId } from '../schedule/Brand.js'
-import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite } from './Brand.js'
+import { InjectionScheduleId } from '../schedule/domain.js'
 
+// ============================================
+// Injection Domain Entity ID
+// ============================================
+
+/** UUID identifier for injection log entries */
+export const InjectionLogId = Schema.String.pipe(Schema.brand('InjectionLogId'))
+export type InjectionLogId = typeof InjectionLogId.Type
+
+// ============================================
+// Injection Domain Primitives
+// ============================================
+
+/** Injection site location */
+export const InjectionSite = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('InjectionSite'))
+export type InjectionSite = typeof InjectionSite.Type
+
+/** Injections per week rate */
+export const InjectionsPerWeek = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('InjectionsPerWeek'))
+export type InjectionsPerWeek = typeof InjectionsPerWeek.Type
+
+// ============================================
+// Injection Domain Errors
+// ============================================
+
+export class InjectionLogNotFoundError extends Schema.TaggedError<InjectionLogNotFoundError>()(
+  'InjectionLogNotFoundError',
+  {
+    id: Schema.String,
+  },
+) {}
+
+export class InjectionLogDatabaseError extends Schema.TaggedError<InjectionLogDatabaseError>()(
+  'InjectionLogDatabaseError',
+  {
+    operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+    cause: Schema.Defect,
+  },
+) {}
+
+export const InjectionLogError = Schema.Union(InjectionLogNotFoundError, InjectionLogDatabaseError)
+export type InjectionLogError = typeof InjectionLogError.Type
 // ============================================
 // Core Domain Type
 // ============================================

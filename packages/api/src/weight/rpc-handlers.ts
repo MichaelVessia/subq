@@ -1,6 +1,6 @@
 import { AuthContext, type WeightLogCreate, WeightRpcs, type WeightLogListParams } from '@scale/shared'
 import { Effect, Option } from 'effect'
-import { WeightLogRepo } from './WeightLogRepo.js'
+import { WeightLogRepo } from './weight-log-repo.js'
 
 export const WeightRpcHandlersLive = WeightRpcs.toLayer(
   Effect.gen(function* () {

@@ -7,7 +7,7 @@ import {
   InventoryRpcs,
 } from '@scale/shared'
 import { Effect, Option } from 'effect'
-import { InventoryRepo } from './InventoryRepo.js'
+import { InventoryRepo } from './inventory-repo.js'
 
 export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
   Effect.gen(function* () {

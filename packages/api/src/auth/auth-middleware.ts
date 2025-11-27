@@ -2,7 +2,7 @@ import type { Headers } from '@effect/platform/Headers'
 import { AuthRpcMiddleware, Unauthorized } from '@scale/shared'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import { AuthService } from './AuthService.js'
+import { AuthService } from './auth-service.js'
 
 /**
  * Layer that provides the auth middleware implementation.

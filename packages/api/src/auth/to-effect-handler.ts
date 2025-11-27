@@ -6,7 +6,7 @@ import { toNodeHandler } from 'better-auth/node'
 import * as Config from 'effect/Config'
 import type { ConfigError } from 'effect/ConfigError'
 import * as Effect from 'effect/Effect'
-import { BetterAuthApiError } from './BetterAuthError.js'
+import { BetterAuthApiError } from './better-auth-error.js'
 
 const TRAILING_SLASH_REGEX = /\/+$/
 const PROTOCOL_REGEX = /(https?:\/\/)+/

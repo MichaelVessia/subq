@@ -1,4 +1,4 @@
-export { AuthService, AuthServiceLive } from './AuthService.js'
-export { AuthRpcMiddlewareLive } from './AuthMiddleware.js'
-export { BetterAuthApiError } from './BetterAuthError.js'
-export { toEffectHandler } from './toEffectHandler.js'
+export { AuthService, AuthServiceLive } from './auth-service.js'
+export { AuthRpcMiddlewareLive } from './auth-middleware.js'
+export { BetterAuthApiError } from './better-auth-error.js'
+export { toEffectHandler } from './to-effect-handler.js'

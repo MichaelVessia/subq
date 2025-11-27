@@ -1,7 +1,14 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
-import { WeightLogDatabaseError, WeightLogNotFoundError } from '../errors/index.js'
-import { WeightLog, WeightLogCreate, WeightLogDelete, WeightLogListParams, WeightLogUpdate } from './WeightLog.js'
+import {
+  WeightLog,
+  WeightLogCreate,
+  WeightLogDatabaseError,
+  WeightLogDelete,
+  WeightLogListParams,
+  WeightLogNotFoundError,
+  WeightLogUpdate,
+} from './domain.ts'
 
 // ============================================
 // Weight Log RPCs

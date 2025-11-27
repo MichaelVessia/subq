@@ -14,7 +14,7 @@ import {
 } from '@scale/shared'
 import { Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { InjectionLogRepo } from '../src/injection/InjectionLogRepo.js'
+import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 
 // ============================================
 // Test Layer for InjectionLogRepo

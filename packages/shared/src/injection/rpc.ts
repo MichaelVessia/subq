@@ -1,14 +1,15 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { Schema } from 'effect'
-import { InjectionLogDatabaseError, InjectionLogNotFoundError } from '../errors/index.js'
 import {
+  InjectionLogDatabaseError,
+  InjectionLogNotFoundError,
   InjectionLog,
   InjectionLogBulkAssignSchedule,
   InjectionLogCreate,
   InjectionLogDelete,
   InjectionLogListParams,
   InjectionLogUpdate,
-} from './InjectionLog.js'
+} from './domain.ts'
 
 // ============================================
 // Injection Log RPCs

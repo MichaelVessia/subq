@@ -8,11 +8,8 @@ export * from './inventory/index.js'
 export * from './schedule/index.js'
 export * from './stats/index.js'
 
-// Domain errors
-export * from './errors/index.js'
-
 // RPC definitions
-export * from './Rpc.js'
+export * from './rpc.js'
 
 // Auth middleware
-export * from './AuthMiddleware.js'
+export * from './auth-middleware.js'

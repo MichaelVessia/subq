@@ -9,7 +9,7 @@ import {
   StatsParams,
   WeightStats,
   WeightTrendStats,
-} from './StatsTypes.js'
+} from './domain.js'
 
 // ============================================
 // Stats RPCs

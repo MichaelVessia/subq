@@ -6,7 +6,7 @@ import {
   InjectionRpcs,
 } from '@scale/shared'
 import { Effect, Option } from 'effect'
-import { InjectionLogRepo } from './InjectionLogRepo.js'
+import { InjectionLogRepo } from './injection-log-repo.js'
 
 export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
   Effect.gen(function* () {

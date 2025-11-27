@@ -1,2 +1,2 @@
-export * from './StatsTypes.js'
-export * from './Rpc.js'
+export * from './domain.js'
+export * from './rpc.js'

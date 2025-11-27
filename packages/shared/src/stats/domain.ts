@@ -1,7 +1,8 @@
 import { Schema } from 'effect'
-import { Count, DayOfWeek, DaysBetween } from '../common/Brand.js'
-import { Dosage, DosageValue, DrugName, InjectionSite, InjectionsPerWeek } from '../injection/Brand.js'
-import { Weight, WeightRateOfChange } from '../weight/Brand.js'
+import { Count, DayOfWeek, DaysBetween } from '../common/domain.js'
+import { Dosage, DosageValue, DrugName } from '../common/domain.js'
+import { InjectionSite, InjectionsPerWeek } from '../injection/domain.js'
+import { Weight, WeightRateOfChange } from '../weight/domain.js'
 
 // ============================================
 // Stats Request Params (shared across stats endpoints)
@@ -113,4 +114,13 @@ export class DayOfWeekCount extends Schema.Class<DayOfWeekCount>('DayOfWeekCount
 export class InjectionDayOfWeekStats extends Schema.Class<InjectionDayOfWeekStats>('InjectionDayOfWeekStats')({
   days: Schema.Array(DayOfWeekCount),
   totalInjections: Count,
+}) {}
+
+// ============================================
+// Stats Domain Errors
+// ============================================
+
+export class StatsDatabaseError extends Schema.TaggedError<StatsDatabaseError>()('StatsDatabaseError', {
+  operation: Schema.String,
+  cause: Schema.Defect,
 }) {}

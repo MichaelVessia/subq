@@ -6,6 +6,7 @@ import {
   type InjectionDayOfWeekStats,
   type InjectionFrequencyStats,
   type InjectionLog,
+  type InjectionSchedule,
   type InjectionSiteStats,
   type WeightStats,
   type WeightTrendStats,
@@ -22,6 +23,7 @@ import {
   createInjectionSiteStatsAtom,
   createWeightStatsAtom,
   createWeightTrendAtom,
+  ScheduleListAtom,
 } from '../../rpc.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { type BarChartData, type PieChartData, SimpleHorizontalBarChart, SimplePieChart } from '../ui/chart.js'
@@ -34,7 +36,68 @@ import {
   Tooltip,
   useContainerSize,
   type WeightPointWithColor,
-} from '../shared/chartUtils.js'
+} from '../shared/chart-utils.js'
+
+// ============================================
+// Schedule Period Types
+// ============================================
+
+export interface SchedulePeriod {
+  scheduleId: string
+  scheduleName: string
+  drug: string
+  startDate: Date
+  endDate: Date | null // null means ongoing
+  phases: {
+    order: number
+    dosage: string
+    startDate: Date
+    endDate: Date | null
+  }[]
+}
+
+/**
+ * Compute the active periods for each schedule based on phases.
+ * Each phase has a duration; phases are sequential starting from schedule.startDate.
+ */
+function computeSchedulePeriods(schedules: readonly InjectionSchedule[]): SchedulePeriod[] {
+  return schedules.map((schedule) => {
+    const phases: SchedulePeriod['phases'] = []
+    let currentDate = new Date(schedule.startDate)
+
+    const sortedPhases = [...schedule.phases].sort((a, b) => a.order - b.order)
+    for (const phase of sortedPhases) {
+      const phaseStart = new Date(currentDate)
+      let phaseEnd: Date | null = null
+
+      if (phase.durationDays !== null) {
+        phaseEnd = new Date(phaseStart)
+        phaseEnd.setDate(phaseEnd.getDate() + phase.durationDays)
+        currentDate = phaseEnd
+      }
+
+      phases.push({
+        order: phase.order,
+        dosage: phase.dosage,
+        startDate: phaseStart,
+        endDate: phaseEnd,
+      })
+    }
+
+    // Schedule end is the last phase's end, or null if indefinite
+    const lastPhase = phases[phases.length - 1]
+    const scheduleEnd = lastPhase?.endDate ?? null
+
+    return {
+      scheduleId: schedule.id,
+      scheduleName: schedule.name,
+      drug: schedule.drug,
+      startDate: schedule.startDate,
+      endDate: schedule.isActive ? null : scheduleEnd,
+      phases,
+    }
+  })
+}
 
 // ============================================
 // Weight Summary Stats
@@ -78,11 +141,12 @@ interface TooltipState {
 interface WeightTrendChartProps {
   weightData: DataPoint[]
   injectionData: InjectionPoint[]
+  schedulePeriods: SchedulePeriod[]
   zoomRange: { start: Date; end: Date } | null
   onZoom: (range: { start: Date; end: Date }) => void
 }
 
-function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: WeightTrendChartProps) {
+function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRange, onZoom }: WeightTrendChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
@@ -181,6 +245,61 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       )
       .call((sel) => sel.select('.domain').remove())
 
+    const formatDate = d3.timeFormat('%b %d, %Y')
+    const chartDomain = xScale.domain() as [Date, Date]
+
+    // Schedule overlay background bands (non-interactive, just visual)
+    const scheduleBackgroundGroup = g.append('g').attr('class', 'schedule-background')
+
+    for (const schedule of schedulePeriods) {
+      const scheduleStart = schedule.startDate
+      const scheduleEnd = schedule.endDate ?? new Date()
+      if (scheduleEnd < chartDomain[0] || scheduleStart > chartDomain[1]) continue
+
+      const visibleStart = new Date(Math.max(scheduleStart.getTime(), chartDomain[0].getTime()))
+      const visibleEnd = new Date(Math.min(scheduleEnd.getTime(), chartDomain[1].getTime()))
+
+      const x1 = xScale(visibleStart)
+      const x2 = xScale(visibleEnd)
+      const bandWidth = x2 - x1
+
+      if (bandWidth < 2) continue
+
+      // Background band (no pointer events)
+      scheduleBackgroundGroup
+        .append('rect')
+        .attr('x', x1)
+        .attr('y', 0)
+        .attr('width', bandWidth)
+        .attr('height', height)
+        .attr('fill', 'var(--foreground)')
+        .attr('fill-opacity', 0.03)
+        .attr('stroke', 'var(--foreground)')
+        .attr('stroke-opacity', 0.08)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '4,4')
+        .style('pointer-events', 'none')
+
+      // Schedule name label at bottom - use drug name which is shorter
+      if (bandWidth > 40) {
+        // Calculate max chars that fit (roughly 6px per char at 9px font)
+        const maxChars = Math.floor(bandWidth / 6)
+        const label = schedule.drug
+        const displayLabel = label.length > maxChars ? `${label.slice(0, maxChars - 3)}...` : label
+
+        scheduleBackgroundGroup
+          .append('text')
+          .attr('x', x1 + bandWidth / 2)
+          .attr('y', height - 8)
+          .attr('text-anchor', 'middle')
+          .attr('fill', 'var(--muted-foreground)')
+          .attr('font-size', '9px')
+          .attr('opacity', 0.5)
+          .style('pointer-events', 'none')
+          .text(displayLabel)
+      }
+    }
+
     const weightPointsWithColors: WeightPointWithColor[] = sortedWeight.map((wp) => {
       const recentInjection = sortedInjections.filter((inj) => inj.date.getTime() <= wp.date.getTime()).pop()
       const color = recentInjection ? getDosageColor(recentInjection.dosage) : '#94a3b8'
@@ -244,8 +363,6 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
         .attr('stroke-width', 2)
         .attr('d', line)
     }
-
-    const formatDate = d3.timeFormat('%b %d, %Y')
 
     g.selectAll('.weight-point')
       .data(weightPointsWithColors)
@@ -457,7 +574,78 @@ function WeightTrendChart({ weightData, injectionData, zoomRange, onZoom }: Weig
       .attr('fill', '#9ca3af')
       .attr('font-size', '11px')
       .text('Weight (lbs)')
-  }, [weightData, injectionData, zoomRange, onZoom, containerWidth])
+
+    // Interactive schedule hover zones at the bottom (rendered last to be on top)
+    const HOVER_ZONE_HEIGHT = 24
+    const scheduleHoverGroup = g.append('g').attr('class', 'schedule-hover')
+
+    for (const schedule of schedulePeriods) {
+      const scheduleStart = schedule.startDate
+      const scheduleEnd = schedule.endDate ?? new Date()
+      if (scheduleEnd < chartDomain[0] || scheduleStart > chartDomain[1]) continue
+
+      const visibleStart = new Date(Math.max(scheduleStart.getTime(), chartDomain[0].getTime()))
+      const visibleEnd = new Date(Math.min(scheduleEnd.getTime(), chartDomain[1].getTime()))
+
+      const x1 = xScale(visibleStart)
+      const x2 = xScale(visibleEnd)
+      const bandWidth = x2 - x1
+
+      if (bandWidth < 2) continue
+
+      // Invisible hover zone at the bottom of the chart
+      scheduleHoverGroup
+        .append('rect')
+        .attr('x', x1)
+        .attr('y', height - HOVER_ZONE_HEIGHT)
+        .attr('width', bandWidth)
+        .attr('height', HOVER_ZONE_HEIGHT)
+        .attr('fill', 'transparent')
+        .style('cursor', 'pointer')
+        .on('mouseenter', (event) => {
+          // Highlight the background band
+          scheduleBackgroundGroup
+            .selectAll('rect')
+            .filter(function () {
+              const rectX = Number.parseFloat(d3.select(this).attr('x'))
+              return Math.abs(rectX - x1) < 1
+            })
+            .attr('fill-opacity', 0.08)
+            .attr('stroke-opacity', 0.2)
+
+          // Show all phases in the tooltip
+          const phasesDisplay = schedule.phases.map((p) => p.dosage).join(' → ')
+          setTooltip({
+            content: (
+              <div>
+                <div className="font-semibold mb-1">{schedule.scheduleName}</div>
+                <div className="text-[10px] opacity-80 mb-1">{schedule.drug}</div>
+                <div className="text-[10px] opacity-70">
+                  {formatDate(schedule.startDate)} — {schedule.endDate ? formatDate(schedule.endDate) : 'ongoing'}
+                </div>
+                <div className="mt-1.5 text-[10px] opacity-90">{phasesDisplay}</div>
+              </div>
+            ),
+            position: { x: event.clientX, y: event.clientY },
+          })
+        })
+        .on('mousemove', (event) => {
+          setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
+        })
+        .on('mouseleave', () => {
+          // Reset the background band
+          scheduleBackgroundGroup
+            .selectAll('rect')
+            .filter(function () {
+              const rectX = Number.parseFloat(d3.select(this).attr('x'))
+              return Math.abs(rectX - x1) < 1
+            })
+            .attr('fill-opacity', 0.03)
+            .attr('stroke-opacity', 0.08)
+          setTooltip(null)
+        })
+    }
+  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth])
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -747,6 +935,7 @@ export function StatsPage() {
   const injectionFrequencyResult = useAtomValue(injectionFrequencyAtom)
   const drugBreakdownResult = useAtomValue(drugBreakdownAtom)
   const injectionByDayOfWeekResult = useAtomValue(injectionByDayOfWeekAtom)
+  const scheduleListResult = useAtomValue(ScheduleListAtom)
 
   const isLoading =
     Result.isWaiting(weightStatsResult) ||
@@ -775,6 +964,9 @@ export function StatsPage() {
     injectionByDayOfWeekResult,
     () => ({ days: [], totalInjections: Count.make(0) }) as InjectionDayOfWeekStats,
   )
+  const schedules = Result.getOrElse(scheduleListResult, () => [] as InjectionSchedule[])
+
+  const schedulePeriods = useMemo(() => computeSchedulePeriods(schedules), [schedules])
 
   const weightData = useMemo((): DataPoint[] => {
     return weightTrend.points.map((p) => ({
@@ -832,6 +1024,7 @@ export function StatsPage() {
               <WeightTrendChart
                 weightData={weightData}
                 injectionData={injectionData}
+                schedulePeriods={schedulePeriods}
                 zoomRange={zoomRange}
                 onZoom={handleZoom}
               />

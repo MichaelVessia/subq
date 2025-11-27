@@ -11,7 +11,7 @@ import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.j
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
-import { SqlLive } from './Sql.js'
+import { SqlLive } from './sql.js'
 
 // Auth configuration layer - creates better-auth instance with SQLite
 const AuthLive = Layer.unwrapEffect(
