@@ -9,12 +9,12 @@ import { readFileSync } from 'fs'
 import { createCloudflareApi, importD1Database } from 'alchemy/cloudflare'
 
 const USER_IDS = {
-  consistent: 'gEzIVhJ4Yma6S8mbaMHr3ELIMaZ1q2gy',
-  sparse: 'IA38VFElFnyrRIoXbG93GG3seHiL1ra6',
+  consistent: 'kcEYQnCq8GKPPV0Equru3lLlwJP56x12',
+  sparse: 'BFtJe15KwxoA7K9BfzxhnZg7LBr9NrgM',
 }
 
 // Database ID from alchemy state (run `bun run alchemy.run.ts` to see it)
-const DATABASE_ID = 'b0b8d095-f9b1-4ec3-a79f-f8a7de38291e'
+const DATABASE_ID = '7a494425-ea32-4da1-801a-98a34bf17fd7'
 
 const api = await createCloudflareApi({})
 
