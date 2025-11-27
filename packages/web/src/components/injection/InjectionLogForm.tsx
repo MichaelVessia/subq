@@ -6,6 +6,7 @@ import {
   InjectionLogCreate,
   type InjectionLogId,
   InjectionLogUpdate,
+  type InjectionScheduleId,
   InjectionSite,
   type InventoryId,
   Notes,
@@ -62,6 +63,7 @@ interface InjectionLogFormProps {
     dosage?: string
     injectionSite?: string | null
     notes?: string | null
+    scheduleId?: string
   }
 }
 
@@ -174,7 +176,9 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             dosage: Dosage.make(dosage),
             injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-            scheduleId: Option.none(),
+            scheduleId: initialData?.scheduleId
+              ? Option.some(initialData.scheduleId as InjectionScheduleId)
+              : Option.none(),
           }),
         )
         // Mark inventory as finished if requested

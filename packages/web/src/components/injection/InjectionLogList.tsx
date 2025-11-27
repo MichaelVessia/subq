@@ -41,7 +41,7 @@ export function InjectionLogList() {
   const schedulesResult = useAtomValue(ScheduleListAtom)
   const [showForm, setShowForm] = useState(false)
   const [editingLog, setEditingLog] = useState<InjectionLog | null>(null)
-  const [prefillData, setPrefillData] = useState<{ drug: string; dosage: string } | null>(null)
+  const [prefillData, setPrefillData] = useState<{ drug: string; dosage: string; scheduleId?: string } | null>(null)
   const [selectedLogs, setSelectedLogs] = useState<InjectionLog[]>([])
   const [showNewScheduleForm, setShowNewScheduleForm] = useState(false)
 
@@ -82,7 +82,7 @@ export function InjectionLogList() {
   }
 
   const handleLogScheduledDose = useCallback((nextDose: NextScheduledDose) => {
-    setPrefillData({ drug: nextDose.drug, dosage: nextDose.dosage })
+    setPrefillData({ drug: nextDose.drug, dosage: nextDose.dosage, scheduleId: nextDose.scheduleId })
     setShowForm(true)
     setEditingLog(null)
   }, [])
@@ -252,7 +252,15 @@ export function InjectionLogList() {
               setPrefillData(null)
             }}
             onMarkFinished={handleMarkFinished}
-            {...(prefillData ? { initialData: { drug: prefillData.drug, dosage: prefillData.dosage } } : {})}
+            {...(prefillData
+              ? {
+                  initialData: {
+                    drug: prefillData.drug,
+                    dosage: prefillData.dosage,
+                    ...(prefillData.scheduleId ? { scheduleId: prefillData.scheduleId } : {}),
+                  },
+                }
+              : {})}
           />
         </Card>
       )}
