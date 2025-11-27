@@ -11,6 +11,7 @@ const app = await alchemy("subq", {
 export const db = await D1Database("db", {
   name: `subq-${app.stage}`,
   migrationsDir: "./packages/api/drizzle",
+  adopt: true,
 });
 
 // API Worker
