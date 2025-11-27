@@ -60,7 +60,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
           dosage: data.dosage,
           injectionSite: Option.isSome(data.injectionSite) ? data.injectionSite.value : null,
           notes: Option.isSome(data.notes) ? data.notes.value : null,
-          scheduleId: data.scheduleId && Option.isSome(data.scheduleId) ? data.scheduleId.value : null,
+          scheduleId: Option.isSome(data.scheduleId) ? data.scheduleId.value : null,
           createdAt: now,
           updatedAt: now,
         })
@@ -140,6 +140,12 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
         }
         return count
       }),
+
+    listBySchedule: (scheduleId: string, _userId: string) =>
+      Effect.sync(() => {
+        const logs = Array.from(store.values()).filter((log) => log.scheduleId === scheduleId)
+        return logs.sort((a, b) => a.datetime.getTime() - b.datetime.getTime())
+      }),
   }
 })
 
@@ -160,6 +166,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.some(InjectionSite.make('left ventrogluteal')),
           notes: Option.some(Notes.make('No PIP')),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -184,6 +191,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('250mcg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -207,6 +215,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('500IU'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -241,6 +250,7 @@ describe('InjectionLogRepo', () => {
             dosage: Dosage.make(`${100 + i * 10}mg`),
             injectionSite: Option.none(),
             notes: Option.none(),
+            scheduleId: Option.none(),
           },
           'user-123',
         )
@@ -266,6 +276,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -277,6 +288,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('250mcg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -288,6 +300,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -314,6 +327,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -321,7 +335,10 @@ describe('InjectionLogRepo', () => {
       const updated = yield* repo.update({
         id: created.id,
         dosage: Dosage.make('180mg'),
+        source: Option.none(),
         injectionSite: Option.some(InjectionSite.make('right deltoid')),
+        notes: Option.none(),
+        scheduleId: Option.none(),
       })
 
       expect(updated.dosage).toBe('180mg')
@@ -343,6 +360,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('500IU'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -375,6 +393,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -386,6 +405,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('250mcg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -397,6 +417,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -418,6 +439,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.some(InjectionSite.make('left ventrogluteal')),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -429,6 +451,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('250mcg'),
           injectionSite: Option.some(InjectionSite.make('abdomen')),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -440,6 +463,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.none(), // null
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -461,6 +485,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.some(InjectionSite.make('Left abdomen')),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -472,6 +497,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.some(InjectionSite.make('Right abdomen')),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -483,6 +509,7 @@ describe('InjectionLogRepo', () => {
           dosage: Dosage.make('200mg'),
           injectionSite: Option.some(InjectionSite.make('Left thigh')),
           notes: Option.none(),
+          scheduleId: Option.none(),
         },
         'user-123',
       )
@@ -498,6 +525,79 @@ describe('InjectionLogRepo', () => {
       const repo = yield* InjectionLogRepo
       const lastSite = yield* repo.getLastSite('user-123')
       expect(lastSite).toBeNull()
+    }).pipe(Effect.provide(InjectionLogRepoTest)),
+  )
+
+  it.effect('lists injection logs by schedule id', () =>
+    Effect.gen(function* () {
+      const repo = yield* InjectionLogRepo
+      const scheduleId = 'schedule-123'
+
+      // Create logs with and without schedule assignment
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-01T10:00:00Z'),
+          drug: DrugName.make('Test Drug'),
+          source: Option.none(),
+          dosage: Dosage.make('100mg'),
+          injectionSite: Option.none(),
+          notes: Option.none(),
+          scheduleId: Option.some(scheduleId as any),
+        },
+        'user-123',
+      )
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-08T10:00:00Z'),
+          drug: DrugName.make('Test Drug'),
+          source: Option.none(),
+          dosage: Dosage.make('100mg'),
+          injectionSite: Option.none(),
+          notes: Option.none(),
+          scheduleId: Option.some(scheduleId as any),
+        },
+        'user-123',
+      )
+      // This one has no schedule
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-15T10:00:00Z'),
+          drug: DrugName.make('Test Drug'),
+          source: Option.none(),
+          dosage: Dosage.make('100mg'),
+          injectionSite: Option.none(),
+          notes: Option.none(),
+          scheduleId: Option.none(),
+        },
+        'user-123',
+      )
+
+      const scheduled = yield* repo.listBySchedule(scheduleId, 'user-123')
+      expect(scheduled.length).toBe(2)
+      // Should be sorted by datetime ASC
+      expect(scheduled[0]!.datetime.getTime()).toBeLessThan(scheduled[1]!.datetime.getTime())
+    }).pipe(Effect.provide(InjectionLogRepoTest)),
+  )
+
+  it.effect('returns empty array when no logs for schedule', () =>
+    Effect.gen(function* () {
+      const repo = yield* InjectionLogRepo
+
+      yield* repo.create(
+        {
+          datetime: new Date('2024-01-01T10:00:00Z'),
+          drug: DrugName.make('Test Drug'),
+          source: Option.none(),
+          dosage: Dosage.make('100mg'),
+          injectionSite: Option.none(),
+          notes: Option.none(),
+          scheduleId: Option.some('different-schedule' as any),
+        },
+        'user-123',
+      )
+
+      const results = yield* repo.listBySchedule('non-existent-schedule', 'user-123')
+      expect(results.length).toBe(0)
     }).pipe(Effect.provide(InjectionLogRepoTest)),
   )
 })
