@@ -152,17 +152,26 @@ export function useContainerSize<T extends HTMLElement = HTMLDivElement>(): {
     const element = containerRef.current
     if (!element) return
 
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const newWidth = entry.contentRect.width
-        setWidth(newWidth)
-      }
+    const updateWidth = () => {
+      const newWidth = element.clientWidth
+      setWidth((prev) => (prev !== newWidth ? newWidth : prev))
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
     })
 
     observer.observe(element)
-    setWidth(element.clientWidth)
+    updateWidth()
 
-    return () => observer.disconnect()
+    // Fallback: also listen to window resize for cases where ResizeObserver
+    // doesn't fire (e.g., viewport changes that don't directly resize the element)
+    window.addEventListener('resize', updateWidth)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateWidth)
+    }
   }, [])
 
   return { containerRef, width }

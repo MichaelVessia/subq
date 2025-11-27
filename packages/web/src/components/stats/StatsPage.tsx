@@ -528,12 +528,13 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
       .attr('class', 'injection-group')
       .attr('transform', (d) => `translate(${Math.max(PILL_WIDTH_SINGLE / 2, d.x)},${12 + rowOffset(d.row)})`)
       .style('cursor', 'pointer')
-      .on('click', (_event, d) => {
+      .on('click', (event, d) => {
         // On desktop (non-touch), click toggles filter
         // On mobile, only short taps show tooltip (long press filters)
         if (!longPressTriggered) {
-          // Check if touch device - if so, show tooltip on tap instead of filtering
-          if ('ontouchstart' in window) {
+          // Check if this was a touch-originated click (pointerType or recent touch)
+          const isTouchClick = (event as PointerEvent).pointerType === 'touch'
+          if (isTouchClick) {
             // Mobile: tap shows tooltip, let long-press handle filter
             return
           }
