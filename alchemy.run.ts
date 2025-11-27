@@ -20,7 +20,7 @@ export const api = await Worker("api", {
   entrypoint: "./packages/api/src/worker.ts",
   adopt: true,
   url: true,
-  // domains: [{ domainName: "api.subq.vessia.net", adopt: true }], // TODO: fix via wrangler
+  domains: [{ domainName: "api.subq.vessia.net", adopt: true }],
   compatibility: "node",
   bindings: {
     DB: db,
@@ -40,7 +40,7 @@ export const web = await Worker("web", {
   entrypoint: "./packages/web/src/worker.ts",
   adopt: true,
   url: true,
-  // domains: [{ domainName: "subq.vessia.net", adopt: true }], // TODO: fix via wrangler
+  domains: [{ domainName: "subq.vessia.net", adopt: true }],
   bindings: {
     ASSETS: webAssets,
   },
