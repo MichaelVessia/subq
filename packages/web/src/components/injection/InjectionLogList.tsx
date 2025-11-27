@@ -1,9 +1,17 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { InjectionLog, InjectionLogCreate, InjectionLogId, InjectionLogUpdate, InventoryId } from '@scale/shared'
+import type {
+  InjectionLog,
+  InjectionLogCreate,
+  InjectionLogId,
+  InjectionLogUpdate,
+  InventoryId,
+  NextScheduledDose,
+} from '@scale/shared'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys } from '../../rpc.js'
+import { NextDoseBanner } from '../schedule/NextDoseBanner.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
 import { DataTable } from '../ui/data-table.js'
@@ -28,6 +36,7 @@ export function InjectionLogList() {
   const logsResult = useAtomValue(injectionLogAtom)
   const [showForm, setShowForm] = useState(false)
   const [editingLog, setEditingLog] = useState<InjectionLog | null>(null)
+  const [prefillData, setPrefillData] = useState<{ drug: string; dosage: string } | null>(null)
 
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const updateLog = useAtomSet(ApiClient.mutation('InjectionLogUpdate'), { mode: 'promise' })
@@ -62,6 +71,12 @@ export function InjectionLogList() {
   const handleCancelEdit = () => {
     setEditingLog(null)
   }
+
+  const handleLogScheduledDose = useCallback((nextDose: NextScheduledDose) => {
+    setPrefillData({ drug: nextDose.drug, dosage: nextDose.dosage })
+    setShowForm(true)
+    setEditingLog(null)
+  }, [])
 
   const handleDelete = useCallback(
     async (id: InjectionLogId) => {
@@ -142,17 +157,30 @@ export function InjectionLogList() {
 
   return (
     <div>
+      <NextDoseBanner onLogDose={handleLogScheduledDose} />
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold tracking-tight">Injection Log</h2>
-        <Button onClick={() => setShowForm(true)}>Add Entry</Button>
+        <Button
+          onClick={() => {
+            setPrefillData(null)
+            setShowForm(true)
+          }}
+        >
+          Add Entry
+        </Button>
       </div>
 
       {showForm && (
         <Card className="mb-6 p-6">
           <InjectionLogForm
             onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => {
+              setShowForm(false)
+              setPrefillData(null)
+            }}
             onMarkFinished={handleMarkFinished}
+            {...(prefillData ? { initialData: { drug: prefillData.drug, dosage: prefillData.dosage } } : {})}
           />
         </Card>
       )}

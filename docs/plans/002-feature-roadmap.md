@@ -5,6 +5,7 @@
 - Injection logging
 - Stats/analytics
 - User auth
+- Basic inventory management (track meds, units remaining, expiration)
 
 ## Planned Features
 
@@ -15,12 +16,12 @@
 - Dose history timeline (especially useful for med switchers)
 - "Time on current dose" tracking
 
-### Inventory Management
-- Track multiple meds simultaneously
-- Units/mg remaining per pen
+### Inventory Management (Enhancements)
+- ~~Track multiple meds simultaneously~~ ✓
+- ~~Units/mg remaining per pen~~ ✓
 - Auto-calculate doses left based on current dose
 - Refill alerts (X days until empty)
-- Expiration tracking
+- ~~Expiration tracking~~ ✓
 - Prescription refill date reminders
 
 ### Enhanced Analytics

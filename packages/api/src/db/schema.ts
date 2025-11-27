@@ -60,6 +60,45 @@ export const glp1Inventory = sqliteTable(
   ],
 )
 
+// Injection schedules table
+export const injectionSchedules = sqliteTable(
+  'injection_schedules',
+  {
+    id: text('id').primaryKey(), // UUID as text
+    name: text('name').notNull(),
+    drug: text('drug').notNull(),
+    source: text('source'),
+    frequency: text('frequency', { enum: ['daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly'] }).notNull(),
+    startDate: text('start_date').notNull(), // ISO8601 string
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    notes: text('notes'),
+    userId: text('user_id'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_injection_schedules_user_id').on(table.userId),
+    index('idx_injection_schedules_is_active').on(table.isActive),
+  ],
+)
+
+// Schedule phases table (for titration steps)
+export const schedulePhases = sqliteTable(
+  'schedule_phases',
+  {
+    id: text('id').primaryKey(), // UUID as text
+    scheduleId: text('schedule_id')
+      .notNull()
+      .references(() => injectionSchedules.id, { onDelete: 'cascade' }),
+    order: integer('order').notNull(), // 1-based phase order
+    durationDays: integer('duration_days').notNull(), // How long this phase lasts
+    dosage: text('dosage').notNull(), // e.g., "2.5mg", "10 units"
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('idx_schedule_phases_schedule_id').on(table.scheduleId)],
+)
+
 // Migrations tracking table
 export const migrations = sqliteTable('_migrations', {
   id: integer('id').primaryKey({ autoIncrement: true }),

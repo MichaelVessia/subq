@@ -8,6 +8,7 @@ import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
+import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { SqlLive } from './Sql.js'
@@ -48,13 +49,17 @@ const RpcHandlersLive = Layer.mergeAll(
   WeightRpcHandlersLive,
   InjectionRpcHandlersLive,
   InventoryRpcHandlersLive,
+  ScheduleRpcHandlersLive,
   StatsRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
-const RepositoriesLive = Layer.mergeAll(WeightLogRepoLive, InjectionLogRepoLive, InventoryRepoLive).pipe(
-  Layer.tap(() => Effect.logInfo('Repository layer initialized')),
-)
+const RepositoriesLive = Layer.mergeAll(
+  WeightLogRepoLive,
+  InjectionLogRepoLive,
+  InventoryRepoLive,
+  ScheduleRepoLive,
+).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
 
 // RPC handler layer with auth middleware
 const RpcLive = RpcServer.layer(AppRpcs).pipe(

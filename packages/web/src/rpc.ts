@@ -31,6 +31,7 @@ export const ReactivityKeys = {
   injectionDrugs: 'injection-drugs',
   injectionSites: 'injection-sites',
   inventory: 'inventory',
+  schedule: 'schedule',
 } as const
 
 // Factory functions for queries (no longer need userId - server gets it from session)
@@ -97,4 +98,17 @@ export const createInventoryListAtom = (status?: 'new' | 'opened' | 'finished') 
 // Active inventory (new or opened) for use in injection form
 export const ActiveInventoryAtom = ApiClient.query('InventoryList', new InventoryListParams({}), {
   reactivityKeys: [ReactivityKeys.inventory],
+})
+
+// Schedule atoms
+export const ScheduleListAtom = ApiClient.query('ScheduleList', undefined, {
+  reactivityKeys: [ReactivityKeys.schedule],
+})
+
+export const ActiveScheduleAtom = ApiClient.query('ScheduleGetActive', undefined, {
+  reactivityKeys: [ReactivityKeys.schedule],
+})
+
+export const NextDoseAtom = ApiClient.query('ScheduleGetNextDose', undefined, {
+  reactivityKeys: [ReactivityKeys.schedule, ReactivityKeys.injectionLogs],
 })

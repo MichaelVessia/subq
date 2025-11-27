@@ -88,6 +88,17 @@ export function RootLayout() {
           >
             Inventory
           </Link>
+          <Link
+            to="/schedule"
+            className={cn(
+              'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+              pathname === '/schedule'
+                ? 'text-foreground border-foreground'
+                : 'text-muted-foreground border-transparent hover:text-foreground',
+            )}
+          >
+            Schedule
+          </Link>
         </nav>
       </header>
 
