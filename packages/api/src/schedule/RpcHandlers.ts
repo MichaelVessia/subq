@@ -6,10 +6,15 @@ import {
   type InjectionScheduleUpdate,
   NextScheduledDose,
   type PhaseOrder,
+  PhaseInjectionSummary,
+  ScheduleDatabaseError,
   ScheduleName,
+  SchedulePhaseView,
   ScheduleRpcs,
+  ScheduleView,
 } from '@scale/shared'
 import { Effect, Option } from 'effect'
+import { InjectionLogRepo } from '../injection/InjectionLogRepo.js'
 import { ScheduleRepo } from './ScheduleRepo.js'
 
 // Frequency to days mapping
@@ -34,6 +39,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
   Effect.gen(function* () {
     yield* Effect.logInfo('Initializing schedule RPC handlers...')
     const scheduleRepo = yield* ScheduleRepo
+    const injectionLogRepo = yield* InjectionLogRepo
 
     return {
       ScheduleList: () =>
@@ -175,6 +181,115 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
           })
 
           return nextDose
+        }),
+
+      ScheduleGetView: ({ id }: { id: InjectionScheduleId }) =>
+        Effect.gen(function* () {
+          const { user } = yield* AuthContext
+          yield* Effect.logDebug('ScheduleGetView called', { id, userId: user.id })
+
+          // Get schedule
+          const scheduleOpt = yield* scheduleRepo.findById(id)
+          if (Option.isNone(scheduleOpt)) {
+            yield* Effect.logInfo('ScheduleGetView: schedule not found', { id })
+            return null
+          }
+
+          const schedule = scheduleOpt.value
+
+          // Get all injection logs for this schedule
+          const injections = yield* injectionLogRepo
+            .listBySchedule(id, user.id)
+            .pipe(Effect.mapError((e) => ScheduleDatabaseError.make({ operation: e.operation, cause: e.cause })))
+
+          // Calculate phase boundaries and assign injections
+          const intervalDays = frequencyToDays(schedule.frequency)
+          let cumulativeDays = 0
+          const now = new Date()
+
+          const phaseViews: SchedulePhaseView[] = schedule.phases.map((phase) => {
+            const phaseStartDate = new Date(schedule.startDate)
+            phaseStartDate.setDate(phaseStartDate.getDate() + cumulativeDays)
+
+            const phaseEndDate = new Date(phaseStartDate)
+            phaseEndDate.setDate(phaseEndDate.getDate() + phase.durationDays - 1)
+
+            // Determine phase status
+            let status: 'completed' | 'current' | 'upcoming'
+            if (now > phaseEndDate) {
+              status = 'completed'
+            } else if (now >= phaseStartDate) {
+              status = 'current'
+            } else {
+              status = 'upcoming'
+            }
+
+            // Calculate expected injections for this phase
+            const expectedInjections = Math.ceil(phase.durationDays / intervalDays)
+
+            // Find injections that fall within this phase's date range
+            const phaseInjections = injections.filter((inj) => {
+              const injDate = new Date(inj.datetime)
+              return injDate >= phaseStartDate && injDate <= phaseEndDate
+            })
+
+            cumulativeDays += phase.durationDays
+
+            return new SchedulePhaseView({
+              id: phase.id,
+              order: phase.order,
+              durationDays: phase.durationDays,
+              dosage: phase.dosage,
+              startDate: phaseStartDate,
+              endDate: phaseEndDate,
+              status,
+              expectedInjections,
+              completedInjections: phaseInjections.length,
+              injections: phaseInjections.map(
+                (inj) =>
+                  new PhaseInjectionSummary({
+                    id: inj.id,
+                    datetime: inj.datetime,
+                    dosage: inj.dosage,
+                    injectionSite: inj.injectionSite,
+                  }),
+              ),
+            })
+          })
+
+          // Calculate total schedule end date
+          const totalDays = schedule.phases.reduce((sum, p) => sum + p.durationDays, 0)
+          const scheduleEndDate = new Date(schedule.startDate)
+          scheduleEndDate.setDate(scheduleEndDate.getDate() + totalDays - 1)
+
+          const totalExpectedInjections = phaseViews.reduce((sum, p) => sum + p.expectedInjections, 0)
+          const totalCompletedInjections = phaseViews.reduce((sum, p) => sum + p.completedInjections, 0)
+
+          const view = new ScheduleView({
+            id: schedule.id,
+            name: schedule.name,
+            drug: schedule.drug,
+            source: schedule.source,
+            frequency: schedule.frequency,
+            startDate: schedule.startDate,
+            endDate: scheduleEndDate,
+            isActive: schedule.isActive,
+            notes: schedule.notes,
+            totalExpectedInjections,
+            totalCompletedInjections,
+            phases: phaseViews,
+            createdAt: schedule.createdAt,
+            updatedAt: schedule.updatedAt,
+          })
+
+          yield* Effect.logInfo('ScheduleGetView completed', {
+            id,
+            userId: user.id,
+            totalPhases: phaseViews.length,
+            totalCompletedInjections,
+          })
+
+          return view
         }),
     }
   }).pipe(Effect.tap(() => Effect.logInfo('Schedule RPC handlers initialized'))),

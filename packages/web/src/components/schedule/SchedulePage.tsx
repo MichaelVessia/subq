@@ -5,7 +5,8 @@ import type {
   InjectionScheduleId,
   InjectionScheduleUpdate,
 } from '@scale/shared'
-import { Calendar, Edit, Pill, Trash2 } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Calendar, Edit, Eye, Pill, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ApiClient, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
@@ -56,6 +57,11 @@ function ScheduleCard({
               Activate
             </Button>
           )}
+          <Link to="/schedule/$scheduleId" params={{ scheduleId: schedule.id }}>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
             <Edit className="h-4 w-4" />
           </Button>

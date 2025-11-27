@@ -85,6 +85,10 @@ export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
       data: InjectionLogBulkAssignSchedule,
       userId: string,
     ) => Effect.Effect<number, InjectionLogDatabaseError>
+    readonly listBySchedule: (
+      scheduleId: string,
+      userId: string,
+    ) => Effect.Effect<InjectionLog[], InjectionLogDatabaseError>
   }
 >() {}
 
@@ -267,6 +271,17 @@ export const InjectionLogRepoLive = Layer.effect(
           }
           return count
         }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause }))),
+
+      listBySchedule: (scheduleId, userId) =>
+        Effect.gen(function* () {
+          const rows = yield* sql`
+            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+            FROM injection_logs
+            WHERE schedule_id = ${scheduleId} AND user_id = ${userId}
+            ORDER BY datetime ASC
+          `
+          return yield* Effect.all(rows.map(decodeAndTransform))
+        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
     }
   }),
 )

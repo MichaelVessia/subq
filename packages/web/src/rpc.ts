@@ -4,6 +4,7 @@ import { AtomRpc } from '@effect-atom/atom-react'
 import {
   AppRpcs,
   InjectionLogListParams,
+  type InjectionScheduleId,
   InventoryListParams,
   Limit,
   StatsParams,
@@ -116,3 +117,12 @@ export const NextDoseAtom = ApiClient.query('ScheduleGetNextDose', undefined, {
 export const LastInjectionSiteAtom = ApiClient.query('InjectionLogGetLastSite', undefined, {
   reactivityKeys: [ReactivityKeys.injectionLogs],
 })
+
+export const createScheduleViewAtom = (id: InjectionScheduleId) =>
+  ApiClient.query(
+    'ScheduleGetView',
+    { id },
+    {
+      reactivityKeys: [ReactivityKeys.schedule, ReactivityKeys.injectionLogs],
+    },
+  )

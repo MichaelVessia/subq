@@ -7,6 +7,7 @@ import {
   InjectionScheduleDelete,
   InjectionScheduleUpdate,
   NextScheduledDose,
+  ScheduleView,
 } from './InjectionSchedule.js'
 
 // ============================================
@@ -57,6 +58,11 @@ export const ScheduleRpcs = RpcGroup.make(
   }),
   Rpc.make('ScheduleGetNextDose', {
     success: Schema.NullOr(NextScheduledDose),
+    error: ScheduleDatabaseError,
+  }),
+  Rpc.make('ScheduleGetView', {
+    payload: Schema.Struct({ id: InjectionScheduleId }),
+    success: Schema.NullOr(ScheduleView),
     error: ScheduleDatabaseError,
   }),
 )

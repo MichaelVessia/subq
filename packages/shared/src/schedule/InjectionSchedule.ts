@@ -109,3 +109,53 @@ export class NextScheduledDose extends Schema.Class<NextScheduledDose>('NextSche
   daysUntilDue: Schema.Number,
   isOverdue: Schema.Boolean,
 }) {}
+
+// ============================================
+// Schedule View Types
+// ============================================
+
+/**
+ * Summary of a completed injection associated with a schedule phase.
+ */
+export class PhaseInjectionSummary extends Schema.Class<PhaseInjectionSummary>('PhaseInjectionSummary')({
+  id: Schema.String,
+  datetime: Schema.Date,
+  dosage: Dosage,
+  injectionSite: Schema.NullOr(Schema.String),
+}) {}
+
+/**
+ * Progress and details for a single phase in the schedule view.
+ */
+export class SchedulePhaseView extends Schema.Class<SchedulePhaseView>('SchedulePhaseView')({
+  id: SchedulePhaseId,
+  order: PhaseOrder,
+  durationDays: PhaseDurationDays,
+  dosage: Dosage,
+  startDate: Schema.Date,
+  endDate: Schema.Date,
+  status: Schema.Literal('completed', 'current', 'upcoming'),
+  expectedInjections: Schema.Number,
+  completedInjections: Schema.Number,
+  injections: Schema.Array(PhaseInjectionSummary),
+}) {}
+
+/**
+ * Full schedule view with all phases and their progress.
+ */
+export class ScheduleView extends Schema.Class<ScheduleView>('ScheduleView')({
+  id: InjectionScheduleId,
+  name: ScheduleName,
+  drug: DrugName,
+  source: Schema.NullOr(DrugSource),
+  frequency: Frequency,
+  startDate: Schema.Date,
+  endDate: Schema.Date,
+  isActive: Schema.Boolean,
+  notes: Schema.NullOr(Notes),
+  totalExpectedInjections: Schema.Number,
+  totalCompletedInjections: Schema.Number,
+  phases: Schema.Array(SchedulePhaseView),
+  createdAt: Schema.Date,
+  updatedAt: Schema.Date,
+}) {}
