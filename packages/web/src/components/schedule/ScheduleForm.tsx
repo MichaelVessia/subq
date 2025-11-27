@@ -12,7 +12,7 @@ import {
   type PhaseDurationDays,
   type PhaseOrder,
   ScheduleName,
-  type SchedulePhaseCreate,
+  SchedulePhaseCreate,
 } from '@scale/shared'
 import { Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
@@ -166,11 +166,14 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData }: Sche
 
     setLoading(true)
     try {
-      const phasesData: SchedulePhaseCreate[] = phases.map((p) => ({
-        order: p.order as PhaseOrder,
-        durationDays: Number.parseInt(p.durationDays, 10) as PhaseDurationDays,
-        dosage: Dosage.make(p.dosage),
-      }))
+      const phasesData = phases.map(
+        (p) =>
+          new SchedulePhaseCreate({
+            order: p.order as PhaseOrder,
+            durationDays: Number.parseInt(p.durationDays, 10) as PhaseDurationDays,
+            dosage: Dosage.make(p.dosage),
+          }),
+      )
 
       if (isEditing && onUpdate && initialData) {
         await onUpdate(
