@@ -9,7 +9,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter '@subq/*' dev",
+    "dev": "docker compose -f packages/api/docker-compose.yml up -d && bun run --filter '@subq/*' dev",
+    "dev:jaeger:stop": "docker compose -f packages/api/docker-compose.yml down",
     "dev:api": "bun run --filter @subq/api dev",
     "dev:web": "bun run --filter @subq/web dev",
     "build": "bun run --filter '*' build",

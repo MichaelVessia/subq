@@ -21,7 +21,7 @@ import {
   SchedulePhaseId,
 } from '@subq/shared'
 import { Effect, Layer, Option } from 'effect'
-import { afterEach, beforeEach, describe, expect, it, vi } from '@effect/vitest'
+import { describe, expect, it, vi } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
@@ -338,12 +338,15 @@ describe('ScheduleGetNextDose', () => {
     it.effect('calculates next dose based on every_3_days frequency', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        const startDate = new Date('2024-01-05T12:00:00Z') // 10 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'every_3_days', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '100mg' },
         ])
         // Last injection was 2 days ago
-        testState.lastInjectionDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        testState.lastInjectionDate = new Date('2024-01-13T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -351,6 +354,8 @@ describe('ScheduleGetNextDose', () => {
         // Next dose should be 1 day from now (3 - 2 = 1)
         expect(result!.daysUntilDue).toBe(1)
         expect(result!.isOverdue).toBe(false)
+
+        vi.useRealTimers()
       }).pipe(Effect.provide(TestLayer)),
     )
 
@@ -480,17 +485,22 @@ describe('ScheduleGetNextDose', () => {
     it.effect('handles daily frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        const startDate = new Date('2024-01-10T12:00:00Z') // 5 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'daily', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '10mg' },
         ])
         // Last injection was today
-        testState.lastInjectionDate = new Date()
+        testState.lastInjectionDate = new Date('2024-01-15T12:00:00Z')
 
         const result = yield* calculateNextDose
 
         expect(result).not.toBeNull()
         expect(result!.daysUntilDue).toBe(1) // Due tomorrow
+
+        vi.useRealTimers()
       }).pipe(Effect.provide(TestLayer)),
     )
 
