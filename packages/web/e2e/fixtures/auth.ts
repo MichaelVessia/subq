@@ -55,7 +55,7 @@ export async function loginAsE2EUser(page: Page) {
 }
 
 export async function loginAsDemoUser(page: Page) {
-  await login(page, DEMO_USER.email, DEMO_USER.password)
+  await loginOrSignUp(page, DEMO_USER.email, DEMO_USER.password, 'Demo User')
 }
 
 export async function logout(page: Page) {
