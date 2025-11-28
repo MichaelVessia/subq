@@ -14,7 +14,7 @@ export const AuthRpcMiddlewareLive = Layer.effect(
     const { auth } = yield* AuthService
 
     return AuthRpcMiddleware.of(({ headers }: { headers: Headers }) =>
-      Effect.gen(function* () {
+      Effect.fn('auth.getSession')(function* () {
         // Convert Headers to a plain object for better-auth
         const headerObj: Record<string, string> = {}
         for (const [key, value] of Object.entries(headers)) {
@@ -44,7 +44,7 @@ export const AuthRpcMiddlewareLive = Layer.effect(
             userId: session.session.userId,
           },
         }
-      }),
+      })(),
     )
   }),
 )
