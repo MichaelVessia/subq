@@ -4,7 +4,7 @@
  * This file exports a fetch handler for Cloudflare Workers.
  * For local development, use main.ts which runs on Node.
  */
-import type { D1Database } from '@cloudflare/workers-types'
+import type { D1Database, ExecutionContext } from '@cloudflare/workers-types'
 import { HttpApp } from '@effect/platform'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
@@ -129,7 +129,7 @@ let rpcHandlerCache: {
 let lastEnvHash: string | null = null
 
 function getEnvHash(env: Env): string {
-  return `${env.BETTER_AUTH_SECRET}:${env.BETTER_AUTH_URL}`
+  return `${env.BETTER_AUTH_SECRET}:${env.BETTER_AUTH_URL}:${env.AXIOM_API_TOKEN ?? ''}:${env.AXIOM_DATASET ?? ''}`
 }
 
 function getRpcHandler(env: Env) {
@@ -156,7 +156,7 @@ function getRpcHandler(env: Env) {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     // Handle CORS preflight
@@ -178,6 +178,8 @@ export default {
     if (url.pathname === '/rpc') {
       const { handler } = getRpcHandler(env)
       const response = await handler(request)
+      // Give time for traces to be exported before worker terminates
+      ctx.waitUntil(new Promise((resolve) => setTimeout(resolve, 500)))
       return withCors(request, response)
     }
 

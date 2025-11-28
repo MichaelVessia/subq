@@ -21,17 +21,9 @@ export interface AxiomEnv {
  * If not configured, returns an empty layer (spans created but not exported).
  */
 export const makeTracerLayer = (env: AxiomEnv): Layer.Layer<never> => {
-  console.log('[tracer] makeTracerLayer called', {
-    hasToken: !!env.AXIOM_API_TOKEN,
-    hasDataset: !!env.AXIOM_DATASET,
-    serviceName: env.OTEL_SERVICE_NAME,
-  })
   if (!env.AXIOM_API_TOKEN || !env.AXIOM_DATASET) {
-    // Not configured - return empty layer
-    console.log('[tracer] No Axiom config, returning empty layer')
     return Layer.empty
   }
-  console.log('[tracer] Axiom config found, creating tracer layer')
 
   return Otlp.layer({
     baseUrl: 'https://api.axiom.co',
@@ -42,8 +34,11 @@ export const makeTracerLayer = (env: AxiomEnv): Layer.Layer<never> => {
       Authorization: `Bearer ${env.AXIOM_API_TOKEN}`,
       'X-Axiom-Dataset': env.AXIOM_DATASET,
     },
-    // Shorter intervals for Workers which have limited execution time
-    tracerExportInterval: Duration.seconds(1),
+    // Very short interval for Workers - export quickly before termination
+    // Also set maxBatchSize to 1 to export immediately on each span
+    tracerExportInterval: Duration.millis(100),
+    maxBatchSize: 1,
+    shutdownTimeout: Duration.seconds(5),
   }).pipe(Layer.provide(FetchHttpClient.layer))
 }
 
