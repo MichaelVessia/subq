@@ -8,6 +8,7 @@ import {
   type InjectionLog,
   type InjectionSchedule,
   type InjectionSiteStats,
+  type TrendLine,
   type WeightStats,
   type WeightTrendStats,
 } from '@subq/shared'
@@ -142,6 +143,7 @@ interface WeightTrendChartProps {
   weightData: DataPoint[]
   injectionData: InjectionPoint[]
   schedulePeriods: SchedulePeriod[]
+  trendLine: TrendLine | null
   zoomRange: { start: Date; end: Date } | null
   onZoom: (range: { start: Date; end: Date }) => void
 }
@@ -155,7 +157,14 @@ function makeDrugDosageKey(drug: string, dosage: string): string {
   return `${drug}::${dosage}`
 }
 
-function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRange, onZoom }: WeightTrendChartProps) {
+function WeightTrendChart({
+  weightData,
+  injectionData,
+  schedulePeriods,
+  trendLine,
+  zoomRange,
+  onZoom,
+}: WeightTrendChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
@@ -404,6 +413,83 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
         .attr('stroke-width', isSegmentSelected ? 2 : 1)
         .attr('opacity', isSegmentSelected ? 1 : 0.15)
         .attr('d', line)
+    }
+
+    // Render server-computed trend line
+    if (trendLine) {
+      // Use server-provided start/end points, but recalculate y-values based on
+      // the visible x-domain to ensure the line spans the full chart width
+      const xDomain = xScale.domain() as [Date, Date]
+      const trendStartY = trendLine.slope * xDomain[0].getTime() + trendLine.intercept
+      const trendEndY = trendLine.slope * xDomain[1].getTime() + trendLine.intercept
+
+      // Calculate rate of change in lbs per week for display
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000
+      const lbsPerWeek = trendLine.slope * msPerWeek
+      const direction = lbsPerWeek > 0.01 ? 'gaining' : lbsPerWeek < -0.01 ? 'losing' : 'maintaining'
+      const rateText =
+        direction === 'maintaining'
+          ? 'Maintaining weight'
+          : `${direction === 'gaining' ? '+' : ''}${lbsPerWeek.toFixed(2)} lbs/week`
+
+      // Wider invisible hit area for easier interaction
+      g.append('line')
+        .attr('class', 'trend-line-hit-area')
+        .attr('x1', xScale(xDomain[0]))
+        .attr('y1', yScale(trendStartY))
+        .attr('x2', xScale(xDomain[1]))
+        .attr('y2', yScale(trendEndY))
+        .attr('stroke', 'transparent')
+        .attr('stroke-width', 12)
+        .style('cursor', 'pointer')
+        .on('mouseenter', (event) => {
+          setTooltip({
+            content: (
+              <div>
+                <div className="font-semibold mb-0.5">Trend Line</div>
+                <div className="opacity-90">{rateText}</div>
+                <div className="text-[10px] opacity-70 mt-1">
+                  {trendLine.startWeight.toFixed(1)} → {trendLine.endWeight.toFixed(1)} lbs
+                </div>
+              </div>
+            ),
+            position: { x: event.clientX, y: event.clientY },
+          })
+        })
+        .on('mousemove', (event) => {
+          setTooltip((prev) => (prev ? { ...prev, position: { x: event.clientX, y: event.clientY } } : null))
+        })
+        .on('mouseleave', () => setTooltip(null))
+        .on('click', (event) => {
+          // For mobile: show tooltip on tap
+          setTooltip({
+            content: (
+              <div>
+                <div className="font-semibold mb-0.5">Trend Line</div>
+                <div className="opacity-90">{rateText}</div>
+                <div className="text-[10px] opacity-70 mt-1">
+                  {trendLine.startWeight.toFixed(1)} → {trendLine.endWeight.toFixed(1)} lbs
+                </div>
+              </div>
+            ),
+            position: { x: event.clientX, y: event.clientY },
+          })
+          // Hide after delay on mobile
+          setTimeout(() => setTooltip(null), 2000)
+        })
+
+      // Visible trend line
+      g.append('line')
+        .attr('class', 'trend-line')
+        .attr('x1', xScale(xDomain[0]))
+        .attr('y1', yScale(trendStartY))
+        .attr('x2', xScale(xDomain[1]))
+        .attr('y2', yScale(trendEndY))
+        .attr('stroke', 'var(--foreground)')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '8,4')
+        .attr('opacity', selectedFilter ? 0.4 : 0.7)
+        .style('pointer-events', 'none') // Let hit area handle events
     }
 
     const isPointSelected = (d: WeightPointWithDrugDosage) =>
@@ -783,7 +869,7 @@ function WeightTrendChart({ weightData, injectionData, schedulePeriods, zoomRang
           setTooltip(null)
         })
     }
-  }, [weightData, injectionData, schedulePeriods, zoomRange, onZoom, containerWidth, selectedFilter])
+  }, [weightData, injectionData, schedulePeriods, trendLine, zoomRange, onZoom, containerWidth, selectedFilter])
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -1099,7 +1185,7 @@ export function StatsPage() {
     Result.isWaiting(injectionByDayOfWeekResult)
 
   const weightStats = Result.getOrElse(weightStatsResult, () => null as WeightStats | null)
-  const weightTrend = Result.getOrElse(weightTrendResult, () => ({ points: [] }) as WeightTrendStats)
+  const weightTrend = Result.getOrElse(weightTrendResult, () => ({ points: [], trendLine: null }) as WeightTrendStats)
   const injections = Result.getOrElse(injectionResult, () => [] as InjectionLog[])
   const injectionSiteStats = Result.getOrElse(
     injectionSiteStatsResult,
@@ -1176,6 +1262,7 @@ export function StatsPage() {
                 weightData={weightData}
                 injectionData={injectionData}
                 schedulePeriods={schedulePeriods}
+                trendLine={weightTrend.trendLine}
                 zoomRange={zoomRange}
                 onZoom={handleZoom}
               />

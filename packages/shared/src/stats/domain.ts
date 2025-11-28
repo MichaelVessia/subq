@@ -39,8 +39,24 @@ export class WeightTrendPoint extends Schema.Class<WeightTrendPoint>('WeightTren
   weight: Weight,
 }) {}
 
+/** Linear regression trend line data */
+export class TrendLine extends Schema.Class<TrendLine>('TrendLine')({
+  /** Slope in lbs per day */
+  slope: Schema.Number,
+  /** Y-intercept (weight at epoch) */
+  intercept: Schema.Number,
+  /** Start point for rendering */
+  startDate: Schema.Date,
+  startWeight: Weight,
+  /** End point for rendering */
+  endDate: Schema.Date,
+  endWeight: Weight,
+}) {}
+
 export class WeightTrendStats extends Schema.Class<WeightTrendStats>('WeightTrendStats')({
   points: Schema.Array(WeightTrendPoint),
+  /** Linear regression trend line, null if < 2 points */
+  trendLine: Schema.NullOr(TrendLine),
 }) {}
 
 // ============================================

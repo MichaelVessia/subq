@@ -18,6 +18,7 @@ import {
   InjectionsPerWeek,
   InjectionSite,
   type StatsParams,
+  TrendLine,
   Weight,
   WeightRateOfChange,
   WeightStats,
@@ -41,9 +42,6 @@ const WeightStatsRow = Schema.Struct({
   min_weight: Schema.NullOr(Schema.Number),
   max_weight: Schema.NullOr(Schema.Number),
   avg_weight: Schema.NullOr(Schema.Number),
-  start_weight: Schema.NullOr(Schema.Number),
-  end_weight: Schema.NullOr(Schema.Number),
-  days_span: Schema.NullOr(Schema.Number),
   entry_count: Schema.Number,
 })
 const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
@@ -94,6 +92,77 @@ const DayOfWeekCountRow = Schema.Struct({
 const decodeDayOfWeekCountRow = Schema.decodeUnknown(DayOfWeekCountRow)
 
 // ============================================
+// Linear Regression Helpers
+// ============================================
+
+interface LinearRegressionResult {
+  slope: number // lbs per millisecond
+  intercept: number
+}
+
+/**
+ * Computes linear regression coefficients from data points.
+ * Returns null if fewer than 2 points or all points at same time.
+ */
+function computeLinearRegression(points: { date: Date; weight: number }[]): LinearRegressionResult | null {
+  if (points.length < 2) return null
+
+  const n = points.length
+  // Use timestamps as x values (milliseconds since epoch)
+  const sumX = points.reduce((acc, p) => acc + p.date.getTime(), 0)
+  const sumY = points.reduce((acc, p) => acc + p.weight, 0)
+  const sumXY = points.reduce((acc, p) => acc + p.date.getTime() * p.weight, 0)
+  const sumX2 = points.reduce((acc, p) => acc + p.date.getTime() * p.date.getTime(), 0)
+
+  const denominator = n * sumX2 - sumX * sumX
+  // Avoid division by zero (all points at same time)
+  if (denominator === 0) return null
+
+  const slope = (n * sumXY - sumX * sumY) / denominator
+  const intercept = (sumY - slope * sumX) / n
+
+  return { slope, intercept }
+}
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Computes rate of change in lbs per week using linear regression.
+ * Returns 0 if fewer than 2 points.
+ */
+function computeRateOfChange(points: { date: Date; weight: number }[]): number {
+  const regression = computeLinearRegression(points)
+  if (!regression) return 0
+  return regression.slope * MS_PER_WEEK
+}
+
+/**
+ * Computes a linear regression trend line from weight data points.
+ * Returns null if fewer than 2 points.
+ */
+function computeTrendLine(points: WeightTrendPoint[]): TrendLine | null {
+  const regression = computeLinearRegression(points)
+  if (!regression || points.length < 2) return null
+
+  const { slope, intercept } = regression
+
+  // Calculate start and end points for the trend line
+  const startDate = points[0]!.date
+  const endDate = points[points.length - 1]!.date
+  const startWeight = slope * startDate.getTime() + intercept
+  const endWeight = slope * endDate.getTime() + intercept
+
+  return new TrendLine({
+    slope,
+    intercept,
+    startDate,
+    startWeight: Weight.make(startWeight),
+    endDate,
+    endWeight: Weight.make(endWeight),
+  })
+}
+
+// ============================================
 // Stats Service Definition
 // ============================================
 
@@ -127,37 +196,44 @@ export const StatsServiceLive = Layer.effect(
         Effect.gen(function* () {
           const startDateStr = params.startDate?.toISOString()
           const endDateStr = params.endDate?.toISOString()
-          const rows = yield* sql`
-            WITH filtered AS (
-              SELECT datetime, weight
-              FROM weight_logs
-              WHERE user_id = ${userId}
-              ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-              ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-              ORDER BY datetime
-            )
+
+          // Get summary stats
+          const summaryRows = yield* sql`
             SELECT
               MIN(weight) as min_weight,
               MAX(weight) as max_weight,
               AVG(weight) as avg_weight,
-              (SELECT weight FROM filtered ORDER BY datetime ASC LIMIT 1) as start_weight,
-              (SELECT weight FROM filtered ORDER BY datetime DESC LIMIT 1) as end_weight,
-              (julianday(MAX(datetime)) - julianday(MIN(datetime))) as days_span,
               COUNT(*) as entry_count
-            FROM filtered
+            FROM weight_logs
+            WHERE user_id = ${userId}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
           `
-          if (rows.length === 0) return null
+          if (summaryRows.length === 0) return null
 
-          const decoded = yield* decodeWeightStatsRow(rows[0])
+          const decoded = yield* decodeWeightStatsRow(summaryRows[0])
           if (!decoded.min_weight || !decoded.max_weight || !decoded.avg_weight) {
             return null
           }
 
-          // Calculate rate of change (lbs per week)
-          const daysSpan = decoded.days_span ?? 0
-          const weeks = daysSpan / 7
-          const weightChange = (decoded.end_weight ?? 0) - (decoded.start_weight ?? 0)
-          const rateOfChangeNum = weeks > 0 ? weightChange / weeks : 0
+          // Get all points for linear regression rate calculation
+          const pointRows = yield* sql`
+            SELECT datetime, weight
+            FROM weight_logs
+            WHERE user_id = ${userId}
+            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+            ORDER BY datetime ASC
+          `
+
+          const points: { date: Date; weight: number }[] = []
+          for (const row of pointRows) {
+            const point = yield* decodeWeightTrendRow(row)
+            points.push({ date: point.datetime, weight: point.weight })
+          }
+
+          // Use linear regression for rate of change (same as trend line)
+          const rateOfChangeNum = computeRateOfChange(points)
 
           return new WeightStats({
             minWeight: Weight.make(decoded.min_weight),
@@ -185,7 +261,11 @@ export const StatsServiceLive = Layer.effect(
             const decoded = yield* decodeWeightTrendRow(row)
             points.push(new WeightTrendPoint({ date: decoded.datetime, weight: Weight.make(decoded.weight) }))
           }
-          return new WeightTrendStats({ points })
+
+          // Calculate linear regression trend line
+          const trendLine = computeTrendLine(points)
+
+          return new WeightTrendStats({ points, trendLine })
         }).pipe(Effect.orDie),
 
       getInjectionSiteStats: (params, userId) =>

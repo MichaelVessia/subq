@@ -16,6 +16,7 @@ import {
   InjectionSiteCount,
   InjectionSiteStats,
   InjectionsPerWeek,
+  TrendLine,
   Weight,
   WeightRateOfChange,
   WeightStats,
@@ -67,6 +68,58 @@ const clearData = () => {
   injectionStore.length = 0
 }
 
+// Linear regression helpers (mirrors the ones in stats-service.ts)
+interface LinearRegressionResult {
+  slope: number
+  intercept: number
+}
+
+function computeLinearRegression(points: { date: Date; weight: number }[]): LinearRegressionResult | null {
+  if (points.length < 2) return null
+
+  const n = points.length
+  const sumX = points.reduce((acc, p) => acc + p.date.getTime(), 0)
+  const sumY = points.reduce((acc, p) => acc + p.weight, 0)
+  const sumXY = points.reduce((acc, p) => acc + p.date.getTime() * p.weight, 0)
+  const sumX2 = points.reduce((acc, p) => acc + p.date.getTime() * p.date.getTime(), 0)
+
+  const denominator = n * sumX2 - sumX * sumX
+  if (denominator === 0) return null
+
+  const slope = (n * sumXY - sumX * sumY) / denominator
+  const intercept = (sumY - slope * sumX) / n
+
+  return { slope, intercept }
+}
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000
+
+function computeRateOfChange(points: { date: Date; weight: number }[]): number {
+  const regression = computeLinearRegression(points)
+  if (!regression) return 0
+  return regression.slope * MS_PER_WEEK
+}
+
+function computeTrendLine(points: WeightTrendPoint[]): TrendLine | null {
+  const regression = computeLinearRegression(points)
+  if (!regression || points.length < 2) return null
+
+  const { slope, intercept } = regression
+  const startDate = points[0]!.date
+  const endDate = points[points.length - 1]!.date
+  const startWeight = slope * startDate.getTime() + intercept
+  const endWeight = slope * endDate.getTime() + intercept
+
+  return new TrendLine({
+    slope,
+    intercept,
+    startDate,
+    startWeight: Weight.make(startWeight),
+    endDate,
+    endWeight: Weight.make(endWeight),
+  })
+}
+
 const StatsServiceTest = Layer.sync(StatsService, () => ({
   getWeightStats: (params: StatsParams, _userId: string) =>
     Effect.sync(() => {
@@ -86,12 +139,9 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
       const max = Math.max(...weights)
       const avg = weights.reduce((a, b) => a + b, 0) / weights.length
 
-      const startWeight = filtered[0]!.weight
-      const endWeight = filtered[filtered.length - 1]!.weight
-      const daysDiff =
-        (filtered[filtered.length - 1]!.datetime.getTime() - filtered[0]!.datetime.getTime()) / (1000 * 60 * 60 * 24)
-      const weeks = daysDiff / 7
-      const rateOfChange = weeks > 0 ? (endWeight - startWeight) / weeks : 0
+      // Use linear regression for rate of change (same as trend line)
+      const points = filtered.map((e) => ({ date: e.datetime, weight: e.weight }))
+      const rateOfChange = computeRateOfChange(points)
 
       return new WeightStats({
         minWeight: Weight.make(min),
@@ -120,7 +170,11 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
             weight: Weight.make(e.weight),
           }),
       )
-      return new WeightTrendStats({ points })
+
+      // Calculate linear regression trend line
+      const trendLine = computeTrendLine(points)
+
+      return new WeightTrendStats({ points, trendLine })
     }),
 
   getInjectionSiteStats: (params: StatsParams, _userId: string) =>
@@ -332,6 +386,83 @@ describe('StatsService', () => {
         expect(result.points[0]!.weight).toBe(200) // Jan 1
         expect(result.points[1]!.weight).toBe(195) // Jan 8
         expect(result.points[2]!.weight).toBe(190) // Jan 15
+      }).pipe(Effect.provide(StatsServiceTest)),
+    )
+
+    it.effect('returns null trendLine when fewer than 2 points', () =>
+      Effect.gen(function* () {
+        clearData()
+        seedWeightData([{ datetime: new Date('2024-01-01T10:00:00Z'), weight: 200 }])
+
+        const stats = yield* StatsService
+        const result = yield* stats.getWeightTrend({}, 'user-123')
+
+        expect(result.points.length).toBe(1)
+        expect(result.trendLine).toBeNull()
+      }).pipe(Effect.provide(StatsServiceTest)),
+    )
+
+    it.effect('returns trendLine with correct slope for downward trend', () =>
+      Effect.gen(function* () {
+        clearData()
+        // Perfect linear decline: -5 lbs per week
+        seedWeightData([
+          { datetime: new Date('2024-01-01T00:00:00Z'), weight: 200 },
+          { datetime: new Date('2024-01-08T00:00:00Z'), weight: 195 },
+          { datetime: new Date('2024-01-15T00:00:00Z'), weight: 190 },
+        ])
+
+        const stats = yield* StatsService
+        const result = yield* stats.getWeightTrend({}, 'user-123')
+
+        expect(result.trendLine).not.toBeNull()
+        // Slope is in lbs per millisecond, convert to lbs per week
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000
+        const lbsPerWeek = result.trendLine!.slope * msPerWeek
+        expect(lbsPerWeek).toBeCloseTo(-5, 1)
+
+        // Start/end weights should match the regression line
+        expect(result.trendLine!.startWeight).toBeCloseTo(200, 1)
+        expect(result.trendLine!.endWeight).toBeCloseTo(190, 1)
+      }).pipe(Effect.provide(StatsServiceTest)),
+    )
+
+    it.effect('returns trendLine with correct slope for upward trend', () =>
+      Effect.gen(function* () {
+        clearData()
+        // Perfect linear increase: +3 lbs per week
+        seedWeightData([
+          { datetime: new Date('2024-01-01T00:00:00Z'), weight: 180 },
+          { datetime: new Date('2024-01-08T00:00:00Z'), weight: 183 },
+          { datetime: new Date('2024-01-15T00:00:00Z'), weight: 186 },
+        ])
+
+        const stats = yield* StatsService
+        const result = yield* stats.getWeightTrend({}, 'user-123')
+
+        expect(result.trendLine).not.toBeNull()
+        const msPerWeek = 7 * 24 * 60 * 60 * 1000
+        const lbsPerWeek = result.trendLine!.slope * msPerWeek
+        expect(lbsPerWeek).toBeCloseTo(3, 1)
+      }).pipe(Effect.provide(StatsServiceTest)),
+    )
+
+    it.effect('handles flat trend (no change)', () =>
+      Effect.gen(function* () {
+        clearData()
+        seedWeightData([
+          { datetime: new Date('2024-01-01T00:00:00Z'), weight: 185 },
+          { datetime: new Date('2024-01-08T00:00:00Z'), weight: 185 },
+          { datetime: new Date('2024-01-15T00:00:00Z'), weight: 185 },
+        ])
+
+        const stats = yield* StatsService
+        const result = yield* stats.getWeightTrend({}, 'user-123')
+
+        expect(result.trendLine).not.toBeNull()
+        expect(result.trendLine!.slope).toBeCloseTo(0, 10)
+        expect(result.trendLine!.startWeight).toBeCloseTo(185, 1)
+        expect(result.trendLine!.endWeight).toBeCloseTo(185, 1)
       }).pipe(Effect.provide(StatsServiceTest)),
     )
   })
