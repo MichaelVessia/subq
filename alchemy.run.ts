@@ -26,6 +26,8 @@ export const api = await Worker("api", {
   url: true,
   domains: isProd ? [{ domainName: "api.subq.vessia.net", adopt: true }] : [],
   compatibility: "node",
+  // Smart Placement: run worker near D1 database to reduce latency
+  placement: { mode: "smart" },
   bindings: {
     DB: db,
     BETTER_AUTH_SECRET: alchemy.secret(process.env.BETTER_AUTH_SECRET!),
