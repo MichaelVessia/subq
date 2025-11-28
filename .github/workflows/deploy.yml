@@ -69,8 +69,8 @@ jobs:
           bun run build
           output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
           echo "$output"
-          api_url=$(echo "$output" | grep -oP "api: '\K[^']+")
-          web_url=$(echo "$output" | grep -oP "web: '\K[^']+")
+          api_url=$(echo "$output" | grep -oP 'api: "\K[^"]+')
+          web_url=$(echo "$output" | grep -oP 'web: "\K[^"]+')
           echo "api_url=$api_url" >> $GITHUB_OUTPUT
           echo "web_url=$web_url" >> $GITHUB_OUTPUT
         env:
@@ -88,7 +88,7 @@ jobs:
           bun run build
           output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
           echo "$output"
-          web_url=$(echo "$output" | grep -oP "web: '\K[^']+")
+          web_url=$(echo "$output" | grep -oP 'web: "\K[^"]+')
           echo "web_url=$web_url" >> $GITHUB_OUTPUT
         env:
           VITE_API_URL: ${{ steps.deploy-preview-1.outputs.api_url }}
