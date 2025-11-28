@@ -22,8 +22,36 @@ export async function login(page: Page, email: string, password: string) {
   await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
 }
 
+// Try login, sign up if user doesn't exist (for fresh preview envs)
+export async function loginOrSignUp(page: Page, email: string, password: string, name: string) {
+  await page.goto('/stats')
+  await page.waitForSelector('text=Sign In')
+  await page.fill('input[type="email"]', email)
+  await page.fill('input[type="password"]', password)
+  await page.click('button[type="submit"]')
+
+  // Check if login succeeded or failed
+  const signOut = page.locator('text=Sign Out')
+  const error = page.locator('text=Invalid email or password')
+
+  const result = await Promise.race([
+    signOut.waitFor({ timeout: 5000 }).then(() => 'success'),
+    error.waitFor({ timeout: 5000 }).then(() => 'failed'),
+  ]).catch(() => 'timeout')
+
+  if (result === 'success') return
+
+  // Login failed - sign up instead
+  await page.click('text=Sign up')
+  await page.fill('input[placeholder="Name"]', name)
+  await page.fill('input[type="email"]', email)
+  await page.fill('input[type="password"]', password)
+  await page.click('button[type="submit"]')
+  await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
+}
+
 export async function loginAsE2EUser(page: Page) {
-  await login(page, E2E_USER.email, E2E_USER.password)
+  await loginOrSignUp(page, E2E_USER.email, E2E_USER.password, 'E2E Test User')
 }
 
 export async function loginAsDemoUser(page: Page) {
