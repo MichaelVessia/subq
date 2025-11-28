@@ -123,7 +123,7 @@ test.describe('Inventory', () => {
     const card = page.locator(`.grid > div:has-text("${uniquePharmacy}")`)
     await card.locator('button').click()
     await page.click('[role="menuitem"]:has-text("Mark Opened")')
-    await expect(card.locator('text=opened')).toBeVisible({ timeout: 5000 })
+    await expect(card.locator('span.rounded-full:has-text("opened")')).toBeVisible({ timeout: 5000 })
 
     // Cleanup
     await deleteInventoryItem(page, uniquePharmacy)
@@ -146,8 +146,13 @@ test.describe('Inventory', () => {
     await page.click('[role="menuitem"]:has-text("Mark Finished")')
     await expect(page.locator('h3:has-text("Finished")')).toBeVisible({ timeout: 5000 })
 
-    // Cleanup - item is now in finished section
-    await deleteInventoryItem(page, uniquePharmacy)
+    // Cleanup - finished items have direct delete button (no dropdown)
+    await page.evaluate(() => {
+      window.confirm = () => true
+    })
+    const finishedCard = page.locator(`.opacity-60 div:has-text("${uniquePharmacy}")`)
+    await finishedCard.locator('button').click()
+    await expect(page.locator(`text=${uniquePharmacy}`)).not.toBeVisible({ timeout: 5000 })
   })
 
   test('status selector has all options', async ({ authedPage: page }) => {

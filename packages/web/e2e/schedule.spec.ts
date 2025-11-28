@@ -116,9 +116,9 @@ test.describe('Schedule', () => {
     await page.click('button:has-text("Create Schedule")')
     await expect(page.locator(`h3:has-text("${scheduleName}")`)).toBeVisible({ timeout: 5000 })
 
-    // Edit
+    // Edit - click the 3rd icon button (after Activate, Eye, Edit, Delete)
     const card = page.locator('.space-y-4 > div').filter({ has: page.locator(`h3:has-text("${scheduleName}")`) })
-    await card.locator('button:has(svg.lucide-edit)').click()
+    await card.locator('button.h-8.w-8').nth(1).click()
     await expect(page.locator('button:has-text("Update Schedule")')).toBeVisible()
     await page.fill('input#name', updatedName)
     await page.click('button:has-text("Update Schedule")')
@@ -164,9 +164,9 @@ test.describe('Schedule', () => {
     await page.click('button:has-text("Create Schedule")')
     await expect(page.locator(`h3:has-text("${scheduleName}")`)).toBeVisible({ timeout: 5000 })
 
-    // Navigate to detail
+    // Navigate to detail - click the first icon button (Eye/View)
     const card = page.locator('.space-y-4 > div').filter({ has: page.locator(`h3:has-text("${scheduleName}")`) })
-    await card.locator('button:has(svg.lucide-eye)').click()
+    await card.locator('a button.h-8.w-8').click()
     await expect(page).toHaveURL(/\/schedule\//)
     await expect(page.locator('h2')).toBeVisible()
 
