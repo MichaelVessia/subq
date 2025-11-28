@@ -22,11 +22,23 @@ test.describe('Weight Log', () => {
   })
 
   test('shows data table with correct columns', async ({ authedPage: page }) => {
+    // Create entry to ensure table exists
+    const testNotes = `Table test ${Date.now()}`
+    await page.click('button:has-text("Add Entry")')
+    await page.fill('input#weight', '150')
+    await page.fill('textarea#notes', testNotes)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`td:has-text("${testNotes}")`)).toBeVisible()
+
+    // Verify table columns
     await expect(page.locator('table')).toBeVisible()
     await expect(page.locator('th:has-text("Date")')).toBeVisible()
     await expect(page.locator('th:has-text("Weight")')).toBeVisible()
     await expect(page.locator('th:has-text("Notes")')).toBeVisible()
     await expect(page.locator('th:has-text("Actions")')).toBeVisible()
+
+    // Cleanup
+    await deleteWeightEntry(page, testNotes)
   })
 
   test('opens form when Add Entry is clicked', async ({ authedPage: page }) => {
@@ -105,13 +117,37 @@ test.describe('Weight Log', () => {
   })
 
   test('can sort by date column', async ({ authedPage: page }) => {
+    // Create entry to ensure table exists
+    const testNotes = `Sort test ${Date.now()}`
+    await page.click('button:has-text("Add Entry")')
+    await page.fill('input#weight', '150')
+    await page.fill('textarea#notes', testNotes)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`td:has-text("${testNotes}")`)).toBeVisible()
+
+    // Test sort
     await page.click('th:has-text("Date")')
     await expect(page.locator('th:has-text("Date") svg')).toBeVisible()
+
+    // Cleanup
+    await deleteWeightEntry(page, testNotes)
   })
 
   test('can sort by weight column', async ({ authedPage: page }) => {
+    // Create entry to ensure table exists
+    const testNotes = `Sort test ${Date.now()}`
+    await page.click('button:has-text("Add Entry")')
+    await page.fill('input#weight', '150')
+    await page.fill('textarea#notes', testNotes)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`td:has-text("${testNotes}")`)).toBeVisible()
+
+    // Test sort
     await page.click('th:has-text("Weight")')
     await expect(page.locator('th:has-text("Weight") svg')).toBeVisible()
+
+    // Cleanup
+    await deleteWeightEntry(page, testNotes)
   })
 
   test('unit selector changes between lbs and kg', async ({ authedPage: page }) => {

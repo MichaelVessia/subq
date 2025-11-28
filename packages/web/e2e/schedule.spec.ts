@@ -28,7 +28,7 @@ test.describe('Schedule', () => {
     await expect(page.locator('label:has-text("Start Date")')).toBeVisible()
     await expect(page.locator('label:has-text("Titration Phases")')).toBeVisible()
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible()
-    await expect(page.locator('button:has-text("Create Schedule")')).toBeVisible()
+    await expect(page.locator('form button[type="submit"]:has-text("Create Schedule")')).toBeVisible()
   })
 
   test('can cancel form without saving', async ({ authedPage: page }) => {

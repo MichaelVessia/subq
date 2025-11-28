@@ -4,11 +4,13 @@ import { test, expect } from './fixtures/auth.js'
 async function deleteInventoryItem(page: import('@playwright/test').Page, identifier: string) {
   const card = page.locator(`.grid > div:has-text("${identifier}")`)
   await card.locator('button').click()
+  // Wait for menu to appear
+  await expect(page.locator('[role="menuitem"]:has-text("Delete")')).toBeVisible()
   await page.evaluate(() => {
     window.confirm = () => true
   })
   await page.click('[role="menuitem"]:has-text("Delete")')
-  await expect(page.locator(`text=${identifier}`)).not.toBeVisible({ timeout: 5000 })
+  await expect(page.locator(`text=${identifier}`)).not.toBeVisible()
 }
 
 test.describe('Inventory', () => {

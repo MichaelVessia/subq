@@ -11,6 +11,15 @@ test.describe('Injection Log', () => {
   })
 
   test('shows data table with correct columns', async ({ authedPage: page }) => {
+    // Create entry to ensure table exists
+    const uniqueDosage = `0.${Date.now() % 1000}mg`
+    await page.click('button:has-text("Add Entry")')
+    await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
+    await page.fill('input#dosage', uniqueDosage)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible()
+
+    // Verify table columns
     await expect(page.locator('table')).toBeVisible()
     await expect(page.locator('th:has-text("Date")')).toBeVisible()
     await expect(page.locator('th:has-text("Drug")')).toBeVisible()
@@ -18,6 +27,15 @@ test.describe('Injection Log', () => {
     await expect(page.locator('th:has-text("Site")')).toBeVisible()
     await expect(page.locator('th:has-text("Schedule")')).toBeVisible()
     await expect(page.locator('th:has-text("Actions")')).toBeVisible()
+
+    // Cleanup
+    const row = page.locator('table tbody tr', { has: page.locator(`td:has-text("${uniqueDosage}")`) })
+    await row.locator('button:has(.sr-only)').click()
+    await page.evaluate(() => {
+      window.confirm = () => true
+    })
+    await page.click('[role="menuitem"]:has-text("Delete")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible()
   })
 
   test('opens form when Add Entry is clicked', async ({ authedPage: page }) => {
@@ -169,7 +187,25 @@ test.describe('Injection Log', () => {
   })
 
   test('can sort by date column', async ({ authedPage: page }) => {
+    // Create entry to ensure table exists
+    const uniqueDosage = `0.${Date.now() % 1000}mg`
+    await page.click('button:has-text("Add Entry")')
+    await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
+    await page.fill('input#dosage', uniqueDosage)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible()
+
+    // Test sort
     await page.click('th:has-text("Date")')
     await expect(page.locator('th:has-text("Date") svg')).toBeVisible()
+
+    // Cleanup
+    const row = page.locator('table tbody tr', { has: page.locator(`td:has-text("${uniqueDosage}")`) })
+    await row.locator('button:has(.sr-only)').click()
+    await page.evaluate(() => {
+      window.confirm = () => true
+    })
+    await page.click('[role="menuitem"]:has-text("Delete")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible()
   })
 })
