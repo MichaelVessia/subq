@@ -41,6 +41,13 @@ const AuthLive = Layer.unwrapEffect(
       emailAndPassword: {
         enabled: true,
       },
+      session: {
+        // Cache session in signed cookie to avoid DB lookup on every request
+        cookieCache: {
+          enabled: true,
+          maxAge: 60 * 5, // 5 minutes
+        },
+      },
     })
   }).pipe(Effect.tap(() => Effect.logInfo('Auth service initialized successfully'))),
 )

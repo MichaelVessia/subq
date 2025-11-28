@@ -83,6 +83,14 @@ function createAuth(env: Env) {
     emailAndPassword: {
       enabled: true,
     },
+    session: {
+      // Cache session in signed cookie to avoid D1 lookup on every request
+      // Session revocation is delayed by maxAge (5 minutes)
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 5, // 5 minutes
+      },
+    },
   })
 }
 
