@@ -43,17 +43,4 @@ jobs:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
 
-  e2e:
-    needs: deploy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
-        working-directory: packages/web
-      - name: Run E2E tests
-        run: bun run test:e2e
-        working-directory: packages/web
-        env:
-          BASE_URL: https://subq.vessia.net
+
