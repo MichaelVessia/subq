@@ -37,14 +37,22 @@ const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
   encode: (d) => d.toISOString(),
 })
 
-// Weight stats row schema
+// Weight stats row schema (combined query with points as JSON)
 const WeightStatsRow = Schema.Struct({
   min_weight: Schema.NullOr(Schema.Number),
   max_weight: Schema.NullOr(Schema.Number),
   avg_weight: Schema.NullOr(Schema.Number),
   entry_count: Schema.Number,
+  points_json: Schema.String,
 })
 const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
+
+// Schema for parsing points from JSON
+const WeightPointJson = Schema.Struct({
+  datetime: Schema.String,
+  weight: Schema.Number,
+})
+const decodeWeightPointsJson = Schema.decodeUnknown(Schema.Array(WeightPointJson))
 
 // Weight trend row schema
 const WeightTrendRow = Schema.Struct({
@@ -197,40 +205,42 @@ export const StatsServiceLive = Layer.effect(
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
 
-        // Get summary stats
-        const summaryRows = yield* sql`
+        // Combined query: get summary stats and all points in a single D1 roundtrip
+        const rows = yield* sql`
           SELECT
             MIN(weight) as min_weight,
             MAX(weight) as max_weight,
             AVG(weight) as avg_weight,
-            COUNT(*) as entry_count
+            COUNT(*) as entry_count,
+            (
+              SELECT json_group_array(json_object('datetime', datetime, 'weight', weight))
+              FROM (
+                SELECT datetime, weight
+                FROM weight_logs
+                WHERE user_id = ${userId}
+                ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+                ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+                ORDER BY datetime ASC
+              )
+            ) as points_json
           FROM weight_logs
           WHERE user_id = ${userId}
           ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
           ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
         `
-        if (summaryRows.length === 0) return null
+        if (rows.length === 0) return null
 
-        const decoded = yield* decodeWeightStatsRow(summaryRows[0])
+        const decoded = yield* decodeWeightStatsRow(rows[0])
         if (!decoded.min_weight || !decoded.max_weight || !decoded.avg_weight) {
           return null
         }
 
-        // Get all points for linear regression rate calculation
-        const pointRows = yield* sql`
-          SELECT datetime, weight
-          FROM weight_logs
-          WHERE user_id = ${userId}
-          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-          ORDER BY datetime ASC
-        `
-
-        const points: { date: Date; weight: number }[] = []
-        for (const row of pointRows) {
-          const point = yield* decodeWeightTrendRow(row)
-          points.push({ date: point.datetime, weight: point.weight })
-        }
+        // Parse points from JSON
+        const pointsRaw = yield* decodeWeightPointsJson(JSON.parse(decoded.points_json))
+        const points: { date: Date; weight: number }[] = pointsRaw.map((p) => ({
+          date: new Date(p.datetime),
+          weight: p.weight,
+        }))
 
         // Use linear regression for rate of change (same as trend line)
         const rateOfChangeNum = computeRateOfChange(points)
