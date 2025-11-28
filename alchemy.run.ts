@@ -28,6 +28,10 @@ export const api = await Worker("api", {
     DB: db,
     BETTER_AUTH_SECRET: alchemy.secret(process.env.BETTER_AUTH_SECRET!),
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL!,
+    // Axiom tracing
+    OTEL_SERVICE_NAME: `subq-api-${app.stage}`,
+    ...(process.env.AXIOM_API_TOKEN && { AXIOM_API_TOKEN: alchemy.secret(process.env.AXIOM_API_TOKEN) }),
+    ...(process.env.AXIOM_DATASET && { AXIOM_DATASET: process.env.AXIOM_DATASET }),
   },
 });
 

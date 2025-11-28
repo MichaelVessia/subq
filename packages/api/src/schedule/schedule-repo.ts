@@ -141,177 +141,213 @@ export const ScheduleRepoLive = Layer.effect(
     // Helper to delete phases for a schedule
     const deletePhases = (scheduleId: string) => sql`DELETE FROM schedule_phases WHERE schedule_id = ${scheduleId}`
 
-    return {
-      list: (userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-            FROM injection_schedules
-            WHERE user_id = ${userId}
-            ORDER BY start_date DESC
-          `
-          const schedules: InjectionSchedule[] = []
-          for (const row of rows) {
-            const decoded = yield* decodeScheduleRow(row)
-            const phases = yield* loadPhases(decoded.id)
-            schedules.push(scheduleRowToDomain(decoded, phases))
-          }
-          return schedules
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause }))),
-
-      getActive: (userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-            FROM injection_schedules
-            WHERE user_id = ${userId} AND is_active = 1
-            LIMIT 1
-          `
-          if (rows.length === 0) return Option.none()
-          const decoded = yield* decodeScheduleRow(rows[0])
+    const list = (userId: string) =>
+      Effect.fn('ScheduleRepo.list')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
+          FROM injection_schedules
+          WHERE user_id = ${userId}
+          ORDER BY start_date DESC
+        `
+        const schedules: InjectionSchedule[] = []
+        for (const row of rows) {
+          const decoded = yield* decodeScheduleRow(row)
           const phases = yield* loadPhases(decoded.id)
-          return Option.some(scheduleRowToDomain(decoded, phases))
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause }))),
+          schedules.push(scheduleRowToDomain(decoded, phases))
+        }
+        yield* Effect.annotateCurrentSpan('count', schedules.length)
+        return schedules
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
-      findById: (id) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-            FROM injection_schedules
-            WHERE id = ${id}
-          `
-          if (rows.length === 0) return Option.none()
-          const decoded = yield* decodeScheduleRow(rows[0])
-          const phases = yield* loadPhases(decoded.id)
-          return Option.some(scheduleRowToDomain(decoded, phases))
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause }))),
+    const getActive = (userId: string) =>
+      Effect.fn('ScheduleRepo.getActive')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
+          FROM injection_schedules
+          WHERE user_id = ${userId} AND is_active = 1
+          LIMIT 1
+        `
+        if (rows.length === 0) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return Option.none()
+        }
+        const decoded = yield* decodeScheduleRow(rows[0])
+        const phases = yield* loadPhases(decoded.id)
+        yield* Effect.annotateCurrentSpan('found', true)
+        yield* Effect.annotateCurrentSpan('scheduleId', decoded.id)
+        return Option.some(scheduleRowToDomain(decoded, phases))
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
-      create: (data, userId) =>
-        Effect.gen(function* () {
-          const id = generateUuid()
-          const source = Option.isSome(data.source) ? data.source.value : null
-          const notes = Option.isSome(data.notes) ? data.notes.value : null
-          const now = new Date().toISOString()
-          const startDateStr = data.startDate.toISOString()
+    const findById = (id: string) =>
+      Effect.fn('ScheduleRepo.findById')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        const rows = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
+          FROM injection_schedules
+          WHERE id = ${id}
+        `
+        if (rows.length === 0) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return Option.none()
+        }
+        const decoded = yield* decodeScheduleRow(rows[0])
+        const phases = yield* loadPhases(decoded.id)
+        yield* Effect.annotateCurrentSpan('found', true)
+        return Option.some(scheduleRowToDomain(decoded, phases))
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
-          // Deactivate any existing active schedules for this user
-          yield* sql`UPDATE injection_schedules SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
+    const create = (data: InjectionScheduleCreate, userId: string) =>
+      Effect.fn('ScheduleRepo.create')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        yield* Effect.annotateCurrentSpan('drug', data.drug)
+        const id = generateUuid()
+        const source = Option.isSome(data.source) ? data.source.value : null
+        const notes = Option.isSome(data.notes) ? data.notes.value : null
+        const now = new Date().toISOString()
+        const startDateStr = data.startDate.toISOString()
 
-          // Create the schedule
+        // Deactivate any existing active schedules for this user
+        yield* sql`UPDATE injection_schedules SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
+
+        // Create the schedule
+        yield* sql`
+          INSERT INTO injection_schedules (id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at)
+          VALUES (${id}, ${data.name}, ${data.drug}, ${source}, ${data.frequency}, ${startDateStr}, 1, ${notes}, ${userId}, ${now}, ${now})
+        `
+
+        // Create phases
+        yield* createPhases(id, data.phases)
+
+        // Fetch and return
+        const rows = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
+          FROM injection_schedules
+          WHERE id = ${id}
+        `
+        const decoded = yield* decodeScheduleRow(rows[0])
+        const phases = yield* loadPhases(id)
+        yield* Effect.annotateCurrentSpan('createdId', id)
+        return scheduleRowToDomain(decoded, phases)
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })))
+
+    const update = (data: InjectionScheduleUpdate) =>
+      Effect.fn('ScheduleRepo.update')(function* () {
+        yield* Effect.annotateCurrentSpan('id', data.id)
+        // First get current values
+        const current = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at
+          FROM injection_schedules WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+
+        if (current.length === 0) {
+          return yield* ScheduleNotFoundError.make({ id: data.id })
+        }
+
+        const curr = yield* decodeScheduleRow(current[0]).pipe(
+          Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
+        )
+
+        const userId = (current[0] as { user_id: string }).user_id
+
+        const newName = data.name ?? curr.name
+        const newDrug = data.drug ?? curr.drug
+        const newSource = data.source !== undefined ? data.source : curr.source
+        const newFrequency = data.frequency ?? curr.frequency
+        const newStartDate = data.startDate ? data.startDate.toISOString() : curr.start_date
+        const newIsActive = data.isActive ?? curr.is_active === 1
+        const newNotes = data.notes !== undefined ? data.notes : curr.notes
+        const now = new Date().toISOString()
+
+        // If activating this schedule, deactivate others
+        if (newIsActive && curr.is_active !== 1) {
           yield* sql`
-            INSERT INTO injection_schedules (id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at)
-            VALUES (${id}, ${data.name}, ${data.drug}, ${source}, ${data.frequency}, ${startDateStr}, 1, ${notes}, ${userId}, ${now}, ${now})
-          `
-
-          // Create phases
-          yield* createPhases(id, data.phases)
-
-          // Fetch and return
-          const rows = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-            FROM injection_schedules
-            WHERE id = ${id}
-          `
-          const decoded = yield* decodeScheduleRow(rows[0])
-          const phases = yield* loadPhases(id)
-          return scheduleRowToDomain(decoded, phases)
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause }))),
-
-      update: (data) =>
-        Effect.gen(function* () {
-          // First get current values
-          const current = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at
-            FROM injection_schedules WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
-
-          if (current.length === 0) {
-            return yield* ScheduleNotFoundError.make({ id: data.id })
-          }
-
-          const curr = yield* decodeScheduleRow(current[0]).pipe(
-            Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
-          )
-
-          const userId = (current[0] as { user_id: string }).user_id
-
-          const newName = data.name ?? curr.name
-          const newDrug = data.drug ?? curr.drug
-          const newSource = data.source !== undefined ? data.source : curr.source
-          const newFrequency = data.frequency ?? curr.frequency
-          const newStartDate = data.startDate ? data.startDate.toISOString() : curr.start_date
-          const newIsActive = data.isActive ?? curr.is_active === 1
-          const newNotes = data.notes !== undefined ? data.notes : curr.notes
-          const now = new Date().toISOString()
-
-          // If activating this schedule, deactivate others
-          if (newIsActive && curr.is_active !== 1) {
-            yield* sql`
-              UPDATE injection_schedules SET is_active = 0, updated_at = ${now} 
-              WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
-            `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'update', cause })))
-          }
-
-          yield* sql`
-            UPDATE injection_schedules
-            SET name = ${newName},
-                drug = ${newDrug},
-                source = ${newSource},
-                frequency = ${newFrequency},
-                start_date = ${newStartDate},
-                is_active = ${newIsActive ? 1 : 0},
-                notes = ${newNotes},
-                updated_at = ${now}
-            WHERE id = ${data.id}
+            UPDATE injection_schedules SET is_active = 0, updated_at = ${now} 
+            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
           `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'update', cause })))
+        }
 
-          // Update phases if provided
-          if (data.phases) {
-            yield* deletePhases(data.id).pipe(
-              Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })),
-            )
-            yield* createPhases(data.id, data.phases).pipe(
-              Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })),
-            )
-          }
+        yield* sql`
+          UPDATE injection_schedules
+          SET name = ${newName},
+              drug = ${newDrug},
+              source = ${newSource},
+              frequency = ${newFrequency},
+              start_date = ${newStartDate},
+              is_active = ${newIsActive ? 1 : 0},
+              notes = ${newNotes},
+              updated_at = ${now}
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'update', cause })))
 
-          // Fetch updated
-          const rows = yield* sql`
-            SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-            FROM injection_schedules
-            WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
-
-          const decoded = yield* decodeScheduleRow(rows[0]).pipe(
-            Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
+        // Update phases if provided
+        if (data.phases) {
+          yield* deletePhases(data.id).pipe(
+            Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })),
           )
-          const phases = yield* loadPhases(data.id).pipe(
-            Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
+          yield* createPhases(data.id, data.phases).pipe(
+            Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })),
           )
-          return scheduleRowToDomain(decoded, phases)
-        }),
+        }
 
-      delete: (id) =>
-        Effect.gen(function* () {
-          const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id}`
-          if (existing.length === 0) return false
-          // Phases are deleted via CASCADE
-          yield* sql`DELETE FROM injection_schedules WHERE id = ${id}`
-          return true
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause }))),
+        // Fetch updated
+        const rows = yield* sql`
+          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
+          FROM injection_schedules
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
-      getLastInjectionDate: (userId, drug) =>
-        Effect.gen(function* () {
-          const rows = yield* sql<{ datetime: string }>`
-            SELECT datetime FROM injection_logs 
-            WHERE user_id = ${userId} AND drug = ${drug}
-            ORDER BY datetime DESC
-            LIMIT 1
-          `
-          const row = rows[0]
-          if (!row) return Option.none()
-          return Option.some(new Date(row.datetime))
-        }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause }))),
+        const decoded = yield* decodeScheduleRow(rows[0]).pipe(
+          Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
+        )
+        const phases = yield* loadPhases(data.id).pipe(
+          Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
+        )
+        return scheduleRowToDomain(decoded, phases)
+      })()
+
+    const del = (id: string) =>
+      Effect.fn('ScheduleRepo.delete')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id}`
+        if (existing.length === 0) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return false
+        }
+        // Phases are deleted via CASCADE
+        yield* sql`DELETE FROM injection_schedules WHERE id = ${id}`
+        yield* Effect.annotateCurrentSpan('deleted', true)
+        return true
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })))
+
+    const getLastInjectionDate = (userId: string, drug: string) =>
+      Effect.fn('ScheduleRepo.getLastInjectionDate')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        yield* Effect.annotateCurrentSpan('drug', drug)
+        const rows = yield* sql<{ datetime: string }>`
+          SELECT datetime FROM injection_logs 
+          WHERE user_id = ${userId} AND drug = ${drug}
+          ORDER BY datetime DESC
+          LIMIT 1
+        `
+        const row = rows[0]
+        if (!row) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return Option.none()
+        }
+        yield* Effect.annotateCurrentSpan('found', true)
+        return Option.some(new Date(row.datetime))
+      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+
+    return {
+      list,
+      getActive,
+      findById,
+      create,
+      update,
+      delete: del,
+      getLastInjectionDate,
     }
   }),
 )

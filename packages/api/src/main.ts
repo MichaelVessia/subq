@@ -10,6 +10,7 @@ import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/inde
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
+import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { SqlLive } from './sql.js'
 
@@ -114,7 +115,7 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
 // The type system doesn't see this, so we use a type cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 NodeRuntime.runMain(
-  Layer.launch(HttpLive).pipe(
+  Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
     Logger.withMinimumLogLevel(LogLevel.Info),
     Effect.tap(() => Effect.logInfo('Application startup complete')),
     Effect.catchAll((error) =>

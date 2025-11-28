@@ -101,187 +101,227 @@ export const InjectionLogRepoLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
-    return {
-      list: (params, userId) =>
-        Effect.gen(function* () {
-          // Convert Date params to ISO strings for SQLite comparison
-          const startDateStr = params.startDate?.toISOString()
-          const endDateStr = params.endDate?.toISOString()
+    const list = (params: InjectionLogListParams, userId: string) =>
+      Effect.fn('InjectionLogRepo.list')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        // Convert Date params to ISO strings for SQLite comparison
+        const startDateStr = params.startDate?.toISOString()
+        const endDateStr = params.endDate?.toISOString()
 
-          const rows = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs
-            WHERE user_id = ${userId}
-            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-            ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
-            ORDER BY datetime DESC
-            LIMIT ${params.limit}
-            OFFSET ${params.offset}
-          `
-          return yield* Effect.all(rows.map(decodeAndTransform))
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+        const rows = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs
+          WHERE user_id = ${userId}
+          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+          ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
+          ORDER BY datetime DESC
+          LIMIT ${params.limit}
+          OFFSET ${params.offset}
+        `
+        const results = yield* Effect.all(rows.map(decodeAndTransform))
+        yield* Effect.annotateCurrentSpan('count', results.length)
+        return results
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
-      findById: (id) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs
-            WHERE id = ${id}
-          `
-          if (rows.length === 0) return Option.none()
-          const decoded = yield* decodeAndTransform(rows[0])
-          return Option.some(decoded)
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+    const findById = (id: string) =>
+      Effect.fn('InjectionLogRepo.findById')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        const rows = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs
+          WHERE id = ${id}
+        `
+        if (rows.length === 0) return Option.none()
+        const decoded = yield* decodeAndTransform(rows[0])
+        yield* Effect.annotateCurrentSpan('found', true)
+        return Option.some(decoded)
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
-      create: (data, userId) =>
-        Effect.gen(function* () {
-          const id = generateUuid()
-          const source = Option.isSome(data.source) ? data.source.value : null
-          const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
-          const notes = Option.isSome(data.notes) ? data.notes.value : null
-          const scheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : null
-          const now = new Date().toISOString()
-          const datetimeStr = data.datetime.toISOString()
+    const create = (data: InjectionLogCreate, userId: string) =>
+      Effect.fn('InjectionLogRepo.create')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        yield* Effect.annotateCurrentSpan('drug', data.drug)
+        const id = generateUuid()
+        const source = Option.isSome(data.source) ? data.source.value : null
+        const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
+        const notes = Option.isSome(data.notes) ? data.notes.value : null
+        const scheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : null
+        const now = new Date().toISOString()
+        const datetimeStr = data.datetime.toISOString()
 
-          yield* sql`
-            INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
-            VALUES (${id}, ${datetimeStr}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes}, ${scheduleId}, ${userId}, ${now}, ${now})
-          `
+        yield* sql`
+          INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
+          VALUES (${id}, ${datetimeStr}, ${data.drug}, ${source}, ${data.dosage}, ${injectionSite}, ${notes}, ${scheduleId}, ${userId}, ${now}, ${now})
+        `
 
-          // Fetch the inserted row
-          const rows = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs
-            WHERE id = ${id}
-          `
-          return yield* decodeAndTransform(rows[0])
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause }))),
+        // Fetch the inserted row
+        const rows = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs
+          WHERE id = ${id}
+        `
+        yield* Effect.annotateCurrentSpan('createdId', id)
+        return yield* decodeAndTransform(rows[0])
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause })))
 
-      update: (data) =>
-        Effect.gen(function* () {
-          // First get current values
-          const current = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+    const update = (data: InjectionLogUpdate) =>
+      Effect.fn('InjectionLogRepo.update')(function* () {
+        yield* Effect.annotateCurrentSpan('id', data.id)
+        // First get current values
+        const current = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
-          if (current.length === 0) {
-            return yield* InjectionLogNotFoundError.make({ id: data.id })
-          }
+        if (current.length === 0) {
+          return yield* InjectionLogNotFoundError.make({ id: data.id })
+        }
 
-          const curr = yield* decodeRow(current[0]).pipe(
-            Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })),
-          )
-          const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
-          const newDrug = data.drug ?? curr.drug
-          const newSource = Option.isSome(data.source) ? data.source.value : curr.source
-          const newDosage = data.dosage ?? curr.dosage
-          const newInjectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : curr.injection_site
-          const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
-          const newScheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : curr.schedule_id
-          const now = new Date().toISOString()
+        const curr = yield* decodeRow(current[0]).pipe(
+          Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })),
+        )
+        const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
+        const newDrug = data.drug ?? curr.drug
+        const newSource = Option.isSome(data.source) ? data.source.value : curr.source
+        const newDosage = data.dosage ?? curr.dosage
+        const newInjectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : curr.injection_site
+        const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
+        const newScheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : curr.schedule_id
+        const now = new Date().toISOString()
 
-          yield* sql`
+        yield* sql`
+          UPDATE injection_logs
+          SET datetime = ${newDatetime},
+              drug = ${newDrug},
+              source = ${newSource},
+              dosage = ${newDosage},
+              injection_site = ${newInjectionSite},
+              notes = ${newNotes},
+              schedule_id = ${newScheduleId},
+              updated_at = ${now}
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
+
+        // Fetch updated row
+        const rows = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+
+        return yield* decodeAndTransform(rows[0]).pipe(
+          Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })),
+        )
+      })()
+
+    const del = (id: string) =>
+      Effect.fn('InjectionLogRepo.delete')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        // Check if exists first
+        const existing = yield* sql`SELECT id FROM injection_logs WHERE id = ${id}`
+        if (existing.length === 0) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return false
+        }
+
+        yield* sql`DELETE FROM injection_logs WHERE id = ${id}`
+        yield* Effect.annotateCurrentSpan('deleted', true)
+        return true
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause })))
+
+    const getUniqueDrugs = (userId: string) =>
+      Effect.fn('InjectionLogRepo.getUniqueDrugs')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql<{ drug: string }>`
+          SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
+        `
+        yield* Effect.annotateCurrentSpan('count', rows.length)
+        return rows.map((r) => r.drug)
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+
+    const getUniqueSites = (userId: string) =>
+      Effect.fn('InjectionLogRepo.getUniqueSites')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql<{ injection_site: string }>`
+          SELECT DISTINCT injection_site 
+          FROM injection_logs 
+          WHERE user_id = ${userId} AND injection_site IS NOT NULL 
+          ORDER BY injection_site
+        `
+        yield* Effect.annotateCurrentSpan('count', rows.length)
+        return rows.map((r) => r.injection_site)
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+
+    const getLastSite = (userId: string) =>
+      Effect.fn('InjectionLogRepo.getLastSite')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql<{ injection_site: string | null }>`
+          SELECT injection_site 
+          FROM injection_logs 
+          WHERE user_id = ${userId}
+          ORDER BY datetime DESC
+          LIMIT 1
+        `
+        const row = rows[0]
+        const site = row ? row.injection_site : null
+        yield* Effect.annotateCurrentSpan('site', site ?? 'none')
+        return site
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+
+    const bulkAssignSchedule = (data: InjectionLogBulkAssignSchedule, userId: string) =>
+      Effect.fn('InjectionLogRepo.bulkAssignSchedule')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        yield* Effect.annotateCurrentSpan('scheduleId', data.scheduleId)
+        yield* Effect.annotateCurrentSpan('idsCount', data.ids.length)
+        if (data.ids.length === 0) return 0
+
+        const now = new Date().toISOString()
+        const scheduleId = data.scheduleId
+
+        // Build a query that updates all matching IDs for this user
+        // Using a loop since @effect/sql doesn't have great support for IN clauses with arrays
+        let count = 0
+        for (const id of data.ids) {
+          const result = yield* sql`
             UPDATE injection_logs
-            SET datetime = ${newDatetime},
-                drug = ${newDrug},
-                source = ${newSource},
-                dosage = ${newDosage},
-                injection_site = ${newInjectionSite},
-                notes = ${newNotes},
-                schedule_id = ${newScheduleId},
+            SET schedule_id = ${scheduleId},
                 updated_at = ${now}
-            WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
-
-          // Fetch updated row
-          const rows = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs
-            WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
-
-          return yield* decodeAndTransform(rows[0]).pipe(
-            Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })),
-          )
-        }),
-
-      delete: (id) =>
-        Effect.gen(function* () {
-          // Check if exists first
-          const existing = yield* sql`SELECT id FROM injection_logs WHERE id = ${id}`
-          if (existing.length === 0) return false
-
-          yield* sql`DELETE FROM injection_logs WHERE id = ${id}`
-          return true
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause }))),
-
-      getUniqueDrugs: (userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql<{ drug: string }>`
-            SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
+            WHERE id = ${id} AND user_id = ${userId}
           `
-          return rows.map((r) => r.drug)
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+          // SQLite returns changes count
+          count += (result as unknown as { changes?: number }).changes ?? 1
+        }
+        yield* Effect.annotateCurrentSpan('updatedCount', count)
+        return count
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
 
-      getUniqueSites: (userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql<{ injection_site: string }>`
-            SELECT DISTINCT injection_site 
-            FROM injection_logs 
-            WHERE user_id = ${userId} AND injection_site IS NOT NULL 
-            ORDER BY injection_site
-          `
-          return rows.map((r) => r.injection_site)
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+    const listBySchedule = (scheduleId: string, userId: string) =>
+      Effect.fn('InjectionLogRepo.listBySchedule')(function* () {
+        yield* Effect.annotateCurrentSpan('scheduleId', scheduleId)
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        const rows = yield* sql`
+          SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
+          FROM injection_logs
+          WHERE schedule_id = ${scheduleId} AND user_id = ${userId}
+          ORDER BY datetime ASC
+        `
+        const results = yield* Effect.all(rows.map(decodeAndTransform))
+        yield* Effect.annotateCurrentSpan('count', results.length)
+        return results
+      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
-      getLastSite: (userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql<{ injection_site: string | null }>`
-            SELECT injection_site 
-            FROM injection_logs 
-            WHERE user_id = ${userId}
-            ORDER BY datetime DESC
-            LIMIT 1
-          `
-          const row = rows[0]
-          return row ? row.injection_site : null
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
-
-      bulkAssignSchedule: (data, userId) =>
-        Effect.gen(function* () {
-          if (data.ids.length === 0) return 0
-
-          const now = new Date().toISOString()
-          const scheduleId = data.scheduleId
-
-          // Build a query that updates all matching IDs for this user
-          // Using a loop since @effect/sql doesn't have great support for IN clauses with arrays
-          let count = 0
-          for (const id of data.ids) {
-            const result = yield* sql`
-              UPDATE injection_logs
-              SET schedule_id = ${scheduleId},
-                  updated_at = ${now}
-              WHERE id = ${id} AND user_id = ${userId}
-            `
-            // SQLite returns changes count
-            count += (result as unknown as { changes?: number }).changes ?? 1
-          }
-          return count
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause }))),
-
-      listBySchedule: (scheduleId, userId) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-            FROM injection_logs
-            WHERE schedule_id = ${scheduleId} AND user_id = ${userId}
-            ORDER BY datetime ASC
-          `
-          return yield* Effect.all(rows.map(decodeAndTransform))
-        }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause }))),
+    return {
+      list,
+      findById,
+      create,
+      update,
+      delete: del,
+      getUniqueDrugs,
+      getUniqueSites,
+      getLastSite,
+      bulkAssignSchedule,
+      listBySchedule,
     }
   }),
 )

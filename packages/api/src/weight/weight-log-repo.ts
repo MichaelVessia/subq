@@ -74,111 +74,131 @@ export const WeightLogRepoLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
+    const list = (params: WeightLogListParams, userId: string) =>
+      Effect.fn('WeightLogRepo.list')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        // Convert Date params to ISO strings for SQLite comparison
+        const startDateStr = params.startDate?.toISOString()
+        const endDateStr = params.endDate?.toISOString()
+
+        const rows = yield* sql`
+          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          FROM weight_logs
+          WHERE user_id = ${userId}
+          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+          ORDER BY datetime DESC
+          LIMIT ${params.limit}
+          OFFSET ${params.offset}
+        `
+        const results = yield* Effect.all(rows.map(decodeAndTransform))
+        yield* Effect.annotateCurrentSpan('count', results.length)
+        return results
+      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+
+    const findById = (id: string) =>
+      Effect.fn('WeightLogRepo.findById')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        const rows = yield* sql`
+          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          FROM weight_logs
+          WHERE id = ${id}
+        `
+        if (rows.length === 0) return Option.none()
+        const decoded = yield* decodeAndTransform(rows[0])
+        yield* Effect.annotateCurrentSpan('found', true)
+        return Option.some(decoded)
+      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+
+    const create = (data: WeightLogCreate, userId: string) =>
+      Effect.fn('WeightLogRepo.create')(function* () {
+        yield* Effect.annotateCurrentSpan('userId', userId)
+        yield* Effect.annotateCurrentSpan('weight', data.weight)
+        const id = generateUuid()
+        const notes = Option.isSome(data.notes) ? data.notes.value : null
+        const now = new Date().toISOString()
+        const datetimeStr = data.datetime.toISOString()
+
+        yield* sql`
+          INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
+          VALUES (${id}, ${datetimeStr}, ${data.weight}, ${data.unit}, ${notes}, ${userId}, ${now}, ${now})
+        `
+
+        // Fetch the inserted row
+        const rows = yield* sql`
+          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          FROM weight_logs
+          WHERE id = ${id}
+        `
+        yield* Effect.annotateCurrentSpan('createdId', id)
+        return yield* decodeAndTransform(rows[0])
+      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'insert', cause })))
+
+    const update = (data: WeightLogUpdate) =>
+      Effect.fn('WeightLogRepo.update')(function* () {
+        yield* Effect.annotateCurrentSpan('id', data.id)
+        // First get current values
+        const current = yield* sql`
+          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          FROM weight_logs WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+
+        if (current.length === 0) {
+          return yield* WeightLogNotFoundError.make({ id: data.id })
+        }
+
+        const curr = yield* decodeRow(current[0]).pipe(
+          Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })),
+        )
+        const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
+        const newWeight = data.weight ?? curr.weight
+        const newUnit = data.unit ?? curr.unit
+        const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
+        const now = new Date().toISOString()
+
+        yield* sql`
+          UPDATE weight_logs
+          SET datetime = ${newDatetime},
+              weight = ${newWeight},
+              unit = ${newUnit},
+              notes = ${newNotes},
+              updated_at = ${now}
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })))
+
+        // Fetch updated row
+        const rows = yield* sql`
+          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          FROM weight_logs
+          WHERE id = ${data.id}
+        `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+
+        return yield* decodeAndTransform(rows[0]).pipe(
+          Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })),
+        )
+      })()
+
+    const del = (id: string) =>
+      Effect.fn('WeightLogRepo.delete')(function* () {
+        yield* Effect.annotateCurrentSpan('id', id)
+        // Check if exists first
+        const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id}`
+        if (existing.length === 0) {
+          yield* Effect.annotateCurrentSpan('found', false)
+          return false
+        }
+
+        yield* sql`DELETE FROM weight_logs WHERE id = ${id}`
+        yield* Effect.annotateCurrentSpan('deleted', true)
+        return true
+      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'delete', cause })))
+
     return {
-      list: (params, userId) =>
-        Effect.gen(function* () {
-          // Convert Date params to ISO strings for SQLite comparison
-          const startDateStr = params.startDate?.toISOString()
-          const endDateStr = params.endDate?.toISOString()
-
-          const rows = yield* sql`
-            SELECT id, datetime, weight, unit, notes, created_at, updated_at
-            FROM weight_logs
-            WHERE user_id = ${userId}
-            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-            ORDER BY datetime DESC
-            LIMIT ${params.limit}
-            OFFSET ${params.offset}
-          `
-          return yield* Effect.all(rows.map(decodeAndTransform))
-        }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause }))),
-
-      findById: (id) =>
-        Effect.gen(function* () {
-          const rows = yield* sql`
-            SELECT id, datetime, weight, unit, notes, created_at, updated_at
-            FROM weight_logs
-            WHERE id = ${id}
-          `
-          if (rows.length === 0) return Option.none()
-          const decoded = yield* decodeAndTransform(rows[0])
-          return Option.some(decoded)
-        }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause }))),
-
-      create: (data, userId) =>
-        Effect.gen(function* () {
-          const id = generateUuid()
-          const notes = Option.isSome(data.notes) ? data.notes.value : null
-          const now = new Date().toISOString()
-          const datetimeStr = data.datetime.toISOString()
-
-          yield* sql`
-            INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
-            VALUES (${id}, ${datetimeStr}, ${data.weight}, ${data.unit}, ${notes}, ${userId}, ${now}, ${now})
-          `
-
-          // Fetch the inserted row
-          const rows = yield* sql`
-            SELECT id, datetime, weight, unit, notes, created_at, updated_at
-            FROM weight_logs
-            WHERE id = ${id}
-          `
-          return yield* decodeAndTransform(rows[0])
-        }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'insert', cause }))),
-
-      update: (data) =>
-        Effect.gen(function* () {
-          // First get current values
-          const current = yield* sql`
-            SELECT id, datetime, weight, unit, notes, created_at, updated_at
-            FROM weight_logs WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
-
-          if (current.length === 0) {
-            return yield* WeightLogNotFoundError.make({ id: data.id })
-          }
-
-          const curr = yield* decodeRow(current[0]).pipe(
-            Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })),
-          )
-          const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
-          const newWeight = data.weight ?? curr.weight
-          const newUnit = data.unit ?? curr.unit
-          const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
-          const now = new Date().toISOString()
-
-          yield* sql`
-            UPDATE weight_logs
-            SET datetime = ${newDatetime},
-                weight = ${newWeight},
-                unit = ${newUnit},
-                notes = ${newNotes},
-                updated_at = ${now}
-            WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })))
-
-          // Fetch updated row
-          const rows = yield* sql`
-            SELECT id, datetime, weight, unit, notes, created_at, updated_at
-            FROM weight_logs
-            WHERE id = ${data.id}
-          `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
-
-          return yield* decodeAndTransform(rows[0]).pipe(
-            Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })),
-          )
-        }),
-
-      delete: (id) =>
-        Effect.gen(function* () {
-          // Check if exists first
-          const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id}`
-          if (existing.length === 0) return false
-
-          yield* sql`DELETE FROM weight_logs WHERE id = ${id}`
-          return true
-        }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'delete', cause }))),
+      list,
+      findById,
+      create,
+      update,
+      delete: del,
     }
   }),
 )

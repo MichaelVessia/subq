@@ -3,6 +3,7 @@ import {
   type InjectionLogBulkAssignSchedule,
   type InjectionLogCreate,
   type InjectionLogListParams,
+  type InjectionLogUpdate,
   InjectionRpcs,
 } from '@subq/shared'
 import { Effect, Option } from 'effect'
@@ -10,87 +11,92 @@ import { InjectionLogRepo } from './injection-log-repo.js'
 
 export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
   Effect.gen(function* () {
-    yield* Effect.logInfo('Initializing injection RPC handlers...')
-    const injectionLogRepo = yield* InjectionLogRepo
+    const repo = yield* InjectionLogRepo
+
+    const InjectionLogList = Effect.fn('rpc.injection.list')(function* (params: InjectionLogListParams) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.list(params, user.id)
+      yield* Effect.annotateCurrentSpan('count', result.length)
+      return result
+    })
+
+    const InjectionLogGet = Effect.fn('rpc.injection.get')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.findById(id).pipe(Effect.map(Option.getOrNull))
+      yield* Effect.annotateCurrentSpan('found', !!result)
+      return result
+    })
+
+    const InjectionLogCreate = Effect.fn('rpc.injection.create')(function* (data: InjectionLogCreate) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.annotateCurrentSpan('drug', data.drug)
+      yield* Effect.annotateCurrentSpan('site', data.injectionSite)
+      const result = yield* repo.create(data, user.id)
+      yield* Effect.annotateCurrentSpan('resultId', result.id)
+      return result
+    })
+
+    const InjectionLogUpdate = Effect.fn('rpc.injection.update')(function* (data: InjectionLogUpdate) {
+      yield* Effect.annotateCurrentSpan('id', data.id)
+      const result = yield* repo.update(data)
+      return result
+    })
+
+    const InjectionLogDelete = Effect.fn('rpc.injection.delete')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.delete(id)
+      yield* Effect.annotateCurrentSpan('success', result)
+      return result
+    })
+
+    const InjectionLogGetDrugs = Effect.fn('rpc.injection.getDrugs')(function* () {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.getUniqueDrugs(user.id)
+      yield* Effect.annotateCurrentSpan('count', result.length)
+      return result
+    })
+
+    const InjectionLogGetSites = Effect.fn('rpc.injection.getSites')(function* () {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.getUniqueSites(user.id)
+      yield* Effect.annotateCurrentSpan('count', result.length)
+      return result
+    })
+
+    const InjectionLogGetLastSite = Effect.fn('rpc.injection.getLastSite')(function* () {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.getLastSite(user.id)
+      yield* Effect.annotateCurrentSpan('site', result ?? 'none')
+      return result
+    })
+
+    const InjectionLogBulkAssignSchedule = Effect.fn('rpc.injection.bulkAssignSchedule')(function* (
+      data: InjectionLogBulkAssignSchedule,
+    ) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.annotateCurrentSpan('count', data.ids.length)
+      yield* Effect.annotateCurrentSpan('scheduleId', data.scheduleId ?? 'null')
+      const result = yield* repo.bulkAssignSchedule(data, user.id)
+      yield* Effect.annotateCurrentSpan('updated', result)
+      return result
+    })
 
     return {
-      InjectionLogList: (params: InjectionLogListParams) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('InjectionLogList called', { userId: user.id, params })
-          const result = yield* injectionLogRepo.list(params, user.id)
-          yield* Effect.logInfo('InjectionLogList completed', { count: result.length, userId: user.id })
-          return result
-        }),
-      InjectionLogGet: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logDebug('InjectionLogGet called', { id })
-          const result = yield* injectionLogRepo.findById(id).pipe(Effect.map(Option.getOrNull))
-          yield* Effect.logInfo('InjectionLogGet completed', { id, found: !!result })
-          return result
-        }),
-      InjectionLogCreate: (data: InjectionLogCreate) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logInfo('InjectionLogCreate called', {
-            userId: user.id,
-            drug: data.drug,
-            site: data.injectionSite,
-          })
-          const result = yield* injectionLogRepo.create(data, user.id)
-          yield* Effect.logInfo('InjectionLogCreate completed', { id: result.id, userId: user.id })
-          return result
-        }),
-      InjectionLogUpdate: (data: Parameters<typeof injectionLogRepo.update>[0]) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InjectionLogUpdate called', { id: data.id })
-          const result = yield* injectionLogRepo.update(data)
-          yield* Effect.logInfo('InjectionLogUpdate completed', { id: result.id })
-          return result
-        }),
-      InjectionLogDelete: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InjectionLogDelete called', { id })
-          const result = yield* injectionLogRepo.delete(id)
-          yield* Effect.logInfo('InjectionLogDelete completed', { id, success: result })
-          return result
-        }),
-      InjectionLogGetDrugs: () =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('InjectionLogGetDrugs called', { userId: user.id })
-          const result = yield* injectionLogRepo.getUniqueDrugs(user.id)
-          yield* Effect.logInfo('InjectionLogGetDrugs completed', { userId: user.id, count: result.length })
-          return result
-        }),
-      InjectionLogGetSites: () =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('InjectionLogGetSites called', { userId: user.id })
-          const result = yield* injectionLogRepo.getUniqueSites(user.id)
-          yield* Effect.logInfo('InjectionLogGetSites completed', { userId: user.id, count: result.length })
-          return result
-        }),
-      InjectionLogGetLastSite: () =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('InjectionLogGetLastSite called', { userId: user.id })
-          const result = yield* injectionLogRepo.getLastSite(user.id)
-          yield* Effect.logInfo('InjectionLogGetLastSite completed', { userId: user.id, site: result })
-          return result
-        }),
-      InjectionLogBulkAssignSchedule: (data: InjectionLogBulkAssignSchedule) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logInfo('InjectionLogBulkAssignSchedule called', {
-            userId: user.id,
-            count: data.ids.length,
-            scheduleId: data.scheduleId,
-          })
-          const result = yield* injectionLogRepo.bulkAssignSchedule(data, user.id)
-          yield* Effect.logInfo('InjectionLogBulkAssignSchedule completed', { userId: user.id, updated: result })
-          return result
-        }),
+      InjectionLogList,
+      InjectionLogGet,
+      InjectionLogCreate,
+      InjectionLogUpdate,
+      InjectionLogDelete,
+      InjectionLogGetDrugs,
+      InjectionLogGetSites,
+      InjectionLogGetLastSite,
+      InjectionLogBulkAssignSchedule,
     }
-  }).pipe(Effect.tap(() => Effect.logInfo('Injection RPC handlers initialized'))),
+  }),
 )

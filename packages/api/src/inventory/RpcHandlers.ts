@@ -4,6 +4,7 @@ import {
   type InventoryListParams,
   type InventoryMarkFinished,
   type InventoryMarkOpened,
+  type InventoryUpdate,
   InventoryRpcs,
 } from '@subq/shared'
 import { Effect, Option } from 'effect'
@@ -11,71 +12,66 @@ import { InventoryRepo } from './inventory-repo.js'
 
 export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
   Effect.gen(function* () {
-    yield* Effect.logInfo('Initializing inventory RPC handlers...')
-    const inventoryRepo = yield* InventoryRepo
+    const repo = yield* InventoryRepo
+
+    const InventoryList = Effect.fn('rpc.inventory.list')(function* (params: InventoryListParams) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.list(params, user.id)
+      yield* Effect.annotateCurrentSpan('count', result.length)
+      return result
+    })
+
+    const InventoryGet = Effect.fn('rpc.inventory.get')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.findById(id).pipe(Effect.map(Option.getOrNull))
+      yield* Effect.annotateCurrentSpan('found', !!result)
+      return result
+    })
+
+    const InventoryCreate = Effect.fn('rpc.inventory.create')(function* (data: InventoryCreate) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.annotateCurrentSpan('drug', data.drug)
+      yield* Effect.annotateCurrentSpan('form', data.form)
+      const result = yield* repo.create(data, user.id)
+      yield* Effect.annotateCurrentSpan('resultId', result.id)
+      return result
+    })
+
+    const InventoryUpdate = Effect.fn('rpc.inventory.update')(function* (data: InventoryUpdate) {
+      yield* Effect.annotateCurrentSpan('id', data.id)
+      const result = yield* repo.update(data)
+      return result
+    })
+
+    const InventoryDelete = Effect.fn('rpc.inventory.delete')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.delete(id)
+      yield* Effect.annotateCurrentSpan('success', result)
+      return result
+    })
+
+    const InventoryMarkFinished = Effect.fn('rpc.inventory.markFinished')(function* ({ id }: InventoryMarkFinished) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.markFinished(id)
+      return result
+    })
+
+    const InventoryMarkOpened = Effect.fn('rpc.inventory.markOpened')(function* ({ id }: InventoryMarkOpened) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.markOpened(id)
+      return result
+    })
 
     return {
-      InventoryList: (params: InventoryListParams) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('InventoryList called', { userId: user.id, params })
-          const result = yield* inventoryRepo.list(params, user.id)
-          yield* Effect.logInfo('InventoryList completed', { count: result.length, userId: user.id })
-          return result
-        }),
-
-      InventoryGet: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logDebug('InventoryGet called', { id })
-          const result = yield* inventoryRepo.findById(id).pipe(Effect.map(Option.getOrNull))
-          yield* Effect.logInfo('InventoryGet completed', { id, found: !!result })
-          return result
-        }),
-
-      InventoryCreate: (data: InventoryCreate) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logInfo('InventoryCreate called', {
-            userId: user.id,
-            drug: data.drug,
-            form: data.form,
-          })
-          const result = yield* inventoryRepo.create(data, user.id)
-          yield* Effect.logInfo('InventoryCreate completed', { id: result.id, userId: user.id })
-          return result
-        }),
-
-      InventoryUpdate: (data: Parameters<typeof inventoryRepo.update>[0]) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InventoryUpdate called', { id: data.id })
-          const result = yield* inventoryRepo.update(data)
-          yield* Effect.logInfo('InventoryUpdate completed', { id: result.id })
-          return result
-        }),
-
-      InventoryDelete: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InventoryDelete called', { id })
-          const result = yield* inventoryRepo.delete(id)
-          yield* Effect.logInfo('InventoryDelete completed', { id, success: result })
-          return result
-        }),
-
-      InventoryMarkFinished: ({ id }: InventoryMarkFinished) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InventoryMarkFinished called', { id })
-          const result = yield* inventoryRepo.markFinished(id)
-          yield* Effect.logInfo('InventoryMarkFinished completed', { id })
-          return result
-        }),
-
-      InventoryMarkOpened: ({ id }: InventoryMarkOpened) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('InventoryMarkOpened called', { id })
-          const result = yield* inventoryRepo.markOpened(id)
-          yield* Effect.logInfo('InventoryMarkOpened completed', { id })
-          return result
-        }),
+      InventoryList,
+      InventoryGet,
+      InventoryCreate,
+      InventoryUpdate,
+      InventoryDelete,
+      InventoryMarkFinished,
+      InventoryMarkOpened,
     }
-  }).pipe(Effect.tap(() => Effect.logInfo('Inventory RPC handlers initialized'))),
+  }),
 )

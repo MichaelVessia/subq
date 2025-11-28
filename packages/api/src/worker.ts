@@ -24,9 +24,10 @@ import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { makeD1Layer } from './sql-d1.js'
+import { makeTracerLayer, type AxiomEnv } from './tracing/tracer.js'
 
 // Environment bindings from Cloudflare Worker
-interface Env {
+interface Env extends AxiomEnv {
   DB: D1Database
   BETTER_AUTH_SECRET: string
   BETTER_AUTH_URL: string
@@ -107,12 +108,16 @@ function createLayers(env: Env) {
   // D1 SQL layer
   const SqlLive = makeD1Layer(env.DB)
 
-  // Full layer stack
+  // Tracer layer from env bindings
+  const TracerLive = makeTracerLayer(env)
+
+  // Full layer stack with tracing
   return Layer.mergeAll(RpcHandlersLive, AuthRpcMiddlewareLive, RpcSerialization.layerNdjson).pipe(
     Layer.provideMerge(RepositoriesLive),
     Layer.provideMerge(StatsServiceLive),
     Layer.provideMerge(AuthLive),
     Layer.provideMerge(SqlLive),
+    Layer.provideMerge(TracerLive),
   )
 }
 

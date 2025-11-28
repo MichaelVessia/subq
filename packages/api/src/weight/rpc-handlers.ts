@@ -1,50 +1,60 @@
-import { AuthContext, type WeightLogCreate, WeightRpcs, type WeightLogListParams } from '@subq/shared'
+import {
+  AuthContext,
+  type WeightLogCreate,
+  type WeightLogUpdate,
+  WeightRpcs,
+  type WeightLogListParams,
+} from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { WeightLogRepo } from './weight-log-repo.js'
 
 export const WeightRpcHandlersLive = WeightRpcs.toLayer(
   Effect.gen(function* () {
-    yield* Effect.logInfo('Initializing weight RPC handlers...')
-    const weightLogRepo = yield* WeightLogRepo
+    const repo = yield* WeightLogRepo
+
+    const WeightLogList = Effect.fn('rpc.weight.list')(function* (params: WeightLogListParams) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      const result = yield* repo.list(params, user.id)
+      yield* Effect.annotateCurrentSpan('count', result.length)
+      return result
+    })
+
+    const WeightLogGet = Effect.fn('rpc.weight.get')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.findById(id).pipe(Effect.map(Option.getOrNull))
+      yield* Effect.annotateCurrentSpan('found', !!result)
+      return result
+    })
+
+    const WeightLogCreate = Effect.fn('rpc.weight.create')(function* (data: WeightLogCreate) {
+      const { user } = yield* AuthContext
+      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.annotateCurrentSpan('weight', data.weight)
+      const result = yield* repo.create(data, user.id)
+      yield* Effect.annotateCurrentSpan('resultId', result.id)
+      return result
+    })
+
+    const WeightLogUpdate = Effect.fn('rpc.weight.update')(function* (data: WeightLogUpdate) {
+      yield* Effect.annotateCurrentSpan('id', data.id)
+      const result = yield* repo.update(data)
+      return result
+    })
+
+    const WeightLogDelete = Effect.fn('rpc.weight.delete')(function* ({ id }: { id: string }) {
+      yield* Effect.annotateCurrentSpan('id', id)
+      const result = yield* repo.delete(id)
+      yield* Effect.annotateCurrentSpan('success', result)
+      return result
+    })
 
     return {
-      WeightLogList: (params: WeightLogListParams) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logDebug('WeightLogList called', { userId: user.id, params })
-          const result = yield* weightLogRepo.list(params, user.id)
-          yield* Effect.logInfo('WeightLogList completed', { count: result.length, userId: user.id })
-          return result
-        }),
-      WeightLogGet: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logDebug('WeightLogGet called', { id })
-          const result = yield* weightLogRepo.findById(id).pipe(Effect.map(Option.getOrNull))
-          yield* Effect.logInfo('WeightLogGet completed', { id, found: !!result })
-          return result
-        }),
-      WeightLogCreate: (data: WeightLogCreate) =>
-        Effect.gen(function* () {
-          const { user } = yield* AuthContext
-          yield* Effect.logInfo('WeightLogCreate called', { userId: user.id, weight: data.weight })
-          const result = yield* weightLogRepo.create(data, user.id)
-          yield* Effect.logInfo('WeightLogCreate completed', { id: result.id, userId: user.id })
-          return result
-        }),
-      WeightLogUpdate: (data: Parameters<typeof weightLogRepo.update>[0]) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('WeightLogUpdate called', { id: data.id })
-          const result = yield* weightLogRepo.update(data)
-          yield* Effect.logInfo('WeightLogUpdate completed', { id: result.id })
-          return result
-        }),
-      WeightLogDelete: ({ id }: { id: string }) =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo('WeightLogDelete called', { id })
-          const result = yield* weightLogRepo.delete(id)
-          yield* Effect.logInfo('WeightLogDelete completed', { id, success: result })
-          return result
-        }),
+      WeightLogList,
+      WeightLogGet,
+      WeightLogCreate,
+      WeightLogUpdate,
+      WeightLogDelete,
     }
-  }).pipe(Effect.tap(() => Effect.logInfo('Weight RPC handlers initialized'))),
+  }),
 )
