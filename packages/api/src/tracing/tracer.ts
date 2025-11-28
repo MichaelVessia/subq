@@ -21,10 +21,17 @@ export interface AxiomEnv {
  * If not configured, returns an empty layer (spans created but not exported).
  */
 export const makeTracerLayer = (env: AxiomEnv): Layer.Layer<never> => {
+  console.log('[tracer] makeTracerLayer called', {
+    hasToken: !!env.AXIOM_API_TOKEN,
+    hasDataset: !!env.AXIOM_DATASET,
+    serviceName: env.OTEL_SERVICE_NAME,
+  })
   if (!env.AXIOM_API_TOKEN || !env.AXIOM_DATASET) {
     // Not configured - return empty layer
+    console.log('[tracer] No Axiom config, returning empty layer')
     return Layer.empty
   }
+  console.log('[tracer] Axiom config found, creating tracer layer')
 
   return Otlp.layer({
     baseUrl: 'https://api.axiom.co',
