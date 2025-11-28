@@ -1,40 +1,37 @@
 import { test as base, expect, type Page } from '@playwright/test'
 
-// Test user credentials - use env vars in CI, fallback to demo for local dev
-export const TEST_USER_CREDENTIALS = {
-  email: process.env.TEST_USER_EMAIL || 'consistent@example.com',
-  password: process.env.TEST_USER_PASSWORD || 'testpassword123',
-}
-
-// Test user for CRUD operations (to avoid polluting demo data)
-export const TEST_USER = {
-  email: `test-${Date.now()}@example.com`,
+// E2E test user - dedicated account for CI e2e tests (no seeded data)
+// Must be created manually in prod before running CI tests
+export const E2E_USER = {
+  email: 'e2e@test.subq.vessia.net',
   password: 'testpassword123',
-  name: 'Test User',
 }
 
-export async function login(
-  page: Page,
-  email = TEST_USER_CREDENTIALS.email,
-  password = TEST_USER_CREDENTIALS.password,
-) {
+// Demo user credentials (seeded in prod with sample data)
+export const DEMO_USER = {
+  email: 'consistent@example.com',
+  password: 'testpassword123',
+}
+
+export async function login(page: Page, email: string, password: string) {
   await page.goto('/stats')
-  // Wait for login form
   await page.waitForSelector('text=Sign In')
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
   await page.click('button[type="submit"]')
-  // Wait for navigation to complete (user is logged in)
   await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
 }
 
-export async function loginAsTestUser(page: Page) {
-  await login(page, TEST_USER_CREDENTIALS.email, TEST_USER_CREDENTIALS.password)
+export async function loginAsE2EUser(page: Page) {
+  await login(page, E2E_USER.email, E2E_USER.password)
+}
+
+export async function loginAsDemoUser(page: Page) {
+  await login(page, DEMO_USER.email, DEMO_USER.password)
 }
 
 export async function logout(page: Page) {
   await page.click('button:has-text("Sign Out")')
-  // After logout, page reloads to /stats which shows login form
   await expect(page.locator('h1:has-text("Sign In")')).toBeVisible({ timeout: 10000 })
 }
 
@@ -50,9 +47,10 @@ export async function signUp(page: Page, email: string, password: string, name: 
 }
 
 // Extended test fixture with authenticated page
+// Uses E2E user for CRUD tests (cleans up after itself)
 export const test = base.extend<{ authedPage: Page }>({
   authedPage: async ({ page }, use) => {
-    await loginAsTestUser(page)
+    await loginAsE2EUser(page)
     await use(page)
   },
 })

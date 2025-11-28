@@ -1,11 +1,20 @@
-import { test, expect } from './fixtures/auth.js'
+import { test as base, expect } from '@playwright/test'
+import { loginAsDemoUser } from './fixtures/auth.js'
+
+// Stats tests use demo user (read-only, needs seeded data)
+const test = base.extend<{ demoPage: import('@playwright/test').Page }>({
+  demoPage: async ({ page }, use) => {
+    await loginAsDemoUser(page)
+    await use(page)
+  },
+})
 
 test.describe('Stats Page', () => {
-  test.beforeEach(async ({ authedPage: page }) => {
+  test.beforeEach(async ({ demoPage: page }) => {
     await page.goto('/stats')
   })
 
-  test('displays stats page with time range selector', async ({ authedPage: page }) => {
+  test('displays stats page with time range selector', async ({ demoPage: page }) => {
     // Time range buttons should be visible
     await expect(page.locator('button:has-text("1 Month")')).toBeVisible()
     await expect(page.locator('button:has-text("3 Months")')).toBeVisible()
@@ -14,7 +23,7 @@ test.describe('Stats Page', () => {
     await expect(page.locator('button:has-text("All Time")')).toBeVisible()
   })
 
-  test('shows weight statistics card', async ({ authedPage: page }) => {
+  test('shows weight statistics card', async ({ demoPage: page }) => {
     await expect(page.locator('text=Weight Statistics')).toBeVisible()
     // Stats should show (demo account has data)
     await expect(page.locator('text=Min')).toBeVisible()
@@ -24,13 +33,13 @@ test.describe('Stats Page', () => {
     await expect(page.locator('text=Entries')).toBeVisible()
   })
 
-  test('shows weight trend card', async ({ authedPage: page }) => {
+  test('shows weight trend card', async ({ demoPage: page }) => {
     await expect(page.locator('text=Weight Trend')).toBeVisible()
     // Chart should render (SVG element)
     await expect(page.locator('.grid svg').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('shows injection frequency card', async ({ authedPage: page }) => {
+  test('shows injection frequency card', async ({ demoPage: page }) => {
     await expect(page.locator('text=Injection Frequency')).toBeVisible()
     await expect(page.locator('text=Total Injections')).toBeVisible()
     await expect(page.locator('text=Avg Days Between')).toBeVisible()
@@ -38,23 +47,23 @@ test.describe('Stats Page', () => {
     await expect(page.locator('text=Most Common Day')).toBeVisible()
   })
 
-  test('shows injection sites chart', async ({ authedPage: page }) => {
+  test('shows injection sites chart', async ({ demoPage: page }) => {
     await expect(page.locator('text=Injection Sites')).toBeVisible()
   })
 
-  test('shows injections by day of week chart', async ({ authedPage: page }) => {
+  test('shows injections by day of week chart', async ({ demoPage: page }) => {
     await expect(page.locator('text=Injections by Day of Week')).toBeVisible()
   })
 
-  test('shows medications used chart', async ({ authedPage: page }) => {
+  test('shows medications used chart', async ({ demoPage: page }) => {
     await expect(page.locator('text=Medications Used')).toBeVisible()
   })
 
-  test('shows dosage history chart', async ({ authedPage: page }) => {
+  test('shows dosage history chart', async ({ demoPage: page }) => {
     await expect(page.locator('text=Dosage History')).toBeVisible()
   })
 
-  test('can change time range with preset buttons', async ({ authedPage: page }) => {
+  test('can change time range with preset buttons', async ({ demoPage: page }) => {
     // Click 1 month
     await page.click('button:has-text("1 Month")')
     // Should update URL with date params
@@ -69,7 +78,7 @@ test.describe('Stats Page', () => {
     await page.waitForTimeout(500)
   })
 
-  test('time range presets are interactive', async ({ authedPage: page }) => {
+  test('time range presets are interactive', async ({ demoPage: page }) => {
     // Click different presets to verify they're interactive
     await page.click('button:has-text("1 Month")')
     await page.waitForTimeout(500)
@@ -81,7 +90,7 @@ test.describe('Stats Page', () => {
     await expect(page.locator('text=Weight Statistics')).toBeVisible()
   })
 
-  test('all stat cards render without errors', async ({ authedPage: page }) => {
+  test('all stat cards render without errors', async ({ demoPage: page }) => {
     // Ensure page fully loads without throwing errors
     await page.waitForTimeout(2000) // Wait for all charts to render
 
@@ -90,13 +99,13 @@ test.describe('Stats Page', () => {
     await expect(cards.first()).toBeVisible()
   })
 
-  test('weight stats show numeric values', async ({ authedPage: page }) => {
+  test('weight stats show numeric values', async ({ demoPage: page }) => {
     // Demo account should have weight data with numeric values
     // Look for lbs/wk (rate of change) which indicates numeric values are present
     await expect(page.locator('text=/lbs\\/wk/')).toBeVisible({ timeout: 5000 })
   })
 
-  test('injection stats show numeric values', async ({ authedPage: page }) => {
+  test('injection stats show numeric values', async ({ demoPage: page }) => {
     // Look for injection count values
     const injectionSection = page.locator(':has-text("Total Injections")').first()
     await expect(injectionSection).toBeVisible()

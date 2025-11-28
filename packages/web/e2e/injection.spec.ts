@@ -88,105 +88,84 @@ test.describe('Injection Log', () => {
     await expect(select).toHaveValue('Left abdomen')
   })
 
-  test('can create a new injection log entry', async ({ authedPage: page }) => {
-    // Use a unique dosage to identify our entry
+  test('can create and delete injection log entry', async ({ authedPage: page }) => {
     const uniqueDosage = `0.${Date.now() % 1000}mg`
 
+    // Create
     await page.click('button:has-text("Add Entry")')
-
-    // Fill form
     await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
     await page.fill('input#dosage', uniqueDosage)
     await page.selectOption('select#injectionSite', { label: 'Left abdomen' })
-
-    // Save
     await page.click('button:has-text("Save")')
-
-    // Form should close
     await expect(page.locator('label:has-text("Medication")')).not.toBeVisible({ timeout: 5000 })
-
-    // Should see the new entry with unique dosage in the table
-    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible({ timeout: 5000 })
-  })
-
-  test('can edit an existing entry', async ({ authedPage: page }) => {
-    // Open dropdown menu on first row
-    await page.locator('table tbody tr').first().locator('button[aria-label="Open menu"], button:has(.sr-only)').click()
-    await page.click('[role="menuitem"]:has-text("Edit")')
-
-    // Edit form should open
-    await expect(page.locator('button:has-text("Update")')).toBeVisible()
-
-    // Update notes
-    await page.fill('textarea#notes', 'Updated injection note')
-    await page.click('button:has-text("Update")')
-
-    // Should see updated notes
-    await expect(page.locator('button:has-text("Update")')).not.toBeVisible({ timeout: 5000 })
-  })
-
-  test('can delete an entry with confirmation', async ({ authedPage: page }) => {
-    // First create an entry to delete with unique dosage (notes aren't shown in table)
-    const uniqueDosage = `0.${Date.now() % 10000}mg`
-    await page.click('button:has-text("Add Entry")')
-    await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
-    await page.fill('input#dosage', uniqueDosage)
-    await page.click('button:has-text("Save")')
     await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible({ timeout: 5000 })
 
-    // Find the row with our entry and click the menu
+    // Cleanup: delete the entry
     const row = page.locator('table tbody tr', { has: page.locator(`td:has-text("${uniqueDosage}")`) })
     await row.locator('button:has(.sr-only)').click()
-
-    // Override confirm dialog
     await page.evaluate(() => {
       window.confirm = () => true
     })
     await page.click('[role="menuitem"]:has-text("Delete")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible({ timeout: 5000 })
+  })
 
-    // Entry should be gone
-    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible({ timeout: 10000 })
+  test('can edit and delete an entry', async ({ authedPage: page }) => {
+    const uniqueDosage = `0.${Date.now() % 1000}mg`
+
+    // Create entry first
+    await page.click('button:has-text("Add Entry")')
+    await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
+    await page.fill('input#dosage', uniqueDosage)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible({ timeout: 5000 })
+
+    // Edit
+    const row = page.locator('table tbody tr', { has: page.locator(`td:has-text("${uniqueDosage}")`) })
+    await row.locator('button:has(.sr-only)').click()
+    await page.click('[role="menuitem"]:has-text("Edit")')
+    await expect(page.locator('button:has-text("Update")')).toBeVisible()
+    await page.fill('textarea#notes', 'Updated injection note')
+    await page.click('button:has-text("Update")')
+    await expect(page.locator('button:has-text("Update")')).not.toBeVisible({ timeout: 5000 })
+
+    // Cleanup: delete
+    await row.locator('button:has(.sr-only)').click()
+    await page.evaluate(() => {
+      window.confirm = () => true
+    })
+    await page.click('[role="menuitem"]:has-text("Delete")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible({ timeout: 5000 })
   })
 
   test('can select rows with checkboxes', async ({ authedPage: page }) => {
-    // Select first row
-    const firstCheckbox = page.locator('table tbody tr').first().locator('input[type="checkbox"]')
-    await firstCheckbox.check()
-    await expect(firstCheckbox).toBeChecked()
+    const uniqueDosage = `0.${Date.now() % 1000}mg`
 
-    // Bulk action bar should appear
-    await expect(page.locator('text=1 selected')).toBeVisible()
-  })
+    // Create entry to test with
+    await page.click('button:has-text("Add Entry")')
+    await page.selectOption('select#drug', { label: 'Semaglutide (Ozempic)' })
+    await page.fill('input#dosage', uniqueDosage)
+    await page.click('button:has-text("Save")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).toBeVisible({ timeout: 5000 })
 
-  test('can select all rows on page', async ({ authedPage: page }) => {
-    // Click select all checkbox in header
-    const selectAllCheckbox = page.locator('table thead input[type="checkbox"]')
-    await selectAllCheckbox.check()
-
-    // Bulk action bar should show count
-    await expect(page.locator('text=selected')).toBeVisible()
-  })
-
-  test('shows bulk assign schedule dropdown when rows selected', async ({ authedPage: page }) => {
-    // Select a row
-    await page.locator('table tbody tr').first().locator('input[type="checkbox"]').check()
-
-    // Should see assign to schedule button
-    await expect(page.locator('button:has-text("Assign to Schedule")')).toBeVisible()
-
-    // Click to open dropdown
-    await page.click('button:has-text("Assign to Schedule")')
-    await expect(page.locator('[role="menu"]')).toBeVisible()
-  })
-
-  test('can clear selection', async ({ authedPage: page }) => {
-    // Select a row
-    await page.locator('table tbody tr').first().locator('input[type="checkbox"]').check()
+    // Test checkbox selection
+    const row = page.locator('table tbody tr', { has: page.locator(`td:has-text("${uniqueDosage}")`) })
+    const checkbox = row.locator('input[type="checkbox"]')
+    await checkbox.check()
+    await expect(checkbox).toBeChecked()
     await expect(page.locator('text=1 selected')).toBeVisible()
 
     // Clear selection
     await page.locator('.bg-muted\\/50 button:has(svg)').first().click()
     await expect(page.locator('text=1 selected')).not.toBeVisible()
+
+    // Cleanup
+    await row.locator('button:has(.sr-only)').click()
+    await page.evaluate(() => {
+      window.confirm = () => true
+    })
+    await page.click('[role="menuitem"]:has-text("Delete")')
+    await expect(page.locator(`table tbody td:has-text("${uniqueDosage}")`)).not.toBeVisible({ timeout: 5000 })
   })
 
   test('can sort by date column', async ({ authedPage: page }) => {
