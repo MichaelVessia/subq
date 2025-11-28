@@ -7,6 +7,8 @@ const app = await alchemy("subq", {
   stateStore: (scope) => new CloudflareStateStore(scope),
 });
 
+const isProd = app.stage === "prod";
+
 // D1 database (SQLite at the edge)
 export const db = await D1Database("db", {
   name: `subq-${app.stage}`,
@@ -20,7 +22,7 @@ export const api = await Worker("api", {
   entrypoint: "./packages/api/src/worker.ts",
   adopt: true,
   url: true,
-  domains: [{ domainName: "api.subq.vessia.net", adopt: true }],
+  domains: isProd ? [{ domainName: "api.subq.vessia.net", adopt: true }] : [],
   compatibility: "node",
   bindings: {
     DB: db,
@@ -40,7 +42,7 @@ export const web = await Worker("web", {
   entrypoint: "./packages/web/src/worker.ts",
   adopt: true,
   url: true,
-  domains: [{ domainName: "subq.vessia.net", adopt: true }],
+  domains: isProd ? [{ domainName: "subq.vessia.net", adopt: true }] : [],
   bindings: {
     ASSETS: webAssets,
   },

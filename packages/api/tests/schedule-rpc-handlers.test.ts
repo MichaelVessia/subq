@@ -21,7 +21,7 @@ import {
   SchedulePhaseId,
 } from '@subq/shared'
 import { Effect, Layer, Option } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
@@ -357,18 +357,24 @@ describe('ScheduleGetNextDose', () => {
     it.effect('marks dose as overdue when past due date', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        // Use fixed reference date to avoid timezone/day boundary issues
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        const startDate = new Date('2024-01-01T12:00:00Z') // 14 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
-        // Last injection was 10 days ago (overdue by 3 days for weekly)
-        testState.lastInjectionDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+        // Last injection was 10 days before reference (overdue by 3 days for weekly)
+        testState.lastInjectionDate = new Date('2024-01-05T12:00:00Z')
 
         const result = yield* calculateNextDose
 
         expect(result).not.toBeNull()
         expect(result!.isOverdue).toBe(true)
         expect(result!.daysUntilDue).toBe(-3) // 3 days overdue
+
+        vi.useRealTimers()
       }).pipe(Effect.provide(TestLayer)),
     )
   })

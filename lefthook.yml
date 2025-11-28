@@ -10,3 +10,13 @@ pre-commit:
       stage_fixed: true
     check:
       run: bun run check
+
+pre-push:
+  commands:
+    no-master-push:
+      run: |
+        branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$branch" = "master" ]; then
+          echo "Direct pushes to master are disabled. Use a PR."
+          exit 1
+        fi

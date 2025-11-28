@@ -3,11 +3,16 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
+env:
+  STAGE: ${{ github.ref == 'refs/heads/master' && 'prod' || format('pr-{0}', github.event.number) }}
 jobs:
   check:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,16 +33,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      web_url: ${{ steps.deploy-prod.outputs.web_url || steps.deploy-preview-2.outputs.web_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install
-      - name: Build
+      - name: Build (prod)
+        if: env.STAGE == 'prod'
         run: bun run build
-      - name: Deploy
-        run: bun run alchemy.run.ts --stage prod
+        env:
+          VITE_API_URL: https://api.subq.vessia.net
+      - name: Deploy (prod)
+        if: env.STAGE == 'prod'
+        id: deploy-prod
+        run: |
+          output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
+          echo "$output"
+          echo "web_url=https://subq.vessia.net" >> $GITHUB_OUTPUT
         env:
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
           ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
@@ -45,6 +60,44 @@ jobs:
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+      # Preview: two-phase deploy - first deploy to get URLs, then rebuild with correct API URL
+      - name: Deploy preview (phase 1 - get URLs)
+        if: env.STAGE != 'prod'
+        id: deploy-preview-1
+        run: |
+          # Build with placeholder, deploy to get worker URLs
+          bun run build
+          output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
+          echo "$output"
+          api_url=$(echo "$output" | grep -oP "api: '\K[^']+")
+          web_url=$(echo "$output" | grep -oP "web: '\K[^']+")
+          echo "api_url=$api_url" >> $GITHUB_OUTPUT
+          echo "web_url=$web_url" >> $GITHUB_OUTPUT
+        env:
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: https://placeholder.test
+      - name: Rebuild and redeploy preview (phase 2 - with correct URLs)
+        if: env.STAGE != 'prod'
+        id: deploy-preview-2
+        run: |
+          # Rebuild with correct API URL and redeploy
+          bun run build
+          output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
+          echo "$output"
+          web_url=$(echo "$output" | grep -oP "web: '\K[^']+")
+          echo "web_url=$web_url" >> $GITHUB_OUTPUT
+        env:
+          VITE_API_URL: ${{ steps.deploy-preview-1.outputs.api_url }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL: ${{ steps.deploy-preview-1.outputs.api_url }}
   e2e:
     needs: deploy
     runs-on: ubuntu-latest
@@ -61,4 +114,22 @@ jobs:
         run: bun run test:e2e
         working-directory: packages/web
         env:
-          BASE_URL: https://subq.vessia.net
+          BASE_URL: ${{ env.STAGE == 'prod' && 'https://subq.vessia.net' || needs.deploy.outputs.web_url }}
+  cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install
+      - name: Destroy Preview Environment
+        run: bun run alchemy.run.ts --destroy --stage ${{ env.STAGE }}
+        env:
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
