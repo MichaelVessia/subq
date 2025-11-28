@@ -47,8 +47,32 @@ const PhaseRow = Schema.Struct({
   updated_at: Schema.String,
 })
 
+// Schema for joined schedule + phase rows (single query with LEFT JOIN)
+const ScheduleWithPhaseRow = Schema.Struct({
+  // Schedule fields
+  id: Schema.String,
+  name: Schema.String,
+  drug: Schema.String,
+  source: Schema.NullOr(Schema.String),
+  frequency: Schema.String,
+  start_date: Schema.String,
+  is_active: Schema.Number,
+  notes: Schema.NullOr(Schema.String),
+  created_at: Schema.String,
+  updated_at: Schema.String,
+  // Phase fields (nullable for schedules with no phases)
+  phase_id: Schema.NullOr(Schema.String),
+  phase_schedule_id: Schema.NullOr(Schema.String),
+  phase_order: Schema.NullOr(Schema.Number),
+  phase_duration_days: Schema.NullOr(Schema.Number),
+  phase_dosage: Schema.NullOr(Schema.String),
+  phase_created_at: Schema.NullOr(Schema.String),
+  phase_updated_at: Schema.NullOr(Schema.String),
+})
+
 const decodeScheduleRow = Schema.decodeUnknown(ScheduleRow)
 const decodePhaseRow = Schema.decodeUnknown(PhaseRow)
+const decodeScheduleWithPhaseRow = Schema.decodeUnknown(ScheduleWithPhaseRow)
 
 const phaseRowToDomain = (row: typeof PhaseRow.Type): SchedulePhase =>
   new SchedulePhase({
@@ -75,6 +99,49 @@ const scheduleRowToDomain = (row: typeof ScheduleRow.Type, phases: SchedulePhase
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   })
+
+// Helper to group joined rows into schedules with phases (avoids N+1 queries)
+const groupSchedulesWithPhases = (rows: Array<typeof ScheduleWithPhaseRow.Type>): InjectionSchedule[] => {
+  const scheduleMap = new Map<string, { schedule: typeof ScheduleRow.Type; phases: SchedulePhase[] }>()
+
+  for (const row of rows) {
+    if (!scheduleMap.has(row.id)) {
+      scheduleMap.set(row.id, {
+        schedule: {
+          id: row.id,
+          name: row.name,
+          drug: row.drug,
+          source: row.source,
+          frequency: row.frequency,
+          start_date: row.start_date,
+          is_active: row.is_active,
+          notes: row.notes,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        },
+        phases: [],
+      })
+    }
+
+    // Add phase if it exists (LEFT JOIN may return null phase columns)
+    if (row.phase_id && row.phase_schedule_id && row.phase_dosage && row.phase_created_at && row.phase_updated_at) {
+      const entry = scheduleMap.get(row.id)!
+      entry.phases.push(
+        new SchedulePhase({
+          id: SchedulePhaseId.make(row.phase_id),
+          scheduleId: InjectionScheduleId.make(row.phase_schedule_id),
+          order: (row.phase_order ?? 0) as PhaseOrder,
+          durationDays: row.phase_duration_days as PhaseDurationDays | null,
+          dosage: Dosage.make(row.phase_dosage),
+          createdAt: new Date(row.phase_created_at),
+          updatedAt: new Date(row.phase_updated_at),
+        }),
+      )
+    }
+  }
+
+  return Array.from(scheduleMap.values()).map(({ schedule, phases }) => scheduleRowToDomain(schedule, phases))
+}
 
 const generateUuid = () => crypto.randomUUID()
 
@@ -112,7 +179,7 @@ export const ScheduleRepoLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
-    // Helper to load phases for a schedule
+    // Helper to load phases for a single schedule (used for create/update)
     const loadPhases = (scheduleId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
@@ -141,61 +208,76 @@ export const ScheduleRepoLive = Layer.effect(
     // Helper to delete phases for a schedule
     const deletePhases = (scheduleId: string) => sql`DELETE FROM schedule_phases WHERE schedule_id = ${scheduleId}`
 
+    // Single query to fetch schedules with phases using LEFT JOIN
     const list = (userId: string) =>
       Effect.fn('ScheduleRepo.list')(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const rows = yield* sql`
-          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-          FROM injection_schedules
-          WHERE user_id = ${userId}
-          ORDER BY start_date DESC
+          SELECT 
+            s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
+            p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order, 
+            p.duration_days as phase_duration_days, p.dosage as phase_dosage,
+            p.created_at as phase_created_at, p.updated_at as phase_updated_at
+          FROM injection_schedules s
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
+          WHERE s.user_id = ${userId}
+          ORDER BY s.start_date DESC, p."order" ASC
         `
-        const schedules: InjectionSchedule[] = []
-        for (const row of rows) {
-          const decoded = yield* decodeScheduleRow(row)
-          const phases = yield* loadPhases(decoded.id)
-          schedules.push(scheduleRowToDomain(decoded, phases))
-        }
+        const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
+        const schedules = groupSchedulesWithPhases(decoded)
         yield* Effect.annotateCurrentSpan('count', schedules.length)
         return schedules
       })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
+    // Single query to fetch active schedule with phases using LEFT JOIN
     const getActive = (userId: string) =>
       Effect.fn('ScheduleRepo.getActive')(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const rows = yield* sql`
-          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-          FROM injection_schedules
-          WHERE user_id = ${userId} AND is_active = 1
-          LIMIT 1
+          SELECT 
+            s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
+            p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order,
+            p.duration_days as phase_duration_days, p.dosage as phase_dosage,
+            p.created_at as phase_created_at, p.updated_at as phase_updated_at
+          FROM injection_schedules s
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
+          WHERE s.user_id = ${userId} AND s.is_active = 1
+          ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
           yield* Effect.annotateCurrentSpan('found', false)
           return Option.none()
         }
-        const decoded = yield* decodeScheduleRow(rows[0])
-        const phases = yield* loadPhases(decoded.id)
+        const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
+        const schedules = groupSchedulesWithPhases(decoded)
         yield* Effect.annotateCurrentSpan('found', true)
-        yield* Effect.annotateCurrentSpan('scheduleId', decoded.id)
-        return Option.some(scheduleRowToDomain(decoded, phases))
+        yield* Effect.annotateCurrentSpan('scheduleId', schedules[0]?.id)
+        return Option.fromNullable(schedules[0])
       })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
+    // Single query to fetch schedule by ID with phases using LEFT JOIN
     const findById = (id: string) =>
       Effect.fn('ScheduleRepo.findById')(function* () {
         yield* Effect.annotateCurrentSpan('id', id)
         const rows = yield* sql`
-          SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
-          FROM injection_schedules
-          WHERE id = ${id}
+          SELECT 
+            s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
+            p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order,
+            p.duration_days as phase_duration_days, p.dosage as phase_dosage,
+            p.created_at as phase_created_at, p.updated_at as phase_updated_at
+          FROM injection_schedules s
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
+          WHERE s.id = ${id}
+          ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
           yield* Effect.annotateCurrentSpan('found', false)
           return Option.none()
         }
-        const decoded = yield* decodeScheduleRow(rows[0])
-        const phases = yield* loadPhases(decoded.id)
+        const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
+        const schedules = groupSchedulesWithPhases(decoded)
         yield* Effect.annotateCurrentSpan('found', true)
-        return Option.some(scheduleRowToDomain(decoded, phases))
+        return Option.fromNullable(schedules[0])
       })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: InjectionScheduleCreate, userId: string) =>

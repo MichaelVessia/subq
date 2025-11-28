@@ -10,10 +10,12 @@ const app = await alchemy("subq", {
 const isProd = app.stage === "prod";
 
 // D1 database (SQLite at the edge)
+// primaryLocationHint: enam = Eastern North America (for NYC users)
 export const db = await D1Database("db", {
   name: `subq-${app.stage}`,
   migrationsDir: "./packages/api/drizzle",
   adopt: true,
+  primaryLocationHint: "enam",
 });
 
 // API Worker
