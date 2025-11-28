@@ -178,8 +178,9 @@ export default {
     if (url.pathname === '/rpc') {
       const { handler } = getRpcHandler(env)
       const response = await handler(request)
-      // Give time for traces to be exported before worker terminates
-      ctx.waitUntil(new Promise((resolve) => setTimeout(resolve, 500)))
+      // Wait for OTLP export interval (100ms) plus buffer for network latency
+      // The tracer exports on 100ms intervals, so 200ms should be enough
+      ctx.waitUntil(new Promise((resolve) => setTimeout(resolve, 200)))
       return withCors(request, response)
     }
 

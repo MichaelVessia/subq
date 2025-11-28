@@ -1,6 +1,7 @@
+import * as OtlpTracer from '@effect/opentelemetry/OtlpTracer'
 import * as Otlp from '@effect/opentelemetry/Otlp'
 import { FetchHttpClient } from '@effect/platform'
-import { Config, Duration, Effect, Layer, Option } from 'effect'
+import { Config, Duration, Effect, Layer, ManagedRuntime, Option, type Tracer } from 'effect'
 
 /**
  * Axiom OTEL configuration for Cloudflare Workers.
@@ -12,6 +13,54 @@ export interface AxiomEnv {
   AXIOM_DATASET?: string
   /** Service name for traces (default: 'subq-api') */
   OTEL_SERVICE_NAME?: string
+}
+
+/**
+ * Worker tracing runtime that supports proper flush on request completion.
+ * Use createTracingRuntime() to get a runtime, then dispose() via waitUntil().
+ */
+export interface WorkerTracingRuntime {
+  readonly tracer: Tracer.Tracer
+  readonly dispose: () => Promise<void>
+}
+
+/**
+ * Create a per-request tracing runtime for Cloudflare Workers.
+ *
+ * Usage:
+ * ```ts
+ * const tracing = await createTracingRuntime(env)
+ * // ... run your traced code with tracing.tracer ...
+ * ctx.waitUntil(tracing.dispose()) // Flushes traces before worker terminates
+ * ```
+ */
+export const createTracingRuntime = async (env: AxiomEnv): Promise<WorkerTracingRuntime | null> => {
+  if (!env.AXIOM_API_TOKEN || !env.AXIOM_DATASET) {
+    return null
+  }
+
+  const TracerLive = OtlpTracer.layer({
+    url: 'https://api.axiom.co/v1/traces',
+    resource: {
+      serviceName: env.OTEL_SERVICE_NAME ?? 'subq-api',
+    },
+    headers: {
+      Authorization: `Bearer ${env.AXIOM_API_TOKEN}`,
+      'X-Axiom-Dataset': env.AXIOM_DATASET,
+    },
+    // Export every 100ms or when batch fills
+    exportInterval: Duration.millis(100),
+    maxBatchSize: 50,
+    shutdownTimeout: Duration.seconds(5),
+  }).pipe(Layer.provide(FetchHttpClient.layer))
+
+  const runtime = ManagedRuntime.make(TracerLive)
+  const tracer = await runtime.runPromise(Effect.tracer)
+
+  return {
+    tracer,
+    dispose: () => runtime.dispose(),
+  }
 }
 
 /**
@@ -34,10 +83,9 @@ export const makeTracerLayer = (env: AxiomEnv): Layer.Layer<never> => {
       Authorization: `Bearer ${env.AXIOM_API_TOKEN}`,
       'X-Axiom-Dataset': env.AXIOM_DATASET,
     },
-    // Very short interval for Workers - export quickly before termination
-    // Also set maxBatchSize to 1 to export immediately on each span
+    // Short interval for Workers - export quickly before termination
     tracerExportInterval: Duration.millis(100),
-    maxBatchSize: 1,
+    maxBatchSize: 50,
     shutdownTimeout: Duration.seconds(5),
   }).pipe(Layer.provide(FetchHttpClient.layer))
 }

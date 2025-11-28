@@ -1,1 +1,7 @@
-export { makeTracerLayer, TracerLayer, type AxiomEnv } from './tracer.js'
+export {
+  createTracingRuntime,
+  makeTracerLayer,
+  TracerLayer,
+  type AxiomEnv,
+  type WorkerTracingRuntime,
+} from './tracer.js'
