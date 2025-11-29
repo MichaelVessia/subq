@@ -1,6 +1,63 @@
 import { useLocation, useRouter } from '@tanstack/react-router'
 import { useCallback, useMemo } from 'react'
-import { TIME_RANGES, type TimeRangeKey } from '../components/shared/chart-utils.js'
+
+// ============================================
+// Time Range Types and Options
+// ============================================
+
+export type TimeRangeKey = '1m' | '3m' | '6m' | '1y' | 'all'
+
+export interface TimeRangeOption {
+  label: string
+  getRange: () => { startDate?: Date; endDate?: Date }
+}
+
+export const TIME_RANGES: Record<TimeRangeKey, TimeRangeOption> = {
+  '1m': {
+    label: '1 Month',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 1)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '3m': {
+    label: '3 Months',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 3)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '6m': {
+    label: '6 Months',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(start.getMonth() - 6)
+      return { startDate: start, endDate: end }
+    },
+  },
+  '1y': {
+    label: '1 Year',
+    getRange: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setFullYear(start.getFullYear() - 1)
+      return { startDate: start, endDate: end }
+    },
+  },
+  all: {
+    label: 'All Time',
+    getRange: () => ({}),
+  },
+}
+
+// ============================================
+// Date Range Hook
+// ============================================
 
 export interface DateRange {
   start: Date | undefined

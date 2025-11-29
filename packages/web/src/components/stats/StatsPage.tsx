@@ -14,7 +14,8 @@ import {
 } from '@subq/shared'
 import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useDateRangeParams } from '../../hooks/useDateRangeParams.js'
+import { useContainerSize } from '../../hooks/use-container-size.js'
+import { useDateRangeParams } from '../../hooks/use-date-range-params.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
@@ -28,16 +29,10 @@ import {
 } from '../../rpc.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { type BarChartData, type PieChartData, SimpleHorizontalBarChart, SimplePieChart } from '../ui/chart.js'
-import {
-  CHART_COLORS,
-  type DataPoint,
-  getDosageColor,
-  type InjectionPoint,
-  TimeRangeSelector,
-  Tooltip,
-  useContainerSize,
-  type WeightPointWithColor,
-} from '../shared/chart-utils.js'
+import { CHART_COLORS, getDosageColor } from './chart-colors.js'
+import type { DataPoint, InjectionPoint, WeightPointWithColor } from './chart-types.js'
+import { TimeRangeSelector } from './time-range-selector.js'
+import { Tooltip } from './tooltip.js'
 
 // ============================================
 // Schedule Period Types
