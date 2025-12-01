@@ -35,3 +35,7 @@ jobs:
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Seed database
+        run: flyctl ssh console -C "bun run packages/api/scripts/seed.ts"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
