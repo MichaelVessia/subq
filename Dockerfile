@@ -10,7 +10,7 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
 
 # Install dependencies
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy source
 COPY packages/shared ./packages/shared
@@ -32,7 +32,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 
 # Install production dependencies only
-RUN bun install --frozen-lockfile --production
+RUN bun install --production
 
 # Copy built artifacts and source
 COPY packages/shared ./packages/shared
