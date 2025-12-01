@@ -1,9 +1,11 @@
 import { mkdir } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { SqlClient } from '@effect/sql'
 import { Database } from 'bun:sqlite'
 import { betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Config, Effect } from 'effect'
 import { SqlLive } from '../src/sql.js'
 import { generateConsistentUserData } from './seed-data.js'
@@ -58,7 +60,13 @@ const seedData = Effect.gen(function* () {
     },
   }
 
-  // Run better-auth migrations first
+  // Run drizzle migrations for app tables
+  console.log('Running drizzle migrations...')
+  const drizzleDb = drizzle(sqlite)
+  const migrationsFolder = join(import.meta.dir, '../drizzle')
+  migrate(drizzleDb, { migrationsFolder })
+
+  // Run better-auth migrations
   console.log('Running better-auth migrations...')
   const { runMigrations } = yield* Effect.promise(() => getMigrations(authOptions))
   yield* Effect.promise(runMigrations)
