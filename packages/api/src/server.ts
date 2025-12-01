@@ -5,7 +5,7 @@
  * Uses SQLite for persistence with Fly volume.
  */
 import { createServer } from 'node:http'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
@@ -44,7 +44,7 @@ const MIME_TYPES: Record<string, string> = {
 }
 
 // Serve static file or return null if not found
-const serveStaticFile = (pathname: string): Response | null => {
+const serveStaticFile = (pathname: string): { content: Buffer; contentType: string } | null => {
   // Security: prevent directory traversal
   const safePath = pathname.replace(/\.\./g, '')
   const filePath = join(STATIC_DIR, safePath)
@@ -53,22 +53,25 @@ const serveStaticFile = (pathname: string): Response | null => {
     return null
   }
 
-  const file = Bun.file(filePath)
-  const ext = extname(filePath)
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-
-  return new Response(file, {
-    headers: { 'Content-Type': contentType },
-  })
+  try {
+    const content = readFileSync(filePath)
+    const ext = extname(filePath)
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+    return { content, contentType }
+  } catch {
+    return null
+  }
 }
 
 // Serve index.html for SPA fallback
-const serveIndexHtml = (): Response => {
+const serveIndexHtml = (): { content: Buffer; contentType: string } | null => {
   const indexPath = join(STATIC_DIR, 'index.html')
-  const file = Bun.file(indexPath)
-  return new Response(file, {
-    headers: { 'Content-Type': 'text/html' },
-  })
+  try {
+    const content = readFileSync(indexPath)
+    return { content, contentType: 'text/html' }
+  } catch {
+    return null
+  }
 }
 
 // Auth configuration layer - creates better-auth instance with SQLite
@@ -157,15 +160,26 @@ const StaticRoutesLive = HttpRouter.Default.use((router) =>
       const pathname = url.pathname
 
       // Try to serve static file
-      const staticResponse = serveStaticFile(pathname)
-      if (staticResponse) {
-        return Effect.succeed(HttpServerResponse.raw(staticResponse))
+      const staticFile = serveStaticFile(pathname)
+      if (staticFile) {
+        return Effect.succeed(
+          HttpServerResponse.uint8Array(staticFile.content, {
+            headers: { 'Content-Type': staticFile.contentType },
+          }),
+        )
       }
 
       // SPA fallback - serve index.html for non-file paths
       // (paths without extensions are assumed to be SPA routes)
       if (!extname(pathname)) {
-        return Effect.succeed(HttpServerResponse.raw(serveIndexHtml()))
+        const indexFile = serveIndexHtml()
+        if (indexFile) {
+          return Effect.succeed(
+            HttpServerResponse.uint8Array(indexFile.content, {
+              headers: { 'Content-Type': indexFile.contentType },
+            }),
+          )
+        }
       }
 
       // File not found
