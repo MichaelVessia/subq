@@ -181,7 +181,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         suggestedDate = new Date(lastInjection.getTime() + intervalDays * 24 * 60 * 60 * 1000)
       }
 
-      const daysUntilDue = Math.floor((suggestedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const daysUntilDue = Math.round((suggestedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       const isOverdue = daysUntilDue < 0
 
       yield* Effect.logDebug('ScheduleGetNextDose completed').pipe(
