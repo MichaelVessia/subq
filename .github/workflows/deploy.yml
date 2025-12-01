@@ -27,6 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Set Fly secrets
+        run: flyctl secrets set BETTER_AUTH_SECRET="${{ secrets.BETTER_AUTH_SECRET }}" --stage
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Deploy to Fly.io
         run: flyctl deploy --remote-only
         env:
