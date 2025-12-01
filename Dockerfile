@@ -3,8 +3,8 @@ FROM oven/bun:1.3-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lock ./
+# Copy package files (no lockfile - let bun resolve fresh)
+COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
@@ -27,7 +27,7 @@ FROM oven/bun:1.3-alpine
 WORKDIR /app
 
 # Copy package files for production install
-COPY package.json bun.lock ./
+COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 
