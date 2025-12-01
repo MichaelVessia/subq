@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1.2-alpine AS builder
+FROM oven/bun:1.3-alpine AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ COPY tsconfig.base.json tsconfig.json ./
 RUN bun run --filter @subq/web build
 
 # Production stage
-FROM oven/bun:1.2-alpine
+FROM oven/bun:1.3-alpine
 
 WORKDIR /app
 
