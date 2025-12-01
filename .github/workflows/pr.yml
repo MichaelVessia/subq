@@ -1,15 +1,12 @@
 name: PR
 on:
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [opened, reopened, synchronize]
 concurrency:
   group: pr-${{ github.event.number }}
-  cancel-in-progress: false
-env:
-  STAGE: pr-${{ github.event.number }}
+  cancel-in-progress: true
 jobs:
   check:
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,72 +19,3 @@ jobs:
         run: bun run format
       - name: Test
         run: bun run test
-
-  deploy:
-    if: github.event.action != 'closed'
-    needs: check
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      api_url: ${{ steps.deploy-2.outputs.api_url }}
-      web_url: ${{ steps.deploy-2.outputs.web_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      # Phase 1: Deploy to get worker URLs
-      - name: Build (phase 1)
-        run: bun run build
-      - name: Deploy (phase 1 - get URLs)
-        id: deploy-1
-        run: |
-          output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
-          echo "$output"
-          api_url=$(echo "$output" | grep -oP 'api: "\K[^"]+')
-          web_url=$(echo "$output" | grep -oP 'web: "\K[^"]+')
-          echo "api_url=$api_url" >> $GITHUB_OUTPUT
-          echo "web_url=$web_url" >> $GITHUB_OUTPUT
-        env:
-          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
-          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL: https://placeholder.test
-      # Phase 2: Rebuild with correct URLs and redeploy
-      - name: Build (phase 2 - with correct API URL)
-        run: bun run build
-        env:
-          VITE_API_URL: ${{ steps.deploy-1.outputs.api_url }}
-      - name: Deploy (phase 2)
-        id: deploy-2
-        run: |
-          output=$(bun run alchemy.run.ts --stage ${{ env.STAGE }})
-          echo "$output"
-          api_url=$(echo "$output" | grep -oP 'api: "\K[^"]+')
-          web_url=$(echo "$output" | grep -oP 'web: "\K[^"]+')
-          echo "api_url=$api_url" >> $GITHUB_OUTPUT
-          echo "web_url=$web_url" >> $GITHUB_OUTPUT
-        env:
-          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
-          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL: ${{ steps.deploy-1.outputs.api_url }}
-
-  cleanup:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Destroy Preview Environment
-        run: bun run alchemy.run.ts --destroy --stage ${{ env.STAGE }}
-        env:
-          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
-          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}

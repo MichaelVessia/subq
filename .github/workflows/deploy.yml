@@ -24,25 +24,10 @@ jobs:
   deploy:
     needs: check
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Build
-        run: bun run build
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only
         env:
-          VITE_API_URL: https://api.subq.vessia.net
-      - name: Deploy
-        run: bun run alchemy.run.ts --stage prod
-        env:
-          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
-          ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
-          AXIOM_API_TOKEN: ${{ secrets.AXIOM_API_TOKEN }}
-          AXIOM_DATASET: ${{ secrets.AXIOM_DATASET }}
-
-
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

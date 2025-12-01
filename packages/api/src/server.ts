@@ -1,0 +1,216 @@
+/**
+ * Unified production server for Fly.io
+ *
+ * Serves both the API (/rpc, /api/auth/*) and static files (SPA).
+ * Uses SQLite for persistence with Fly volume.
+ */
+import { createServer } from 'node:http'
+import { existsSync } from 'node:fs'
+import { join, extname } from 'node:path'
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
+import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
+import { RpcSerialization, RpcServer } from '@effect/rpc'
+import { AppRpcs } from '@subq/shared'
+import { Database } from 'bun:sqlite'
+import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
+import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
+import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
+import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
+import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
+import { TracerLayer } from './tracing/index.js'
+import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
+import { SqlLive } from './sql.js'
+
+// Static file directory (relative to where server runs from)
+const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
+
+// MIME types for static files
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+}
+
+// Serve static file or return null if not found
+const serveStaticFile = (pathname: string): Response | null => {
+  // Security: prevent directory traversal
+  const safePath = pathname.replace(/\.\./g, '')
+  const filePath = join(STATIC_DIR, safePath)
+
+  if (!existsSync(filePath)) {
+    return null
+  }
+
+  const file = Bun.file(filePath)
+  const ext = extname(filePath)
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+
+  return new Response(file, {
+    headers: { 'Content-Type': contentType },
+  })
+}
+
+// Serve index.html for SPA fallback
+const serveIndexHtml = (): Response => {
+  const indexPath = join(STATIC_DIR, 'index.html')
+  const file = Bun.file(indexPath)
+  return new Response(file, {
+    headers: { 'Content-Type': 'text/html' },
+  })
+}
+
+// Auth configuration layer - creates better-auth instance with SQLite
+const AuthLive = Layer.unwrapEffect(
+  Effect.gen(function* () {
+    yield* Effect.logInfo('Initializing auth service...')
+
+    const databasePath = yield* Config.string('DATABASE_PATH').pipe(Config.withDefault('./data/subq.db'))
+    const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
+    const authUrl = yield* Config.string('BETTER_AUTH_URL')
+
+    yield* Effect.logDebug('Auth configuration loaded', {
+      authUrl,
+      databasePath,
+      hasAuthSecret: !!Redacted.value(authSecret),
+    })
+
+    // Use better-sqlite3 for auth
+    const sqlite = new Database(databasePath)
+    yield* Effect.logInfo('SQLite database opened for auth service')
+
+    return AuthServiceLive({
+      database: sqlite,
+      secret: Redacted.value(authSecret),
+      baseURL: authUrl,
+      trustedOrigins: [authUrl],
+      emailAndPassword: {
+        enabled: true,
+      },
+      session: {
+        // Cache session in signed cookie to avoid DB lookup on every request
+        cookieCache: {
+          enabled: true,
+          maxAge: 60 * 5, // 5 minutes
+        },
+      },
+    })
+  }).pipe(Effect.tap(() => Effect.logInfo('Auth service initialized successfully'))),
+)
+
+// Combine all domain RPC handlers
+const RpcHandlersLive = Layer.mergeAll(
+  WeightRpcHandlersLive,
+  InjectionRpcHandlersLive,
+  InventoryRpcHandlersLive,
+  ScheduleRpcHandlersLive,
+  StatsRpcHandlersLive,
+).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
+
+// Combined repositories layer
+const RepositoriesLive = Layer.mergeAll(
+  WeightLogRepoLive,
+  InjectionLogRepoLive,
+  InventoryRepoLive,
+  ScheduleRepoLive,
+).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
+
+// RPC handler layer with auth middleware
+const RpcLive = RpcServer.layer(AppRpcs).pipe(
+  Layer.provide(RpcHandlersLive),
+  Layer.provide(AuthRpcMiddlewareLive),
+  Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
+)
+
+// Auth routes layer - adds auth routes to the default router
+const AuthRoutesLive = HttpRouter.Default.use((router) =>
+  Effect.gen(function* () {
+    yield* Effect.logInfo('Setting up auth routes...')
+    const { auth } = yield* AuthService
+    yield* router.all('/api/auth/*', toEffectHandler(auth))
+    yield* Effect.logInfo('Auth routes configured')
+  }),
+)
+
+// Health check route
+const HealthRouteLive = HttpRouter.Default.use((router) =>
+  router.get('/health', HttpServerResponse.json({ status: 'ok' })),
+)
+
+// Static file serving route (catch-all for SPA)
+const StaticRoutesLive = HttpRouter.Default.use((router) =>
+  router.get(
+    '/*',
+    Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+      const url = new URL(request.url, 'http://localhost')
+      const pathname = url.pathname
+
+      // Try to serve static file
+      const staticResponse = serveStaticFile(pathname)
+      if (staticResponse) {
+        return Effect.succeed(HttpServerResponse.raw(staticResponse))
+      }
+
+      // SPA fallback - serve index.html for non-file paths
+      // (paths without extensions are assumed to be SPA routes)
+      if (!extname(pathname)) {
+        return Effect.succeed(HttpServerResponse.raw(serveIndexHtml()))
+      }
+
+      // File not found
+      return HttpServerResponse.json({ error: 'Not Found' }, { status: 404 })
+    }),
+  ),
+)
+
+// RPC Protocol + routes layer
+const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(RpcSerialization.layerNdjson))
+
+// Merge all route layers so they share the same Default router
+// Order matters: specific routes before catch-all
+const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, HealthRouteLive, RpcProtocolLive, StaticRoutesLive)
+
+// Get port from environment
+const port = Number(process.env.PORT) || 3001
+
+// HTTP server with all dependencies (no CORS needed - same origin)
+const HttpLive = HttpRouter.Default.serve().pipe(
+  Layer.provide(RpcLive),
+  Layer.provide(AllRoutesLive),
+  Layer.provide(RpcSerialization.layerNdjson),
+  Layer.provide(NodeHttpServer.layer(createServer, { port })),
+  // Provide repositories and services to handlers
+  Layer.provide(RepositoriesLive),
+  Layer.provide(StatsServiceLive),
+  // Provide auth service
+  Layer.provide(AuthLive),
+  // Provide SQL client to repositories and services
+  Layer.provide(SqlLive),
+  Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
+)
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+NodeRuntime.runMain(
+  Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
+    Logger.withMinimumLogLevel(LogLevel.Info),
+    Effect.tap(() => Effect.logInfo('Application startup complete')),
+    Effect.catchAll((error) =>
+      Effect.gen(function* () {
+        yield* Effect.logError('Application startup failed', { error: error.message })
+        yield* Effect.logError('Error details', { error: String(error) })
+        return yield* Effect.fail(error)
+      }),
+    ),
+  ) as any,
+)

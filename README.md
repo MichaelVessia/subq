@@ -5,8 +5,7 @@ Health tracking application for subcutaneous injection management.
 ## Links
 
 - **Production**: https://subq.vessia.net
-- **Axiom Traces**: https://app.axiom.co/vessia-9stl/dashboards/otel.traces.subq-traces
-- **Cloudflare Dashboard**: https://dash.cloudflare.com
+- **Fly Dashboard**: https://fly.io/apps/subq
 
 ## Development
 
@@ -14,26 +13,39 @@ Health tracking application for subcutaneous injection management.
 # Install dependencies
 bun install
 
-# Start local dev server (API + Web)
+# Start local dev server (API + Web + Jaeger)
 bun run dev
 
-# Start Jaeger for local tracing
-docker compose -f packages/api/docker-compose.yml up -d
 # Jaeger UI: http://localhost:16686
 
 # Run tests
 bun run test
 
 # Run e2e tests
-bun run --filter @subq/web test:e2e
+bun run test:e2e
 ```
 
 ## Deployment
 
-```bash
-# Deploy to prod
-bun run alchemy.run.ts --stage prod
+Deploys automatically on push to `master` via GitHub Actions.
 
-# Seed prod database
-bun run scripts/seed-prod.ts
+```bash
+# Manual deploy
+fly deploy
+
+# Set secrets (first time)
+fly secrets set BETTER_AUTH_SECRET="your-secret-here"
+
+# Create volume (first time)
+fly volumes create subq_data --region ewr --size 1
+```
+
+## Local Production Testing
+
+```bash
+# Build and run full stack locally with Docker
+docker compose up --build
+
+# App: http://localhost:8080
+# Jaeger: http://localhost:16686
 ```

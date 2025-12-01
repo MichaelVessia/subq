@@ -28,8 +28,7 @@
     "seed": "bun run --filter @subq/api seed",
     "seed:prod": "bun run scripts/seed-prod.ts",
     "migrate": "bun run --filter @subq/api migrate",
-    "deploy": "bun run build && bun run alchemy.run.ts",
-    "deploy:destroy": "bun run alchemy.run.ts --destroy"
+    "deploy": "flyctl deploy --remote-only"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",
@@ -40,7 +39,6 @@
     "@effect/language-service": "latest",
     "@effect/vitest": "^0.27.0",
     "@types/bun": "^1.2.20",
-    "alchemy": "^0.78.0",
     "babel-plugin-annotate-pure-calls": "^0.5.0",
     "lefthook": "^2.0.2",
     "typescript": "^5.6.2",

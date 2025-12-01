@@ -17,7 +17,9 @@ const FetchWithCredentials = FetchHttpClient.layer.pipe(
   Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { credentials: 'include' })),
 )
 
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// In production (Fly.io), API is same origin so use relative URL
+// In local dev, API runs on different port
+const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
 // Use AtomRpc.Tag for automatic atom integration
 export class ApiClient extends AtomRpc.Tag<ApiClient>()('@subq/ApiClient', {

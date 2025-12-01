@@ -12,23 +12,21 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@effect/opentelemetry": "^0.59.1",
-    "@effect/platform": "^0.92.1",
-    "@effect/platform-node": "^0.87.0",
-    "@effect/rpc": "^0.71.0",
-    "@effect/sql": "^0.48.0",
-    "@effect/sql-d1": "^0.46.0",
-    "@effect/sql-sqlite-bun": "^0.49.0",
+    "@effect/opentelemetry": "0.59.1",
+    "@effect/platform": "0.92.1",
+    "@effect/platform-node": "0.87.0",
+    "@effect/rpc": "0.71.0",
+    "@effect/sql": "0.48.0",
+    "@effect/sql-sqlite-bun": "0.49.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.208.0",
     "@subq/shared": "workspace:*",
     "better-auth": "^1.4.2",
     "drizzle-orm": "^0.44.7",
-    "effect": "^3.18.4"
+    "effect": "3.18.4"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251127.0",
-    "@effect/sql-sqlite-node": "^0.49.0",
-    "@effect/vitest": "^0.27.0",
+    "@effect/sql-sqlite-node": "0.49.0",
+    "@effect/vitest": "0.27.0",
     "drizzle-kit": "^0.31.7",
     "vitest": "^4.0.14"
   }

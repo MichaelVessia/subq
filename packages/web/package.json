@@ -10,12 +10,12 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
-    "@effect-atom/atom": "^0.3.4",
-    "@effect-atom/atom-react": "^0.3.4",
-    "@effect/experimental": "^0.56.0",
-    "@effect/platform": "^0.92.1",
-    "@effect/platform-browser": "^0.72.0",
-    "@effect/rpc": "^0.71.0",
+    "@effect-atom/atom": "0.3.4",
+    "@effect-atom/atom-react": "0.3.4",
+    "@effect/experimental": "0.56.0",
+    "@effect/platform": "0.92.1",
+    "@effect/platform-browser": "0.72.0",
+    "@effect/rpc": "0.71.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@subq/shared": "workspace:*",
     "@tanstack/react-router": "^1.139.6",
@@ -25,7 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
-    "effect": "^3.18.4",
+    "effect": "3.18.4",
     "lucide-react": "^0.555.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -33,7 +33,6 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20251127.0",
     "@playwright/test": "1.54.2",
     "@tailwindcss/vite": "^4.1.17",
     "@types/react": "^19.0.0",

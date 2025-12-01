@@ -1,0 +1,40 @@
+# fly.toml - Fly.io configuration
+# Docs: https://fly.io/docs/reference/configuration/
+
+app = "subq"
+primary_region = "ewr"  # Newark (US East) - close to NYC
+
+[build]
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  DATABASE_PATH = "/app/data/subq.db"
+  STATIC_DIR = "/app/packages/web/dist"
+  OTEL_SERVICE_NAME = "subq-api"
+  BETTER_AUTH_URL = "https://subq.vessia.net"
+  # Set OTEL_ENDPOINT to enable tracing (e.g., to a Jaeger instance)
+  # OTEL_ENDPOINT = "http://jaeger.internal:4318"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[mounts]
+  source = "subq_data"
+  destination = "/app/data"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

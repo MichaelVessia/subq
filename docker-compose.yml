@@ -1,0 +1,34 @@
+# Docker Compose for local production-like testing
+# Run: docker compose up --build
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - NODE_ENV=production
+      - DATABASE_PATH=/app/data/subq.db
+      - STATIC_DIR=/app/packages/web/dist
+      - BETTER_AUTH_SECRET=local-dev-secret-at-least-32-chars-long
+      - BETTER_AUTH_URL=http://localhost:8080
+      - OTEL_ENDPOINT=http://jaeger:4318
+      - OTEL_SERVICE_NAME=subq-api
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"   # UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+volumes:
+  app_data:
