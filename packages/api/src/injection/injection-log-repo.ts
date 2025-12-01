@@ -102,8 +102,7 @@ export const InjectionLogRepoLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     const list = (params: InjectionLogListParams, userId: string) =>
-      Effect.fn('InjectionLogRepo.list')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         // Convert Date params to ISO strings for SQLite comparison
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -120,13 +119,11 @@ export const InjectionLogRepoLive = Layer.effect(
           OFFSET ${params.offset}
         `
         const results = yield* Effect.all(rows.map(decodeAndTransform))
-        yield* Effect.annotateCurrentSpan('count', results.length)
         return results
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const findById = (id: string) =>
-      Effect.fn('InjectionLogRepo.findById')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
           FROM injection_logs
@@ -134,14 +131,11 @@ export const InjectionLogRepoLive = Layer.effect(
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
-        yield* Effect.annotateCurrentSpan('found', true)
         return Option.some(decoded)
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: InjectionLogCreate, userId: string) =>
-      Effect.fn('InjectionLogRepo.create')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('drug', data.drug)
+      Effect.gen(function* () {
         const id = generateUuid()
         const source = Option.isSome(data.source) ? data.source.value : null
         const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
@@ -161,13 +155,11 @@ export const InjectionLogRepoLive = Layer.effect(
           FROM injection_logs
           WHERE id = ${id}
         `
-        yield* Effect.annotateCurrentSpan('createdId', id)
         return yield* decodeAndTransform(rows[0])
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'insert', cause })))
 
     const update = (data: InjectionLogUpdate) =>
-      Effect.fn('InjectionLogRepo.update')(function* () {
-        yield* Effect.annotateCurrentSpan('id', data.id)
+      Effect.gen(function* () {
         // First get current values
         const current = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
@@ -213,49 +205,41 @@ export const InjectionLogRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0]).pipe(
           Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })),
         )
-      })()
+      })
 
     const del = (id: string) =>
-      Effect.fn('InjectionLogRepo.delete')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         // Check if exists first
         const existing = yield* sql`SELECT id FROM injection_logs WHERE id = ${id}`
         if (existing.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return false
         }
 
         yield* sql`DELETE FROM injection_logs WHERE id = ${id}`
-        yield* Effect.annotateCurrentSpan('deleted', true)
         return true
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'delete', cause })))
 
     const getUniqueDrugs = (userId: string) =>
-      Effect.fn('InjectionLogRepo.getUniqueDrugs')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql<{ drug: string }>`
           SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
         `
-        yield* Effect.annotateCurrentSpan('count', rows.length)
         return rows.map((r) => r.drug)
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const getUniqueSites = (userId: string) =>
-      Effect.fn('InjectionLogRepo.getUniqueSites')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql<{ injection_site: string }>`
           SELECT DISTINCT injection_site 
           FROM injection_logs 
           WHERE user_id = ${userId} AND injection_site IS NOT NULL 
           ORDER BY injection_site
         `
-        yield* Effect.annotateCurrentSpan('count', rows.length)
         return rows.map((r) => r.injection_site)
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const getLastSite = (userId: string) =>
-      Effect.fn('InjectionLogRepo.getLastSite')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql<{ injection_site: string | null }>`
           SELECT injection_site 
           FROM injection_logs 
@@ -264,16 +248,11 @@ export const InjectionLogRepoLive = Layer.effect(
           LIMIT 1
         `
         const row = rows[0]
-        const site = row ? row.injection_site : null
-        yield* Effect.annotateCurrentSpan('site', site ?? 'none')
-        return site
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+        return row ? row.injection_site : null
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const bulkAssignSchedule = (data: InjectionLogBulkAssignSchedule, userId: string) =>
-      Effect.fn('InjectionLogRepo.bulkAssignSchedule')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('scheduleId', data.scheduleId)
-        yield* Effect.annotateCurrentSpan('idsCount', data.ids.length)
+      Effect.gen(function* () {
         if (data.ids.length === 0) return 0
 
         const now = new Date().toISOString()
@@ -292,14 +271,11 @@ export const InjectionLogRepoLive = Layer.effect(
           // SQLite returns changes count
           count += (result as unknown as { changes?: number }).changes ?? 1
         }
-        yield* Effect.annotateCurrentSpan('updatedCount', count)
         return count
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
 
     const listBySchedule = (scheduleId: string, userId: string) =>
-      Effect.fn('InjectionLogRepo.listBySchedule')(function* () {
-        yield* Effect.annotateCurrentSpan('scheduleId', scheduleId)
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
           FROM injection_logs
@@ -307,9 +283,8 @@ export const InjectionLogRepoLive = Layer.effect(
           ORDER BY datetime ASC
         `
         const results = yield* Effect.all(rows.map(decodeAndTransform))
-        yield* Effect.annotateCurrentSpan('count', results.length)
         return results
-      })().pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     return {
       list,

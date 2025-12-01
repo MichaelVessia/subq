@@ -75,8 +75,7 @@ export const WeightLogRepoLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     const list = (params: WeightLogListParams, userId: string) =>
-      Effect.fn('WeightLogRepo.list')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         // Convert Date params to ISO strings for SQLite comparison
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -91,14 +90,11 @@ export const WeightLogRepoLive = Layer.effect(
           LIMIT ${params.limit}
           OFFSET ${params.offset}
         `
-        const results = yield* Effect.all(rows.map(decodeAndTransform))
-        yield* Effect.annotateCurrentSpan('count', results.length)
-        return results
-      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+        return yield* Effect.all(rows.map(decodeAndTransform))
+      }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
     const findById = (id: string) =>
-      Effect.fn('WeightLogRepo.findById')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, datetime, weight, unit, notes, created_at, updated_at
           FROM weight_logs
@@ -106,14 +102,11 @@ export const WeightLogRepoLive = Layer.effect(
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
-        yield* Effect.annotateCurrentSpan('found', true)
         return Option.some(decoded)
-      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: WeightLogCreate, userId: string) =>
-      Effect.fn('WeightLogRepo.create')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('weight', data.weight)
+      Effect.gen(function* () {
         const id = generateUuid()
         const notes = Option.isSome(data.notes) ? data.notes.value : null
         const now = new Date().toISOString()
@@ -130,13 +123,11 @@ export const WeightLogRepoLive = Layer.effect(
           FROM weight_logs
           WHERE id = ${id}
         `
-        yield* Effect.annotateCurrentSpan('createdId', id)
         return yield* decodeAndTransform(rows[0])
-      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'insert', cause })))
+      }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'insert', cause })))
 
     const update = (data: WeightLogUpdate) =>
-      Effect.fn('WeightLogRepo.update')(function* () {
-        yield* Effect.annotateCurrentSpan('id', data.id)
+      Effect.gen(function* () {
         // First get current values
         const current = yield* sql`
           SELECT id, datetime, weight, unit, notes, created_at, updated_at
@@ -176,22 +167,19 @@ export const WeightLogRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0]).pipe(
           Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })),
         )
-      })()
+      })
 
     const del = (id: string) =>
-      Effect.fn('WeightLogRepo.delete')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         // Check if exists first
         const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id}`
         if (existing.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return false
         }
 
         yield* sql`DELETE FROM weight_logs WHERE id = ${id}`
-        yield* Effect.annotateCurrentSpan('deleted', true)
         return true
-      })().pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'delete', cause })))
+      }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'delete', cause })))
 
     return {
       list,

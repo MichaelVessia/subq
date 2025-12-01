@@ -210,8 +210,7 @@ export const ScheduleRepoLive = Layer.effect(
 
     // Single query to fetch schedules with phases using LEFT JOIN
     const list = (userId: string) =>
-      Effect.fn('ScheduleRepo.list')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT 
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
@@ -224,15 +223,12 @@ export const ScheduleRepoLive = Layer.effect(
           ORDER BY s.start_date DESC, p."order" ASC
         `
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
-        const schedules = groupSchedulesWithPhases(decoded)
-        yield* Effect.annotateCurrentSpan('count', schedules.length)
-        return schedules
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+        return groupSchedulesWithPhases(decoded)
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     // Single query to fetch active schedule with phases using LEFT JOIN
     const getActive = (userId: string) =>
-      Effect.fn('ScheduleRepo.getActive')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT 
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
@@ -245,20 +241,16 @@ export const ScheduleRepoLive = Layer.effect(
           ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return Option.none()
         }
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
         const schedules = groupSchedulesWithPhases(decoded)
-        yield* Effect.annotateCurrentSpan('found', true)
-        yield* Effect.annotateCurrentSpan('scheduleId', schedules[0]?.id)
         return Option.fromNullable(schedules[0])
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     // Single query to fetch schedule by ID with phases using LEFT JOIN
     const findById = (id: string) =>
-      Effect.fn('ScheduleRepo.findById')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT 
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
@@ -271,19 +263,15 @@ export const ScheduleRepoLive = Layer.effect(
           ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return Option.none()
         }
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
         const schedules = groupSchedulesWithPhases(decoded)
-        yield* Effect.annotateCurrentSpan('found', true)
         return Option.fromNullable(schedules[0])
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: InjectionScheduleCreate, userId: string) =>
-      Effect.fn('ScheduleRepo.create')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('drug', data.drug)
+      Effect.gen(function* () {
         const id = generateUuid()
         const source = Option.isSome(data.source) ? data.source.value : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
@@ -310,13 +298,11 @@ export const ScheduleRepoLive = Layer.effect(
         `
         const decoded = yield* decodeScheduleRow(rows[0])
         const phases = yield* loadPhases(id)
-        yield* Effect.annotateCurrentSpan('createdId', id)
         return scheduleRowToDomain(decoded, phases)
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })))
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })))
 
     const update = (data: InjectionScheduleUpdate) =>
-      Effect.fn('ScheduleRepo.update')(function* () {
-        yield* Effect.annotateCurrentSpan('id', data.id)
+      Effect.gen(function* () {
         // First get current values
         const current = yield* sql`
           SELECT id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at
@@ -387,26 +373,21 @@ export const ScheduleRepoLive = Layer.effect(
           Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
         )
         return scheduleRowToDomain(decoded, phases)
-      })()
+      })
 
     const del = (id: string) =>
-      Effect.fn('ScheduleRepo.delete')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id}`
         if (existing.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return false
         }
         // Phases are deleted via CASCADE
         yield* sql`DELETE FROM injection_schedules WHERE id = ${id}`
-        yield* Effect.annotateCurrentSpan('deleted', true)
         return true
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })))
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })))
 
     const getLastInjectionDate = (userId: string, drug: string) =>
-      Effect.fn('ScheduleRepo.getLastInjectionDate')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('drug', drug)
+      Effect.gen(function* () {
         const rows = yield* sql<{ datetime: string }>`
           SELECT datetime FROM injection_logs 
           WHERE user_id = ${userId} AND drug = ${drug}
@@ -415,12 +396,10 @@ export const ScheduleRepoLive = Layer.effect(
         `
         const row = rows[0]
         if (!row) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return Option.none()
         }
-        yield* Effect.annotateCurrentSpan('found', true)
         return Option.some(new Date(row.datetime))
-      })().pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     return {
       list,

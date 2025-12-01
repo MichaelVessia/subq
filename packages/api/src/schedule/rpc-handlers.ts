@@ -42,66 +42,95 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
     const ScheduleList = Effect.fn('rpc.schedule.list')(function* () {
       const { user } = yield* AuthContext
-      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.logDebug('ScheduleList called').pipe(Effect.annotateLogs({ rpc: 'ScheduleList', userId: user.id }))
       const result = yield* scheduleRepo.list(user.id)
-      yield* Effect.annotateCurrentSpan('count', result.length)
+      yield* Effect.logDebug('ScheduleList completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleList', count: result.length }),
+      )
       return result
     })
 
     const ScheduleGetActive = Effect.fn('rpc.schedule.getActive')(function* () {
       const { user } = yield* AuthContext
-      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.logDebug('ScheduleGetActive called').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleGetActive', userId: user.id }),
+      )
       const result = yield* scheduleRepo.getActive(user.id).pipe(Effect.map(Option.getOrNull))
-      yield* Effect.annotateCurrentSpan('found', !!result)
+      yield* Effect.logDebug('ScheduleGetActive completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleGetActive', found: !!result, scheduleId: result?.id ?? 'none' }),
+      )
       return result
     })
 
     const ScheduleGet = Effect.fn('rpc.schedule.get')(function* ({ id }: { id: InjectionScheduleId }) {
-      yield* Effect.annotateCurrentSpan('id', id)
+      yield* Effect.logDebug('ScheduleGet called').pipe(Effect.annotateLogs({ rpc: 'ScheduleGet', id }))
       const result = yield* scheduleRepo.findById(id).pipe(Effect.map(Option.getOrNull))
-      yield* Effect.annotateCurrentSpan('found', !!result)
+      yield* Effect.logDebug('ScheduleGet completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleGet', id, found: !!result }),
+      )
       return result
     })
 
     const ScheduleCreate = Effect.fn('rpc.schedule.create')(function* (data: InjectionScheduleCreate) {
       const { user } = yield* AuthContext
-      yield* Effect.annotateCurrentSpan('userId', user.id)
-      yield* Effect.annotateCurrentSpan('name', data.name)
-      yield* Effect.annotateCurrentSpan('drug', data.drug)
+      yield* Effect.logInfo('ScheduleCreate called').pipe(
+        Effect.annotateLogs({
+          rpc: 'ScheduleCreate',
+          userId: user.id,
+          name: data.name,
+          drug: data.drug,
+          frequency: data.frequency,
+          phasesCount: data.phases.length,
+        }),
+      )
       const result = yield* scheduleRepo.create(data, user.id)
-      yield* Effect.annotateCurrentSpan('resultId', result.id)
+      yield* Effect.logInfo('ScheduleCreate completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleCreate', id: result.id, name: result.name }),
+      )
       return result
     })
 
     const ScheduleUpdate = Effect.fn('rpc.schedule.update')(function* (data: InjectionScheduleUpdate) {
-      yield* Effect.annotateCurrentSpan('id', data.id)
+      yield* Effect.logInfo('ScheduleUpdate called').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleUpdate', id: data.id, isActive: data.isActive }),
+      )
       const result = yield* scheduleRepo.update(data)
+      yield* Effect.logInfo('ScheduleUpdate completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleUpdate', id: data.id }),
+      )
       return result
     })
 
     const ScheduleDelete = Effect.fn('rpc.schedule.delete')(function* ({ id }: { id: InjectionScheduleId }) {
-      yield* Effect.annotateCurrentSpan('id', id)
+      yield* Effect.logInfo('ScheduleDelete called').pipe(Effect.annotateLogs({ rpc: 'ScheduleDelete', id }))
       const result = yield* scheduleRepo.delete(id)
-      yield* Effect.annotateCurrentSpan('success', result)
+      yield* Effect.logInfo('ScheduleDelete completed').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleDelete', id, deleted: result }),
+      )
       return result
     })
 
     const ScheduleGetNextDose = Effect.fn('rpc.schedule.getNextDose')(function* () {
       const { user } = yield* AuthContext
-      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.logDebug('ScheduleGetNextDose called').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleGetNextDose', userId: user.id }),
+      )
 
       // Get active schedule
       const scheduleOpt = yield* scheduleRepo.getActive(user.id)
       if (Option.isNone(scheduleOpt)) {
-        yield* Effect.annotateCurrentSpan('hasActiveSchedule', false)
+        yield* Effect.logDebug('ScheduleGetNextDose: no active schedule').pipe(
+          Effect.annotateLogs({ rpc: 'ScheduleGetNextDose' }),
+        )
         return null
       }
 
       const schedule = scheduleOpt.value
-      yield* Effect.annotateCurrentSpan('scheduleId', schedule.id)
 
       if (schedule.phases.length === 0) {
-        yield* Effect.annotateCurrentSpan('hasPhases', false)
+        yield* Effect.logDebug('ScheduleGetNextDose: no phases').pipe(
+          Effect.annotateLogs({ rpc: 'ScheduleGetNextDose', scheduleId: schedule.id }),
+        )
         return null
       }
 
@@ -155,9 +184,15 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
       const daysUntilDue = Math.floor((suggestedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       const isOverdue = daysUntilDue < 0
 
-      yield* Effect.annotateCurrentSpan('phase', currentPhaseIndex + 1)
-      yield* Effect.annotateCurrentSpan('daysUntilDue', daysUntilDue)
-      yield* Effect.annotateCurrentSpan('isOverdue', isOverdue)
+      yield* Effect.logDebug('ScheduleGetNextDose completed').pipe(
+        Effect.annotateLogs({
+          rpc: 'ScheduleGetNextDose',
+          scheduleId: schedule.id,
+          phase: currentPhaseIndex + 1,
+          daysUntilDue,
+          isOverdue,
+        }),
+      )
 
       return new NextScheduledDose({
         scheduleId: schedule.id,
@@ -174,13 +209,14 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
     const ScheduleGetView = Effect.fn('rpc.schedule.getView')(function* ({ id }: { id: InjectionScheduleId }) {
       const { user } = yield* AuthContext
-      yield* Effect.annotateCurrentSpan('id', id)
-      yield* Effect.annotateCurrentSpan('userId', user.id)
+      yield* Effect.logDebug('ScheduleGetView called').pipe(
+        Effect.annotateLogs({ rpc: 'ScheduleGetView', id, userId: user.id }),
+      )
 
       // Get schedule
       const scheduleOpt = yield* scheduleRepo.findById(id)
       if (Option.isNone(scheduleOpt)) {
-        yield* Effect.annotateCurrentSpan('found', false)
+        yield* Effect.logDebug('ScheduleGetView: not found').pipe(Effect.annotateLogs({ rpc: 'ScheduleGetView', id }))
         return null
       }
 
@@ -279,8 +315,14 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         : phaseViews.reduce((sum, p) => sum + (p.expectedInjections ?? 0), 0)
       const totalCompletedInjections = phaseViews.reduce((sum, p) => sum + p.completedInjections, 0)
 
-      yield* Effect.annotateCurrentSpan('totalPhases', phaseViews.length)
-      yield* Effect.annotateCurrentSpan('totalCompletedInjections', totalCompletedInjections)
+      yield* Effect.logDebug('ScheduleGetView completed').pipe(
+        Effect.annotateLogs({
+          rpc: 'ScheduleGetView',
+          id,
+          totalPhases: phaseViews.length,
+          totalCompletedInjections,
+        }),
+      )
 
       return new ScheduleView({
         id: schedule.id,

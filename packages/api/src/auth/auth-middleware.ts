@@ -14,7 +14,7 @@ export const AuthRpcMiddlewareLive = Layer.effect(
     const { auth } = yield* AuthService
 
     return AuthRpcMiddleware.of(({ headers }: { headers: Headers }) =>
-      Effect.fn('auth.getSession')(function* () {
+      Effect.gen(function* () {
         // Convert Headers to a plain object for better-auth
         const headerObj: Record<string, string> = {}
         for (const [key, value] of Object.entries(headers)) {
@@ -26,12 +26,27 @@ export const AuthRpcMiddlewareLive = Layer.effect(
         // Get session from better-auth using the request headers
         const session = yield* Effect.tryPromise({
           try: () => auth.api.getSession({ headers: headerObj }),
-          catch: () => new Unauthorized({ details: 'Failed to verify session' }),
+          catch: (err) => {
+            Effect.logWarning('Auth session verification failed').pipe(
+              Effect.annotateLogs({ error: String(err) }),
+              Effect.runSync,
+            )
+            return new Unauthorized({ details: 'Failed to verify session' })
+          },
         })
 
         if (!session?.user) {
+          yield* Effect.logDebug('Auth: no session found')
           return yield* new Unauthorized({ details: 'Not authenticated' })
         }
+
+        yield* Effect.logDebug('Auth: session verified').pipe(
+          Effect.annotateLogs({
+            userId: session.user.id,
+            email: session.user.email,
+            sessionId: session.session.id,
+          }),
+        )
 
         return {
           user: {
@@ -44,7 +59,7 @@ export const AuthRpcMiddlewareLive = Layer.effect(
             userId: session.session.userId,
           },
         }
-      })(),
+      }),
     )
   }),
 )

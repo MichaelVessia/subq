@@ -77,8 +77,7 @@ export const InventoryRepoLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     const list = (params: InventoryListParams, userId: string) =>
-      Effect.fn('InventoryRepo.list')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
@@ -87,14 +86,11 @@ export const InventoryRepoLive = Layer.effect(
           ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
           ORDER BY created_at DESC
         `
-        const results = yield* Effect.all(rows.map(decodeAndTransform))
-        yield* Effect.annotateCurrentSpan('count', results.length)
-        return results
-      })().pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
+        return yield* Effect.all(rows.map(decodeAndTransform))
+      }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
     const findById = (id: string) =>
-      Effect.fn('InventoryRepo.findById')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
@@ -102,14 +98,11 @@ export const InventoryRepoLive = Layer.effect(
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
-        yield* Effect.annotateCurrentSpan('found', true)
         return Option.some(decoded)
-      })().pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
+      }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: InventoryCreate, userId: string) =>
-      Effect.fn('InventoryRepo.create')(function* () {
-        yield* Effect.annotateCurrentSpan('userId', userId)
-        yield* Effect.annotateCurrentSpan('drug', data.drug)
+      Effect.gen(function* () {
         const id = generateUuid()
         const beyondUseDate = Option.isSome(data.beyondUseDate) ? data.beyondUseDate.value.toISOString() : null
         const now = new Date().toISOString()
@@ -124,13 +117,11 @@ export const InventoryRepoLive = Layer.effect(
           FROM glp1_inventory
           WHERE id = ${id}
         `
-        yield* Effect.annotateCurrentSpan('createdId', id)
         return yield* decodeAndTransform(rows[0])
-      })().pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'insert', cause })))
+      }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'insert', cause })))
 
     const update = (data: InventoryUpdate) =>
-      Effect.fn('InventoryRepo.update')(function* () {
-        yield* Effect.annotateCurrentSpan('id', data.id)
+      Effect.gen(function* () {
         const current = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory WHERE id = ${data.id}
@@ -175,25 +166,21 @@ export const InventoryRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0]).pipe(
           Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })),
         )
-      })()
+      })
 
     const del = (id: string) =>
-      Effect.fn('InventoryRepo.delete')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const existing = yield* sql`SELECT id FROM glp1_inventory WHERE id = ${id}`
         if (existing.length === 0) {
-          yield* Effect.annotateCurrentSpan('found', false)
           return false
         }
 
         yield* sql`DELETE FROM glp1_inventory WHERE id = ${id}`
-        yield* Effect.annotateCurrentSpan('deleted', true)
         return true
-      })().pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'delete', cause })))
+      }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'delete', cause })))
 
     const markFinished = (id: string) =>
-      Effect.fn('InventoryRepo.markFinished')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const current = yield* sql`
           SELECT id FROM glp1_inventory WHERE id = ${id}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
@@ -218,11 +205,10 @@ export const InventoryRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0]).pipe(
           Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })),
         )
-      })()
+      })
 
     const markOpened = (id: string) =>
-      Effect.fn('InventoryRepo.markOpened')(function* () {
-        yield* Effect.annotateCurrentSpan('id', id)
+      Effect.gen(function* () {
         const current = yield* sql`
           SELECT id FROM glp1_inventory WHERE id = ${id}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
@@ -247,7 +233,7 @@ export const InventoryRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0]).pipe(
           Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })),
         )
-      })()
+      })
 
     return {
       list,
