@@ -10,6 +10,7 @@ import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/inde
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
+import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
 import { SqlLive } from './sql.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
@@ -61,6 +62,7 @@ const RpcHandlersLive = Layer.mergeAll(
   ScheduleRpcHandlersLive,
   StatsRpcHandlersLive,
   GoalRpcHandlersLive,
+  SettingsRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
@@ -70,6 +72,7 @@ const RepositoriesLive = Layer.mergeAll(
   InventoryRepoLive,
   ScheduleRepoLive,
   GoalRepoLive,
+  SettingsRepoLive,
 ).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
 
 // RPC handler layer with auth middleware

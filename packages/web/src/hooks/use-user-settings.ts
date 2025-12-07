@@ -1,44 +1,21 @@
-import { kgToLbs, lbsToKg, type WeightUnit, DEFAULT_WEIGHT_UNIT } from '@subq/shared'
-import { useMemo, useSyncExternalStore } from 'react'
-
-const STORAGE_KEY = 'subq-weight-unit'
-
-function getStoredWeightUnit(): WeightUnit {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'kg' || stored === 'lbs') return stored
-  } catch {
-    // localStorage not available
-  }
-  return DEFAULT_WEIGHT_UNIT
-}
-
-function setStoredWeightUnit(unit: WeightUnit) {
-  try {
-    localStorage.setItem(STORAGE_KEY, unit)
-    window.dispatchEvent(new Event('storage'))
-  } catch {
-    // localStorage not available
-  }
-}
-
-function subscribe(callback: () => void) {
-  window.addEventListener('storage', callback)
-  return () => window.removeEventListener('storage', callback)
-}
+import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { kgToLbs, lbsToKg, type WeightUnit, DEFAULT_WEIGHT_UNIT, UserSettingsUpdate } from '@subq/shared'
+import { useMemo } from 'react'
+import { ApiClient, ReactivityKeys, UserSettingsAtom } from '../rpc.js'
 
 /**
  * Hook for accessing user settings with weight conversion utilities.
  *
  * All weights are stored internally as lbs. This hook provides helpers
  * to convert between storage format (lbs) and the user's preferred display unit.
- *
- * NOTE: Settings are stored in localStorage due to Effect RPC compatibility issue.
  */
 export function useUserSettings() {
-  const weightUnit = useSyncExternalStore(subscribe, getStoredWeightUnit, () => DEFAULT_WEIGHT_UNIT)
+  const settingsResult = useAtomValue(UserSettingsAtom)
+  const updateSettings = useAtomSet(ApiClient.mutation('UserSettingsUpdate'), { mode: 'promise' })
 
-  const isLoading = false
+  const isLoading = Result.isWaiting(settingsResult)
+  const settings = Result.getOrElse(settingsResult, () => null)
+  const weightUnit: WeightUnit = settings?.weightUnit ?? DEFAULT_WEIGHT_UNIT
 
   /**
    * Convert a weight from internal storage (lbs) to display unit.
@@ -88,6 +65,16 @@ export function useUserSettings() {
    */
   const rateLabel = `${weightUnit}/week`
 
+  /**
+   * Update the weight unit preference.
+   */
+  const setWeightUnit = async (unit: WeightUnit) => {
+    await updateSettings({
+      payload: new UserSettingsUpdate({ weightUnit: unit }),
+      reactivityKeys: [ReactivityKeys.settings],
+    })
+  }
+
   return {
     weightUnit,
     isLoading,
@@ -96,6 +83,6 @@ export function useUserSettings() {
     formatWeight,
     unitLabel,
     rateLabel,
-    setWeightUnit: setStoredWeightUnit,
+    setWeightUnit,
   }
 }

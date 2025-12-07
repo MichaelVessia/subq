@@ -146,4 +146,7 @@ export const GoalListAtom = ApiClient.query('GoalList', undefined, {
   reactivityKeys: [ReactivityKeys.goals],
 })
 
-// NOTE: Settings stored in localStorage - see use-user-settings.ts
+// Settings atoms
+export const UserSettingsAtom = ApiClient.query('UserSettingsGet', undefined, {
+  reactivityKeys: [ReactivityKeys.settings],
+})
