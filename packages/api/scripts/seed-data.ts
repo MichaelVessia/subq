@@ -62,12 +62,38 @@ export type PhaseEntry = {
   updatedAt: string
 }
 
+export type GoalEntry = {
+  id: string
+  goalWeight: number
+  startingWeight: number
+  startingDate: string
+  targetDate: string | null
+  notes: string | null
+  isActive: boolean
+  completedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type MilestoneEntry = {
+  id: string
+  goalId: string
+  type: 'absolute_lbs' | 'percentage'
+  value: number
+  achievedAt: string | null
+  weightAtAchievement: number | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type ConsistentUserData = {
   schedules: ScheduleEntry[]
   phases: PhaseEntry[]
   injections: InjectionEntry[]
   weights: WeightEntry[]
   inventory: InventoryEntry[]
+  goals: GoalEntry[]
+  milestones: MilestoneEntry[]
 }
 
 const sites = ['left abdomen', 'right abdomen', 'left thigh', 'right thigh']
@@ -480,5 +506,72 @@ export function generateConsistentUserData(): ConsistentUserData {
     })
   }
 
-  return { schedules, phases, injections, weights, inventory }
+  // Generate goal - set ~47% through
+  // User started at 220 lbs, currently around 165 lbs (lost 55 lbs over the year)
+  // For 47% progress: (start - current) / (start - goal) = 0.47
+  // With start=200, current=165: 35 / (200 - goal) = 0.47 => goal = 125.5
+  // So: starting 200, goal 125, current 165 = 35/75 = 46.7% progress
+  const goals: GoalEntry[] = []
+  const milestones: MilestoneEntry[] = []
+
+  const goalId = crypto.randomUUID()
+  const goalStartDate = new Date(startDate)
+  goalStartDate.setDate(goalStartDate.getDate() + 60) // Set goal 2 months into journey (weight ~210)
+
+  // Target date 18 months from goal start (ambitious long-term goal)
+  const goalTargetDate = new Date(goalStartDate)
+  goalTargetDate.setMonth(goalTargetDate.getMonth() + 18)
+
+  goals.push({
+    id: goalId,
+    goalWeight: 125,
+    startingWeight: 200,
+    startingDate: goalStartDate.toISOString(),
+    targetDate: goalTargetDate.toISOString(),
+    notes: 'Long-term goal - doctor says 125 is ideal for my height',
+    isActive: true,
+    completedAt: null,
+    createdAt: goalStartDate.toISOString(),
+    updatedAt: now,
+  })
+
+  // Add milestones - some achieved based on 35 lbs lost so far
+  const milestoneData: Array<{ type: 'absolute_lbs' | 'percentage'; value: number; achieved: boolean }> = [
+    { type: 'absolute_lbs', value: 5, achieved: true },
+    { type: 'absolute_lbs', value: 10, achieved: true },
+    { type: 'absolute_lbs', value: 15, achieved: true },
+    { type: 'percentage', value: 5, achieved: true }, // 5% of 200 = 10 lbs
+    { type: 'absolute_lbs', value: 20, achieved: true },
+    { type: 'absolute_lbs', value: 25, achieved: true },
+    { type: 'percentage', value: 10, achieved: true }, // 10% of 200 = 20 lbs
+    { type: 'absolute_lbs', value: 30, achieved: true },
+    { type: 'absolute_lbs', value: 35, achieved: true },
+    { type: 'percentage', value: 15, achieved: true }, // 15% of 200 = 30 lbs
+    { type: 'absolute_lbs', value: 40, achieved: false }, // Not yet - need 40 lbs lost
+    { type: 'percentage', value: 20, achieved: false }, // 20% of 200 = 40 lbs - not yet
+    { type: 'absolute_lbs', value: 50, achieved: false },
+    { type: 'percentage', value: 25, achieved: false },
+  ]
+
+  for (const m of milestoneData) {
+    const achievedDate = m.achieved ? new Date(goalStartDate) : null
+    if (achievedDate) {
+      // Spread achievements over the journey
+      const daysToAchieve = m.type === 'absolute_lbs' ? m.value * 7 : m.value * 10
+      achievedDate.setDate(achievedDate.getDate() + daysToAchieve)
+    }
+
+    milestones.push({
+      id: crypto.randomUUID(),
+      goalId,
+      type: m.type,
+      value: m.value,
+      achievedAt: achievedDate?.toISOString() ?? null,
+      weightAtAchievement: m.achieved ? (m.type === 'absolute_lbs' ? 203 - m.value : 203 * (1 - m.value / 100)) : null,
+      createdAt: goalStartDate.toISOString(),
+      updatedAt: now,
+    })
+  }
+
+  return { schedules, phases, injections, weights, inventory, goals, milestones }
 }

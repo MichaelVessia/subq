@@ -97,6 +97,8 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
     yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
     yield* sql`DELETE FROM glp1_inventory WHERE user_id = ${userId}`
+    yield* sql`DELETE FROM milestones WHERE user_id = ${userId}`
+    yield* sql`DELETE FROM user_goals WHERE user_id = ${userId}`
 
     console.log(`\nGenerating 1 year of consistent data for user ${userId}...`)
 
@@ -146,6 +148,24 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       `
     }
     console.log(`Inserted ${data.inventory.length} inventory items`)
+
+    // Insert goals
+    for (const goal of data.goals) {
+      yield* sql`
+        INSERT INTO user_goals (id, user_id, goal_weight, starting_weight, starting_date, target_date, notes, is_active, completed_at, created_at, updated_at)
+        VALUES (${goal.id}, ${userId}, ${goal.goalWeight}, ${goal.startingWeight}, ${goal.startingDate}, ${goal.targetDate}, ${goal.notes}, ${goal.isActive ? 1 : 0}, ${goal.completedAt}, ${goal.createdAt}, ${goal.updatedAt})
+      `
+    }
+    console.log(`Inserted ${data.goals.length} goals`)
+
+    // Insert milestones
+    for (const milestone of data.milestones) {
+      yield* sql`
+        INSERT INTO milestones (id, goal_id, user_id, type, value, achieved_at, weight_at_achievement, created_at, updated_at)
+        VALUES (${milestone.id}, ${milestone.goalId}, ${userId}, ${milestone.type}, ${milestone.value}, ${milestone.achievedAt}, ${milestone.weightAtAchievement}, ${milestone.createdAt}, ${milestone.updatedAt})
+      `
+    }
+    console.log(`Inserted ${data.milestones.length} milestones`)
   })
 
 // Run it
