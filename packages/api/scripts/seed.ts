@@ -130,11 +130,11 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     }
     console.log(`Inserted ${data.injections.length} injection logs`)
 
-    // Insert weights
+    // Insert weights (all stored in lbs)
     for (const weight of data.weights) {
       yield* sql`
-        INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
-        VALUES (${weight.id}, ${weight.datetime}, ${weight.weight}, ${weight.unit}, ${weight.notes}, ${userId}, ${weight.createdAt}, ${weight.updatedAt})
+        INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+        VALUES (${weight.id}, ${weight.datetime}, ${weight.weight}, ${weight.notes}, ${userId}, ${weight.createdAt}, ${weight.updatedAt})
       `
     }
     console.log(`Inserted ${data.weights.length} weight logs`)

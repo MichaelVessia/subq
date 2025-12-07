@@ -67,11 +67,11 @@ for (const inj of data.injections) {
 }
 sql.push('')
 
-// Insert weights
+// Insert weights (all stored in lbs)
 for (const weight of data.weights) {
-  sql.push(`INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)`)
+  sql.push(`INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)`)
   sql.push(
-    `VALUES (${escapeSQL(weight.id)}, ${escapeSQL(weight.datetime)}, ${weight.weight}, ${escapeSQL(weight.unit)}, ${escapeSQL(weight.notes)}, ${escapeSQL(USER_ID)}, ${escapeSQL(weight.createdAt)}, ${escapeSQL(weight.updatedAt)});`,
+    `VALUES (${escapeSQL(weight.id)}, ${escapeSQL(weight.datetime)}, ${weight.weight}, ${escapeSQL(weight.notes)}, ${escapeSQL(USER_ID)}, ${escapeSQL(weight.createdAt)}, ${escapeSQL(weight.updatedAt)});`,
   )
 }
 sql.push('')

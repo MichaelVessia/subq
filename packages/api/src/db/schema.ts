@@ -52,13 +52,13 @@ export const verification = sqliteTable('verification', {
 })
 
 // Weight log entries table
+// All weights stored in lbs
 export const weightLogs = sqliteTable(
   'weight_logs',
   {
     id: text('id').primaryKey(), // UUID as text
     datetime: text('datetime').notNull(), // ISO8601 string
-    weight: real('weight').notNull(),
-    unit: text('unit', { enum: ['lbs', 'kg'] }).notNull(),
+    weight: real('weight').notNull(), // Always in lbs
     notes: text('notes'),
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
@@ -169,6 +169,21 @@ export const userGoals = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [index('idx_user_goals_user_id').on(table.userId), index('idx_user_goals_is_active').on(table.isActive)],
+)
+
+// User settings table
+export const userSettings = sqliteTable(
+  'user_settings',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().unique(),
+    weightUnit: text('weight_unit', { enum: ['lbs', 'kg'] })
+      .notNull()
+      .default('lbs'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('idx_user_settings_user_id').on(table.userId)],
 )
 
 // Migrations tracking table

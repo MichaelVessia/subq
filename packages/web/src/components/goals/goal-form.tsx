@@ -1,6 +1,7 @@
 import { Notes, type UserGoal, UserGoalCreate, UserGoalUpdate, Weight } from '@subq/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
+import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
@@ -38,8 +39,12 @@ export function GoalForm(props: GoalFormProps) {
   const { onCancel, currentWeight } = props
   const isEditMode = props.mode === 'edit'
   const existingGoal = isEditMode ? props.existingGoal : undefined
+  const { displayWeight, toStorageLbs, unitLabel } = useUserSettings()
 
-  const [goalWeight, setGoalWeight] = useState(() => (existingGoal ? String(existingGoal.goalWeight) : ''))
+  // Convert existing goal weight from storage (lbs) to display unit
+  const [goalWeight, setGoalWeight] = useState(() =>
+    existingGoal ? String(displayWeight(existingGoal.goalWeight).toFixed(1)) : '',
+  )
   const [targetDate, setTargetDate] = useState(() =>
     existingGoal?.targetDate ? toDateString(new Date(existingGoal.targetDate)) : '',
   )
@@ -57,7 +62,8 @@ export function GoalForm(props: GoalFormProps) {
           if (Number.isNaN(num)) return 'Must be a number'
           if (num <= 0) return 'Must be greater than 0'
           if (num > 1000) return 'Please enter a realistic weight'
-          if (currentWeight && num >= currentWeight) {
+          // Compare in display units - currentWeight is in lbs, convert to display unit
+          if (currentWeight && num >= displayWeight(currentWeight)) {
             return 'Goal weight should be less than current weight'
           }
           return undefined
@@ -66,7 +72,7 @@ export function GoalForm(props: GoalFormProps) {
           return undefined
       }
     },
-    [currentWeight],
+    [currentWeight, displayWeight],
   )
 
   const validateForm = useCallback((): boolean => {
@@ -90,11 +96,14 @@ export function GoalForm(props: GoalFormProps) {
 
     setLoading(true)
     try {
+      // Convert goal weight from display unit to storage (lbs)
+      const goalWeightInLbs = toStorageLbs(Number.parseFloat(goalWeight))
+
       if (isEditMode) {
         await props.onSubmit(
           new UserGoalUpdate({
             id: props.existingGoal.id,
-            goalWeight: Weight.make(Number.parseFloat(goalWeight)),
+            goalWeight: Weight.make(goalWeightInLbs),
             targetDate: targetDate ? new Date(targetDate) : null,
             notes: notes ? Notes.make(notes) : null,
           }),
@@ -102,7 +111,7 @@ export function GoalForm(props: GoalFormProps) {
       } else {
         await props.onSubmit(
           new UserGoalCreate({
-            goalWeight: Weight.make(Number.parseFloat(goalWeight)),
+            goalWeight: Weight.make(goalWeightInLbs),
             targetDate: targetDate ? Option.some(new Date(targetDate)) : Option.none(),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
           }),
@@ -125,13 +134,15 @@ export function GoalForm(props: GoalFormProps) {
       {currentWeight && (
         <div className="mb-4 p-3 bg-muted rounded-lg">
           <span className="text-sm text-muted-foreground">Current weight: </span>
-          <span className="font-mono font-medium">{currentWeight.toFixed(1)} lbs</span>
+          <span className="font-mono font-medium">
+            {displayWeight(currentWeight).toFixed(1)} {unitLabel}
+          </span>
         </div>
       )}
 
       <div className="mb-4">
         <Label htmlFor="goalWeight" className="mb-2 block">
-          Goal Weight (lbs) <span className="text-destructive">*</span>
+          Goal Weight ({unitLabel}) <span className="text-destructive">*</span>
         </Label>
         <Input
           type="number"
@@ -147,7 +158,7 @@ export function GoalForm(props: GoalFormProps) {
           step="0.1"
           min="0"
           max="1000"
-          placeholder="e.g., 160"
+          placeholder={unitLabel === 'kg' ? 'e.g., 72' : 'e.g., 160'}
           error={touched.goalWeight && !!errors.goalWeight}
         />
         {touched.goalWeight && errors.goalWeight && (

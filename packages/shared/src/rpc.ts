@@ -10,6 +10,8 @@ import { WeightRpcs } from './weight/rpc.js'
 // Combined App RPCs - Merge all domain RPCs
 // ============================================
 
+// NOTE: SettingsRpcs temporarily disabled due to Effect RPC bug
+// Settings are stored in localStorage instead
 export const AppRpcs = WeightRpcs.merge(InjectionRpcs)
   .merge(InventoryRpcs)
   .merge(ScheduleRpcs)
@@ -24,3 +26,4 @@ export { InventoryRpcs } from './inventory/rpc.js'
 export { ScheduleRpcs } from './schedule/rpc.js'
 export { StatsRpcs } from './stats/rpc.js'
 export { GoalRpcs } from './goals/rpc.js'
+export { SettingsRpcs } from './settings/rpc.js'

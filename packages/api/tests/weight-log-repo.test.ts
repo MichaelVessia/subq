@@ -52,7 +52,6 @@ const WeightLogRepoTest = Layer.sync(WeightLogRepo, () => {
           id,
           datetime: data.datetime,
           weight: data.weight,
-          unit: data.unit,
           notes: Option.isSome(data.notes) ? data.notes.value : null,
           createdAt: now,
           updatedAt: now,
@@ -71,7 +70,6 @@ const WeightLogRepoTest = Layer.sync(WeightLogRepo, () => {
           ...current,
           datetime: data.datetime ?? current.datetime,
           weight: data.weight ?? current.weight,
-          unit: data.unit ?? current.unit,
           notes: data.notes !== undefined && Option.isSome(data.notes) ? data.notes.value : current.notes,
           updatedAt: new Date(),
         })
@@ -101,14 +99,12 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-15T10:00:00Z'),
           weight: Weight.make(185.5),
-          unit: 'lbs',
           notes: Option.some(Notes.make('Morning weigh-in')),
         },
         'user-123',
       )
 
       expect(created.weight).toBe(185.5)
-      expect(created.unit).toBe('lbs')
       expect(created.notes).toBe('Morning weigh-in')
     }).pipe(Effect.provide(WeightLogRepoTest)),
   )
@@ -121,7 +117,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-15T10:00:00Z'),
           weight: Weight.make(180),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',
@@ -154,7 +149,6 @@ describe('WeightLogRepo', () => {
           {
             datetime: new Date(`2024-01-${15 + i}T10:00:00Z`),
             weight: Weight.make(180 + i),
-            unit: 'lbs',
             notes: Option.none(),
           },
           'user-123',
@@ -180,7 +174,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-15T10:00:00Z'),
           weight: Weight.make(185),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',
@@ -194,8 +187,6 @@ describe('WeightLogRepo', () => {
 
       expect(updated.weight).toBe(184)
       expect(updated.notes).toBe('After workout')
-      // Unit should remain unchanged
-      expect(updated.unit).toBe('lbs')
     }).pipe(Effect.provide(WeightLogRepoTest)),
   )
 
@@ -207,7 +198,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-15T10:00:00Z'),
           weight: Weight.make(185),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',
@@ -238,7 +228,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-10T10:00:00Z'),
           weight: Weight.make(180),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',
@@ -247,7 +236,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-15T10:00:00Z'),
           weight: Weight.make(181),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',
@@ -256,7 +244,6 @@ describe('WeightLogRepo', () => {
         {
           datetime: new Date('2024-01-20T10:00:00Z'),
           weight: Weight.make(182),
-          unit: 'lbs',
           notes: Option.none(),
         },
         'user-123',

@@ -1,10 +1,10 @@
-import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId, type WeightUnit } from '@subq/shared'
+import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId } from '@subq/shared'
 import { Option } from 'effect'
 import { useCallback, useState } from 'react'
+import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
-import { Select } from '../ui/select.js'
 import { Textarea } from '../ui/textarea.js'
 
 function toLocalDatetimeString(date: Date): string {
@@ -23,8 +23,7 @@ interface WeightLogFormProps {
   initialData?: {
     id?: WeightLogId
     datetime?: Date
-    weight?: number
-    unit?: WeightUnit
+    weight?: number // Weight in lbs (from storage)
     notes?: string | null
   }
 }
@@ -35,10 +34,14 @@ interface FormErrors {
 }
 
 export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: WeightLogFormProps) {
+  const { weightUnit, displayWeight, toStorageLbs } = useUserSettings()
   const isEditing = !!initialData?.id
+
+  // Convert initial weight from storage (lbs) to display unit for the form
+  const initialDisplayWeight = initialData?.weight ? displayWeight(initialData.weight).toString() : ''
+
   const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
-  const [weight, setWeight] = useState(initialData?.weight?.toString() ?? '')
-  const [unit, setUnit] = useState<WeightUnit>(initialData?.unit ?? 'lbs')
+  const [weight, setWeight] = useState(initialDisplayWeight)
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -88,13 +91,15 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
 
     setLoading(true)
     try {
+      // Convert from user's display unit to storage unit (lbs)
+      const weightInLbs = toStorageLbs(Number.parseFloat(weight))
+
       if (isEditing && onUpdate && initialData?.id) {
         await onUpdate(
           new WeightLogUpdate({
             id: initialData.id,
             datetime: new Date(datetime),
-            weight: Weight.make(Number.parseFloat(weight)),
-            unit,
+            weight: Weight.make(weightInLbs),
             notes: Option.some(notes ? Notes.make(notes) : null),
           }),
         )
@@ -102,8 +107,7 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         await onSubmit(
           new WeightLogCreate({
             datetime: new Date(datetime),
-            weight: Weight.make(Number.parseFloat(weight)),
-            unit,
+            weight: Weight.make(weightInLbs),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
           }),
         )
@@ -140,42 +144,30 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto] gap-4 mb-4">
-        <div>
-          <Label htmlFor="weight" className="mb-2 block">
-            Weight <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="number"
-            id="weight"
-            value={weight}
-            onChange={(e) => {
-              setWeight(e.target.value)
-              if (touched.weight) {
-                setErrors((prev) => ({ ...prev, weight: validateField('weight', e.target.value) }))
-              }
-            }}
-            onBlur={(e) => handleBlur('weight', e.target.value)}
-            step="0.1"
-            min="0"
-            max="1000"
-            placeholder="e.g., 185.5"
-            error={touched.weight && !!errors.weight}
-          />
-          {touched.weight && errors.weight && (
-            <span className="block text-xs text-destructive mt-1">{errors.weight}</span>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="unit" className="mb-2 block">
-            Unit
-          </Label>
-          <Select id="unit" value={unit} onChange={(e) => setUnit(e.target.value as WeightUnit)}>
-            <option value="lbs">lbs</option>
-            <option value="kg">kg</option>
-          </Select>
-        </div>
+      <div className="mb-4">
+        <Label htmlFor="weight" className="mb-2 block">
+          Weight ({weightUnit}) <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          type="number"
+          id="weight"
+          value={weight}
+          onChange={(e) => {
+            setWeight(e.target.value)
+            if (touched.weight) {
+              setErrors((prev) => ({ ...prev, weight: validateField('weight', e.target.value) }))
+            }
+          }}
+          onBlur={(e) => handleBlur('weight', e.target.value)}
+          step="0.1"
+          min="0"
+          max="1000"
+          placeholder={weightUnit === 'kg' ? 'e.g., 84.0' : 'e.g., 185.5'}
+          error={touched.weight && !!errors.weight}
+        />
+        {touched.weight && errors.weight && (
+          <span className="block text-xs text-destructive mt-1">{errors.weight}</span>
+        )}
       </div>
 
       <div className="mb-5">

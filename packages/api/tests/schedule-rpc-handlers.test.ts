@@ -507,12 +507,15 @@ describe('ScheduleGetNextDose', () => {
     it.effect('handles monthly frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
+        // Use midnight-aligned dates to avoid timing issues
+        const now = new Date()
+        now.setHours(12, 0, 0, 0)
+        const startDate = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
         testState.activeSchedule = createTestSchedule(startDate, 'monthly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '1000mg' },
         ])
         // Last injection was 20 days ago
-        testState.lastInjectionDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000)
+        testState.lastInjectionDate = new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000)
 
         const result = yield* calculateNextDose
 

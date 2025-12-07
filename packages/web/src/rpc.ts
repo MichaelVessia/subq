@@ -38,6 +38,7 @@ export const ReactivityKeys = {
   inventory: 'inventory',
   schedule: 'schedule',
   goals: 'goals',
+  settings: 'settings',
 } as const
 
 // Factory functions for queries (no longer need userId - server gets it from session)
@@ -144,3 +145,5 @@ export const GoalProgressAtom = ApiClient.query('GoalGetProgress', undefined, {
 export const GoalListAtom = ApiClient.query('GoalList', undefined, {
   reactivityKeys: [ReactivityKeys.goals],
 })
+
+// NOTE: Settings stored in localStorage - see use-user-settings.ts

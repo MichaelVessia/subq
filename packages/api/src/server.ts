@@ -18,6 +18,8 @@ import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/inde
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
+// NOTE: Settings temporarily disabled - stored in localStorage instead
+// import { SettingsRepoLive } from './settings/index.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
@@ -114,6 +116,7 @@ const AuthLive = Layer.unwrapEffect(
 )
 
 // Combine all domain RPC handlers
+// NOTE: SettingsRpcHandlersLive disabled - settings stored in localStorage
 const RpcHandlersLive = Layer.mergeAll(
   WeightRpcHandlersLive,
   InjectionRpcHandlersLive,
@@ -124,6 +127,7 @@ const RpcHandlersLive = Layer.mergeAll(
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
+// NOTE: SettingsRepoLive disabled - settings stored in localStorage
 const RepositoriesLive = Layer.mergeAll(
   WeightLogRepoLive,
   InjectionLogRepoLive,

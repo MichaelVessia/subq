@@ -3,6 +3,7 @@ import type { GoalProgress, UserGoalCreate, UserGoalUpdate } from '@subq/shared'
 import { UserGoalDelete } from '@subq/shared'
 import { Target, TrendingDown, TrendingUp, Calendar, Minus, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { ApiClient, GoalProgressAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
@@ -40,6 +41,7 @@ function ProgressBar({ percent }: { percent: number }) {
 }
 
 function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
+  const { displayWeight, unitLabel } = useUserSettings()
   const {
     goal,
     currentWeight,
@@ -62,9 +64,13 @@ function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
         </div>
         <ProgressBar percent={percentComplete} />
         <div className="flex justify-between mt-2 text-sm">
-          <span className="font-mono">{goal.startingWeight.toFixed(1)} lbs</span>
+          <span className="font-mono">
+            {displayWeight(goal.startingWeight).toFixed(1)} {unitLabel}
+          </span>
           <span className="font-semibold">{percentComplete.toFixed(0)}%</span>
-          <span className="font-mono">{goal.goalWeight.toFixed(1)} lbs</span>
+          <span className="font-mono">
+            {displayWeight(goal.goalWeight).toFixed(1)} {unitLabel}
+          </span>
         </div>
       </div>
 
@@ -75,8 +81,8 @@ function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
             <TrendingDown className="w-4 h-4" />
             <span className="text-xs">Lost</span>
           </div>
-          <span className="font-mono font-semibold text-lg">{lbsLost.toFixed(1)}</span>
-          <span className="text-xs text-muted-foreground ml-1">lbs</span>
+          <span className="font-mono font-semibold text-lg">{displayWeight(lbsLost).toFixed(1)}</span>
+          <span className="text-xs text-muted-foreground ml-1">{unitLabel}</span>
         </div>
 
         <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -84,8 +90,8 @@ function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
             <Target className="w-4 h-4" />
             <span className="text-xs">To Go</span>
           </div>
-          <span className="font-mono font-semibold text-lg">{lbsRemaining.toFixed(1)}</span>
-          <span className="text-xs text-muted-foreground ml-1">lbs</span>
+          <span className="font-mono font-semibold text-lg">{displayWeight(lbsRemaining).toFixed(1)}</span>
+          <span className="text-xs text-muted-foreground ml-1">{unitLabel}</span>
         </div>
 
         <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -99,8 +105,8 @@ function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
             )}
             <span className="text-xs">Avg/Week</span>
           </div>
-          <span className="font-mono font-semibold text-lg">{avgLbsPerWeek.toFixed(2)}</span>
-          <span className="text-xs text-muted-foreground ml-1">lbs</span>
+          <span className="font-mono font-semibold text-lg">{displayWeight(avgLbsPerWeek).toFixed(2)}</span>
+          <span className="text-xs text-muted-foreground ml-1">{unitLabel}</span>
         </div>
 
         <div className="text-center p-3 bg-muted/50 rounded-lg">
@@ -127,7 +133,9 @@ function GoalProgressDisplay({ progress }: { progress: GoalProgress }) {
       {/* Current Weight */}
       <div className="flex items-center justify-between p-3 border rounded-lg">
         <span className="text-muted-foreground">Current weight</span>
-        <span className="font-mono font-semibold text-xl">{currentWeight.toFixed(1)} lbs</span>
+        <span className="font-mono font-semibold text-xl">
+          {displayWeight(currentWeight).toFixed(1)} {unitLabel}
+        </span>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
+import { Settings } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { signOut, useSession } from '../../auth.js'
 import { cn } from '../../lib/utils.js'
@@ -30,6 +31,11 @@ export function RootLayout() {
 
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-xs text-muted-foreground">{session.user.email}</span>
+            <Link to="/settings">
+              <Button variant="ghost" size="icon" title="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"

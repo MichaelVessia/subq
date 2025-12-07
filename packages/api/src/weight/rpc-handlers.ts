@@ -45,7 +45,6 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
           rpc: 'WeightLogCreate',
           userId: user.id,
           weight: data.weight,
-          unit: data.unit,
         }),
       )
       const weightLog = yield* repo.create(data, user.id)

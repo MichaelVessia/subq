@@ -18,11 +18,11 @@ import { Effect, Layer, Option, Schema } from 'effect'
 
 // Schema for rows as they come from SQLite
 // (snake_case columns, ISO strings for dates, numbers for weight)
+// All weights are stored in lbs
 const WeightLogRow = Schema.Struct({
   id: Schema.String,
   datetime: Schema.String, // SQLite stores as ISO string
-  weight: Schema.Number, // SQLite stores as number
-  unit: Schema.Literal('lbs', 'kg'),
+  weight: Schema.Number, // SQLite stores as number, always in lbs
   notes: Schema.NullOr(Schema.String),
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -36,7 +36,6 @@ const rowToDomain = (row: typeof WeightLogRow.Type): WeightLog =>
     id: WeightLogId.make(row.id),
     datetime: new Date(row.datetime),
     weight: Weight.make(row.weight),
-    unit: row.unit,
     notes: row.notes ? Notes.make(row.notes) : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -81,7 +80,7 @@ export const WeightLogRepoLive = Layer.effect(
         const endDateStr = params.endDate?.toISOString()
 
         const rows = yield* sql`
-          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
           WHERE user_id = ${userId}
           ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
@@ -96,7 +95,7 @@ export const WeightLogRepoLive = Layer.effect(
     const findById = (id: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
-          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
           WHERE id = ${id}
         `
@@ -113,13 +112,13 @@ export const WeightLogRepoLive = Layer.effect(
         const datetimeStr = data.datetime.toISOString()
 
         yield* sql`
-          INSERT INTO weight_logs (id, datetime, weight, unit, notes, user_id, created_at, updated_at)
-          VALUES (${id}, ${datetimeStr}, ${data.weight}, ${data.unit}, ${notes}, ${userId}, ${now}, ${now})
+          INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+          VALUES (${id}, ${datetimeStr}, ${data.weight}, ${notes}, ${userId}, ${now}, ${now})
         `
 
         // Fetch the inserted row
         const rows = yield* sql`
-          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
           WHERE id = ${id}
         `
@@ -130,7 +129,7 @@ export const WeightLogRepoLive = Layer.effect(
       Effect.gen(function* () {
         // First get current values
         const current = yield* sql`
-          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs WHERE id = ${data.id}
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
@@ -143,7 +142,6 @@ export const WeightLogRepoLive = Layer.effect(
         )
         const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
         const newWeight = data.weight ?? curr.weight
-        const newUnit = data.unit ?? curr.unit
         const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
         const now = new Date().toISOString()
 
@@ -151,7 +149,6 @@ export const WeightLogRepoLive = Layer.effect(
           UPDATE weight_logs
           SET datetime = ${newDatetime},
               weight = ${newWeight},
-              unit = ${newUnit},
               notes = ${newNotes},
               updated_at = ${now}
           WHERE id = ${data.id}
@@ -159,7 +156,7 @@ export const WeightLogRepoLive = Layer.effect(
 
         // Fetch updated row
         const rows = yield* sql`
-          SELECT id, datetime, weight, unit, notes, created_at, updated_at
+          SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
           WHERE id = ${data.id}
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))

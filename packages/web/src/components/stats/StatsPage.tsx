@@ -16,6 +16,7 @@ import * as d3 from 'd3'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useContainerSize } from '../../hooks/use-container-size.js'
 import { useDateRangeParams } from '../../hooks/use-date-range-params.js'
+import { useUserSettings } from '../../hooks/use-user-settings.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
@@ -100,17 +101,25 @@ function computeSchedulePeriods(schedules: readonly InjectionSchedule[]): Schedu
 // Weight Summary Stats
 // ============================================
 
-function WeightSummary({ stats }: { stats: WeightStats | null }) {
+interface WeightSummaryProps {
+  stats: WeightStats | null
+  displayWeight: (lbs: number) => number
+  unitLabel: string
+}
+
+function WeightSummary({ stats, displayWeight, unitLabel }: WeightSummaryProps) {
   if (!stats) {
     return <div className="text-muted-foreground">No weight data available</div>
   }
 
   const rateSign = stats.rateOfChange >= 0 ? '+' : ''
+  // Convert rate of change to display unit (rate is in lbs/week)
+  const displayRate = displayWeight(Math.abs(stats.rateOfChange))
   const items = [
-    { label: 'Min', value: `${stats.minWeight.toFixed(1)} lbs` },
-    { label: 'Max', value: `${stats.maxWeight.toFixed(1)} lbs` },
-    { label: 'Average', value: `${stats.avgWeight.toFixed(1)} lbs` },
-    { label: 'Rate', value: `${rateSign}${stats.rateOfChange.toFixed(2)} lbs/wk` },
+    { label: 'Min', value: `${displayWeight(stats.minWeight).toFixed(1)} ${unitLabel}` },
+    { label: 'Max', value: `${displayWeight(stats.maxWeight).toFixed(1)} ${unitLabel}` },
+    { label: 'Average', value: `${displayWeight(stats.avgWeight).toFixed(1)} ${unitLabel}` },
+    { label: 'Rate', value: `${rateSign}${displayRate.toFixed(2)} ${unitLabel}/wk` },
     { label: 'Entries', value: stats.entryCount.toString() },
   ]
 
@@ -142,6 +151,8 @@ interface WeightTrendChartProps {
   trendLine: TrendLine | null
   zoomRange: { start: Date; end: Date } | null
   onZoom: (range: { start: Date; end: Date }) => void
+  displayWeight: (lbs: number) => number
+  unitLabel: string
 }
 
 interface DrugDosageFilter {
@@ -160,6 +171,8 @@ function WeightTrendChart({
   trendLine,
   zoomRange,
   onZoom,
+  displayWeight,
+  unitLabel,
 }: WeightTrendChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const { containerRef, width: containerWidth } = useContainerSize<HTMLDivElement>()
@@ -419,14 +432,15 @@ function WeightTrendChart({
       const trendStartY = trendLine.slope * xDomain[0].getTime() + trendLine.intercept
       const trendEndY = trendLine.slope * xDomain[1].getTime() + trendLine.intercept
 
-      // Calculate rate of change in lbs per week for display
+      // Calculate rate of change in display units per week
       const msPerWeek = 7 * 24 * 60 * 60 * 1000
       const lbsPerWeek = trendLine.slope * msPerWeek
+      const displayRatePerWeek = displayWeight(Math.abs(lbsPerWeek))
       const direction = lbsPerWeek > 0.01 ? 'gaining' : lbsPerWeek < -0.01 ? 'losing' : 'maintaining'
       const rateText =
         direction === 'maintaining'
           ? 'Maintaining weight'
-          : `${direction === 'gaining' ? '+' : ''}${lbsPerWeek.toFixed(2)} lbs/week`
+          : `${direction === 'gaining' ? '+' : '-'}${displayRatePerWeek.toFixed(2)} ${unitLabel}/week`
 
       // Wider invisible hit area for easier interaction
       g.append('line')
@@ -445,7 +459,8 @@ function WeightTrendChart({
                 <div className="font-semibold mb-0.5">Trend Line</div>
                 <div className="opacity-90">{rateText}</div>
                 <div className="text-[10px] opacity-70 mt-1">
-                  {trendLine.startWeight.toFixed(1)} → {trendLine.endWeight.toFixed(1)} lbs
+                  {displayWeight(trendLine.startWeight).toFixed(1)} → {displayWeight(trendLine.endWeight).toFixed(1)}{' '}
+                  {unitLabel}
                 </div>
               </div>
             ),
@@ -464,7 +479,8 @@ function WeightTrendChart({
                 <div className="font-semibold mb-0.5">Trend Line</div>
                 <div className="opacity-90">{rateText}</div>
                 <div className="text-[10px] opacity-70 mt-1">
-                  {trendLine.startWeight.toFixed(1)} → {trendLine.endWeight.toFixed(1)} lbs
+                  {displayWeight(trendLine.startWeight).toFixed(1)} → {displayWeight(trendLine.endWeight).toFixed(1)}{' '}
+                  {unitLabel}
                 </div>
               </div>
             ),
@@ -509,7 +525,9 @@ function WeightTrendChart({
         setTooltip({
           content: (
             <div>
-              <div className="font-semibold mb-0.5">{d.weight} lbs</div>
+              <div className="font-semibold mb-0.5">
+                {displayWeight(d.weight).toFixed(1)} {unitLabel}
+              </div>
               <div className="opacity-70">{formatDate(d.date)}</div>
               {d.notes && <div className="mt-1 opacity-80">{d.notes}</div>}
             </div>
@@ -792,7 +810,7 @@ function WeightTrendChart({
         .attr('text-anchor', 'middle')
         .attr('fill', '#9ca3af')
         .attr('font-size', '11px')
-        .text('Weight (lbs)')
+        .text(`Weight (${unitLabel})`)
     }
 
     // Interactive schedule hover zones at the bottom (rendered last to be on top)
@@ -865,7 +883,18 @@ function WeightTrendChart({
           setTooltip(null)
         })
     }
-  }, [weightData, injectionData, schedulePeriods, trendLine, zoomRange, onZoom, containerWidth, selectedFilter])
+  }, [
+    weightData,
+    injectionData,
+    schedulePeriods,
+    trendLine,
+    zoomRange,
+    onZoom,
+    containerWidth,
+    selectedFilter,
+    displayWeight,
+    unitLabel,
+  ])
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -1134,6 +1163,7 @@ function InjectionDayOfWeekPieChart({ data }: { data: InjectionDayOfWeekStats })
 
 export function StatsPage() {
   const { range, setRange, setPreset, activePreset } = useDateRangeParams()
+  const { displayWeight, unitLabel } = useUserSettings()
 
   const handleZoom = useCallback(
     (zoomRange: { start: Date; end: Date }) => {
@@ -1246,7 +1276,7 @@ export function StatsPage() {
             <CardTitle>Weight Statistics</CardTitle>
           </CardHeader>
           <CardContent>
-            <WeightSummary stats={weightStats} />
+            <WeightSummary stats={weightStats} displayWeight={displayWeight} unitLabel={unitLabel} />
           </CardContent>
         </Card>
 
@@ -1264,6 +1294,8 @@ export function StatsPage() {
                 trendLine={weightTrend.trendLine}
                 zoomRange={zoomRange}
                 onZoom={handleZoom}
+                displayWeight={displayWeight}
+                unitLabel={unitLabel}
               />
             ) : (
               <div className="text-muted-foreground h-[200px]">No weight data available</div>

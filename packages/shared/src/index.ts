@@ -8,6 +8,7 @@ export * from './inventory/index.js'
 export * from './schedule/index.js'
 export * from './stats/index.js'
 export * from './goals/index.js'
+export * from './settings/index.js'
 
 // RPC definitions
 export * from './rpc.js'

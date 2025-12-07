@@ -3,6 +3,7 @@ import { InjectionLogList } from './components/injection/injection-log-list.js'
 import { InventoryList } from './components/inventory/inventory-list.js'
 import { SchedulePage } from './components/schedule/schedule-page.js'
 import { ScheduleViewPage } from './components/schedule/schedule-view-page.js'
+import { SettingsPage } from './components/settings/settings-page.js'
 import { StatsPage } from './components/stats/StatsPage.js'
 import { WeightLogList } from './components/weight/weight-log-list.js'
 import { RootLayout } from './components/layout/root-layout.js'
@@ -65,6 +66,12 @@ const scheduleViewRoute = createRoute({
   component: ScheduleViewPage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   statsRoute,
@@ -73,6 +80,7 @@ const routeTree = rootRoute.addChildren([
   inventoryRoute,
   scheduleRoute,
   scheduleViewRoute,
+  settingsRoute,
 ])
 
 export const router = createRouter({ routeTree })

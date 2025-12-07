@@ -20,8 +20,7 @@ export type InjectionEntry = {
 export type WeightEntry = {
   id: string
   datetime: string
-  weight: number
-  unit: string
+  weight: number // Always in lbs
   notes: string | null
   createdAt: string
   updatedAt: string
@@ -380,7 +379,6 @@ export function generateConsistentUserData(): ConsistentUserData {
         id: crypto.randomUUID(),
         datetime: weightDate.toISOString(),
         weight,
-        unit: 'lbs',
         notes,
         createdAt: now,
         updatedAt: now,

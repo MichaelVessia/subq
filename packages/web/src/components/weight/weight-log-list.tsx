@@ -3,6 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@subq/shared'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
@@ -24,6 +25,7 @@ const formatDate = (date: Date) =>
   }).format(new Date(date))
 
 export function WeightLogList() {
+  const { formatWeight, unitLabel } = useUserSettings()
   const weightLogAtom = useMemo(() => createWeightLogListAtom(), [])
   const logsResult = useAtomValue(weightLogAtom)
   const [showForm, setShowForm] = useState(false)
@@ -72,13 +74,9 @@ export function WeightLogList() {
       },
       {
         accessorKey: 'weight',
-        header: 'Weight',
+        header: `Weight (${unitLabel})`,
         size: 100,
-        cell: ({ row }) => (
-          <span className="font-mono font-medium">
-            {row.getValue('weight')} {row.original.unit}
-          </span>
-        ),
+        cell: ({ row }) => <span className="font-mono font-medium">{formatWeight(row.getValue('weight'))}</span>,
         sortingFn: 'basic',
       },
       {
@@ -122,7 +120,7 @@ export function WeightLogList() {
         },
       },
     ],
-    [handleDelete, handleEdit],
+    [handleDelete, handleEdit, formatWeight, unitLabel],
   )
 
   if (Result.isWaiting(logsResult)) {
@@ -154,7 +152,6 @@ export function WeightLogList() {
               id: editingLog.id,
               datetime: editingLog.datetime,
               weight: editingLog.weight,
-              unit: editingLog.unit,
               notes: editingLog.notes,
             }}
           />
