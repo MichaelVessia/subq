@@ -141,8 +141,8 @@ test.describe
       // Open edit form then cancel
       await page.click('[title="Edit goal"]')
       await expect(page.locator('button:has-text("Save Changes")')).toBeVisible()
-      // Fill with a valid value that won't trigger validation error
-      await page.fill('input#goalWeight', '170')
+      // Fill with a valid value that won't trigger validation error (must be less than current weight)
+      await page.fill('input#goalWeight', '140')
       // Wait a moment then cancel
       await page.waitForTimeout(200)
       await page.click('button:has-text("Cancel")')

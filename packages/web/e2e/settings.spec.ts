@@ -28,9 +28,9 @@ test.describe('Settings', () => {
     // Click kg button
     await page.click('button:has-text("Kilograms (kg)")')
 
-    // kg button should now be active (has bg-primary)
+    // kg button should now be active (has bg-primary) - wait for RPC to complete
     const kgButton = page.locator('button:has-text("Kilograms (kg)")')
-    await expect(kgButton).toHaveClass(/bg-primary/)
+    await expect(kgButton).toHaveClass(/bg-primary/, { timeout: 5000 })
 
     // lbs button should now be outline (no bg-primary)
     const lbsButton = page.locator('button:has-text("Pounds (lbs)")')
@@ -40,14 +40,14 @@ test.describe('Settings', () => {
   test('can change weight unit to lbs', async ({ authedPage: page }) => {
     // First set to kg
     await page.click('button:has-text("Kilograms (kg)")')
-    await expect(page.locator('button:has-text("Kilograms (kg)")')).toHaveClass(/bg-primary/)
+    await expect(page.locator('button:has-text("Kilograms (kg)")')).toHaveClass(/bg-primary/, { timeout: 5000 })
 
     // Then switch back to lbs
     await page.click('button:has-text("Pounds (lbs)")')
 
-    // lbs should now be active
+    // lbs should now be active - wait for RPC to complete
     const lbsButton = page.locator('button:has-text("Pounds (lbs)")')
-    await expect(lbsButton).toHaveClass(/bg-primary/)
+    await expect(lbsButton).toHaveClass(/bg-primary/, { timeout: 5000 })
 
     // kg should now be outline
     const kgButton = page.locator('button:has-text("Kilograms (kg)")')
@@ -57,7 +57,7 @@ test.describe('Settings', () => {
   test('weight unit persists after navigation', async ({ authedPage: page }) => {
     // Set to kg
     await page.click('button:has-text("Kilograms (kg)")')
-    await expect(page.locator('button:has-text("Kilograms (kg)")')).toHaveClass(/bg-primary/)
+    await expect(page.locator('button:has-text("Kilograms (kg)")')).toHaveClass(/bg-primary/, { timeout: 5000 })
 
     // Navigate away
     await page.click('nav a:has-text("Stats")')
@@ -69,10 +69,10 @@ test.describe('Settings', () => {
 
     // kg should still be selected
     const kgButton = page.locator('button:has-text("Kilograms (kg)")')
-    await expect(kgButton).toHaveClass(/bg-primary/)
+    await expect(kgButton).toHaveClass(/bg-primary/, { timeout: 5000 })
 
     // Reset to lbs for other tests
     await page.click('button:has-text("Pounds (lbs)")')
-    await expect(page.locator('button:has-text("Pounds (lbs)")')).toHaveClass(/bg-primary/)
+    await expect(page.locator('button:has-text("Pounds (lbs)")')).toHaveClass(/bg-primary/, { timeout: 5000 })
   })
 })

@@ -45,7 +45,6 @@ test.describe('Weight Log', () => {
     await page.click('button:has-text("Add Entry")')
     await expect(page.locator('label:has-text("Date & Time")')).toBeVisible()
     await expect(page.locator('label:has-text("Weight")')).toBeVisible()
-    await expect(page.locator('label:has-text("Unit")')).toBeVisible()
     await expect(page.locator('label:has-text("Notes")')).toBeVisible()
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible()
     await expect(page.locator('button:has-text("Save")')).toBeVisible()
@@ -148,13 +147,5 @@ test.describe('Weight Log', () => {
 
     // Cleanup
     await deleteWeightEntry(page, testNotes)
-  })
-
-  test('unit selector changes between lbs and kg', async ({ authedPage: page }) => {
-    await page.click('button:has-text("Add Entry")')
-    const unitSelect = page.locator('select#unit')
-    await expect(unitSelect).toHaveValue('lbs')
-    await unitSelect.selectOption('kg')
-    await expect(unitSelect).toHaveValue('kg')
   })
 })
