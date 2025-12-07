@@ -53,7 +53,6 @@
 ### Progress & Goals
 
 - Goal weight + checkpoints
-- Milestones (10 lbs, 50 lbs, % body weight)
 - Starting weight per med (useful context for switchers)
 
 ### Progress Pictures

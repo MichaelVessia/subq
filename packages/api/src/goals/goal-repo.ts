@@ -1,0 +1,213 @@
+import { SqlClient } from '@effect/sql'
+import {
+  GoalDatabaseError,
+  GoalId,
+  GoalNotFoundError,
+  Notes,
+  UserGoal,
+  type UserGoalCreate,
+  type UserGoalUpdate,
+  Weight,
+} from '@subq/shared'
+import { Effect, Layer, Option, Schema } from 'effect'
+
+// ============================================
+// Database Row Schemas
+// ============================================
+
+const GoalRow = Schema.Struct({
+  id: Schema.String,
+  user_id: Schema.String,
+  goal_weight: Schema.Number,
+  starting_weight: Schema.Number,
+  starting_date: Schema.String,
+  target_date: Schema.NullOr(Schema.String),
+  notes: Schema.NullOr(Schema.String),
+  is_active: Schema.Number,
+  completed_at: Schema.NullOr(Schema.String),
+  created_at: Schema.String,
+  updated_at: Schema.String,
+})
+
+const decodeGoalRow = Schema.decodeUnknown(GoalRow)
+
+const goalRowToDomain = (row: typeof GoalRow.Type): UserGoal =>
+  new UserGoal({
+    id: GoalId.make(row.id),
+    goalWeight: Weight.make(row.goal_weight),
+    startingWeight: Weight.make(row.starting_weight),
+    startingDate: new Date(row.starting_date),
+    targetDate: row.target_date ? new Date(row.target_date) : null,
+    notes: row.notes ? Notes.make(row.notes) : null,
+    isActive: row.is_active === 1,
+    completedAt: row.completed_at ? new Date(row.completed_at) : null,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  })
+
+const generateUuid = () => crypto.randomUUID()
+
+// ============================================
+// Repository Service Definition
+// ============================================
+
+export class GoalRepo extends Effect.Tag('GoalRepo')<
+  GoalRepo,
+  {
+    readonly list: (userId: string) => Effect.Effect<UserGoal[], GoalDatabaseError>
+    readonly getActive: (userId: string) => Effect.Effect<Option.Option<UserGoal>, GoalDatabaseError>
+    readonly findById: (id: string) => Effect.Effect<Option.Option<UserGoal>, GoalDatabaseError>
+    readonly create: (
+      data: UserGoalCreate,
+      startingWeight: number,
+      userId: string,
+    ) => Effect.Effect<UserGoal, GoalDatabaseError>
+    readonly update: (data: UserGoalUpdate) => Effect.Effect<UserGoal, GoalNotFoundError | GoalDatabaseError>
+    readonly delete: (id: string) => Effect.Effect<boolean, GoalDatabaseError>
+  }
+>() {}
+
+// ============================================
+// Repository Implementation
+// ============================================
+
+export const GoalRepoLive = Layer.effect(
+  GoalRepo,
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+
+    const list = (userId: string) =>
+      Effect.gen(function* () {
+        const rows = yield* sql`
+          SELECT id, user_id, goal_weight, starting_weight, starting_date,
+                 target_date, notes, is_active, completed_at, created_at, updated_at
+          FROM user_goals
+          WHERE user_id = ${userId}
+          ORDER BY created_at DESC
+        `
+        const decoded = yield* Effect.all(rows.map((r) => decodeGoalRow(r)))
+        return decoded.map(goalRowToDomain)
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
+
+    const getActive = (userId: string) =>
+      Effect.gen(function* () {
+        const rows = yield* sql`
+          SELECT id, user_id, goal_weight, starting_weight, starting_date,
+                 target_date, notes, is_active, completed_at, created_at, updated_at
+          FROM user_goals
+          WHERE user_id = ${userId} AND is_active = 1
+        `
+        if (rows.length === 0) {
+          return Option.none()
+        }
+        const decoded = yield* decodeGoalRow(rows[0])
+        return Option.some(goalRowToDomain(decoded))
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
+
+    const findById = (id: string) =>
+      Effect.gen(function* () {
+        const rows = yield* sql`
+          SELECT id, user_id, goal_weight, starting_weight, starting_date,
+                 target_date, notes, is_active, completed_at, created_at, updated_at
+          FROM user_goals
+          WHERE id = ${id}
+        `
+        if (rows.length === 0) {
+          return Option.none()
+        }
+        const decoded = yield* decodeGoalRow(rows[0])
+        return Option.some(goalRowToDomain(decoded))
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
+
+    const create = (data: UserGoalCreate, startingWeight: number, userId: string) =>
+      Effect.gen(function* () {
+        const id = generateUuid()
+        const now = new Date().toISOString()
+        const startingDate = now.split('T')[0]! // Just the date part
+        const targetDate = Option.isSome(data.targetDate) ? data.targetDate.value.toISOString() : null
+        const notes = Option.isSome(data.notes) ? data.notes.value : null
+
+        // Deactivate any existing active goals for this user
+        yield* sql`UPDATE user_goals SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
+
+        // Create the goal
+        yield* sql`
+          INSERT INTO user_goals (id, user_id, goal_weight, starting_weight, starting_date, target_date, notes, is_active, created_at, updated_at)
+          VALUES (${id}, ${userId}, ${data.goalWeight}, ${startingWeight}, ${startingDate}, ${targetDate}, ${notes}, 1, ${now}, ${now})
+        `
+
+        // Fetch and return the created goal
+        const result = yield* findById(id)
+        return Option.getOrThrow(result)
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'insert', cause })))
+
+    const update = (data: UserGoalUpdate) =>
+      Effect.gen(function* () {
+        // First check if goal exists
+        const existing = yield* sql`SELECT id, user_id FROM user_goals WHERE id = ${data.id}`.pipe(
+          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
+        )
+
+        if (existing.length === 0) {
+          return yield* GoalNotFoundError.make({ id: data.id })
+        }
+
+        const userId = (existing[0] as { user_id: string }).user_id
+        const now = new Date().toISOString()
+
+        // If activating this goal, deactivate others
+        if (data.isActive === true) {
+          yield* sql`
+            UPDATE user_goals SET is_active = 0, updated_at = ${now} 
+            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
+          `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
+        }
+
+        // Build update dynamically
+        const updates: string[] = [`updated_at = '${now}'`]
+        if (data.goalWeight !== undefined) {
+          updates.push(`goal_weight = ${data.goalWeight}`)
+        }
+        if (data.targetDate !== undefined) {
+          const val = data.targetDate === null ? 'NULL' : `'${data.targetDate.toISOString()}'`
+          updates.push(`target_date = ${val}`)
+        }
+        if (data.notes !== undefined) {
+          const val = data.notes === null ? 'NULL' : `'${data.notes}'`
+          updates.push(`notes = ${val}`)
+        }
+        if (data.isActive !== undefined) {
+          updates.push(`is_active = ${data.isActive ? 1 : 0}`)
+        }
+
+        yield* sql
+          .unsafe(`UPDATE user_goals SET ${updates.join(', ')} WHERE id = '${data.id}'`)
+          .pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
+
+        // Fetch updated
+        const result = yield* findById(data.id).pipe(
+          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
+        )
+        return Option.getOrThrow(result)
+      })
+
+    const del = (id: string) =>
+      Effect.gen(function* () {
+        const existing = yield* sql`SELECT id FROM user_goals WHERE id = ${id}`
+        if (existing.length === 0) {
+          return false
+        }
+        yield* sql`DELETE FROM user_goals WHERE id = ${id}`
+        return true
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'delete', cause })))
+
+    return {
+      list,
+      getActive,
+      findById,
+      create,
+      update,
+      delete: del,
+    }
+  }),
+)

@@ -36,6 +36,20 @@
       "when": 1764500000000,
       "tag": "0004_indefinite_phase_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1764600000000,
+      "tag": "0005_better_auth_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1764700000000,
+      "tag": "0006_user_goals",
+      "breakpoints": true
     }
   ]
 }

@@ -233,9 +233,7 @@ export function GoalProgressCard() {
         ) : (
           <div className="text-center py-8">
             <Target className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-4">
-              Set a goal weight to track your progress and see milestone achievements!
-            </p>
+            <p className="text-muted-foreground mb-4">Set a goal weight to track your progress!</p>
             <Button onClick={() => setShowForm(true)}>Set Your Goal</Button>
           </div>
         )}

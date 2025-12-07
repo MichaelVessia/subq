@@ -48,11 +48,12 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
           unit: data.unit,
         }),
       )
-      const result = yield* repo.create(data, user.id)
+      const weightLog = yield* repo.create(data, user.id)
+
       yield* Effect.logInfo('WeightLogCreate completed').pipe(
-        Effect.annotateLogs({ rpc: 'WeightLogCreate', id: result.id }),
+        Effect.annotateLogs({ rpc: 'WeightLogCreate', id: weightLog.id }),
       )
-      return result
+      return weightLog
     })
 
     const WeightLogUpdate = Effect.fn('rpc.weight.update')(function* (data: WeightLogUpdate) {

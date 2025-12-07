@@ -152,6 +152,25 @@ export const schedulePhases = sqliteTable(
   (table) => [index('idx_schedule_phases_schedule_id').on(table.scheduleId)],
 )
 
+// User goals table
+export const userGoals = sqliteTable(
+  'user_goals',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    goalWeight: real('goal_weight').notNull(),
+    startingWeight: real('starting_weight').notNull(),
+    startingDate: text('starting_date').notNull(),
+    targetDate: text('target_date'),
+    notes: text('notes'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    completedAt: text('completed_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('idx_user_goals_user_id').on(table.userId), index('idx_user_goals_is_active').on(table.isActive)],
+)
+
 // Migrations tracking table
 export const migrations = sqliteTable('_migrations', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -8,7 +8,7 @@ import {
   WeightLogListParams,
   WeightLogNotFoundError,
   WeightLogUpdate,
-} from './domain.ts'
+} from './domain.js'
 
 // ============================================
 // Weight Log RPCs

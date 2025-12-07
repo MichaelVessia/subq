@@ -34,7 +34,7 @@ export function WeightLogList() {
   const deleteLog = useAtomSet(ApiClient.mutation('WeightLogDelete'), { mode: 'promise' })
 
   const handleCreate = async (data: WeightLogCreate) => {
-    await createLog({ payload: data, reactivityKeys: [ReactivityKeys.weightLogs] })
+    await createLog({ payload: data, reactivityKeys: [ReactivityKeys.weightLogs, ReactivityKeys.goals] })
     setShowForm(false)
   }
 
