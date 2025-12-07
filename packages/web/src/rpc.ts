@@ -37,6 +37,7 @@ export const ReactivityKeys = {
   injectionSites: 'injection-sites',
   inventory: 'inventory',
   schedule: 'schedule',
+  goals: 'goals',
 } as const
 
 // Factory functions for queries (no longer need userId - server gets it from session)
@@ -130,3 +131,16 @@ export const createScheduleViewAtom = (id: InjectionScheduleId) =>
       reactivityKeys: [ReactivityKeys.schedule, ReactivityKeys.injectionLogs],
     },
   )
+
+// Goals atoms
+export const ActiveGoalAtom = ApiClient.query('GoalGetActive', undefined, {
+  reactivityKeys: [ReactivityKeys.goals],
+})
+
+export const GoalProgressAtom = ApiClient.query('GoalGetProgress', undefined, {
+  reactivityKeys: [ReactivityKeys.goals, ReactivityKeys.weightLogs],
+})
+
+export const GoalListAtom = ApiClient.query('GoalList', undefined, {
+  reactivityKeys: [ReactivityKeys.goals],
+})

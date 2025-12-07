@@ -14,6 +14,7 @@ import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
@@ -119,6 +120,7 @@ const RpcHandlersLive = Layer.mergeAll(
   InventoryRpcHandlersLive,
   ScheduleRpcHandlersLive,
   StatsRpcHandlersLive,
+  GoalRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
@@ -127,6 +129,7 @@ const RepositoriesLive = Layer.mergeAll(
   InjectionLogRepoLive,
   InventoryRepoLive,
   ScheduleRepoLive,
+  GoalRepoLive,
 ).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
 
 // RPC handler layer with auth middleware
@@ -207,6 +210,7 @@ const HttpLive = HttpRouter.Default.serve().pipe(
   // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
   Layer.provide(StatsServiceLive),
+  Layer.provide(GoalServiceLive),
   // Provide auth service
   Layer.provide(AuthLive),
   // Provide SQL client to repositories and services

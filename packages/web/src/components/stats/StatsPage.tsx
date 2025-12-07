@@ -27,6 +27,7 @@ import {
   createWeightTrendAtom,
   ScheduleListAtom,
 } from '../../rpc.js'
+import { GoalProgressCard } from '../goals/goal-progress.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { type BarChartData, type PieChartData, SimpleHorizontalBarChart, SimplePieChart } from '../ui/chart.js'
 import { CHART_COLORS, getDosageColor } from './chart-colors.js'
@@ -1236,6 +1237,9 @@ export function StatsPage() {
       </div>
 
       <div className="grid gap-5">
+        {/* Goal Progress - placed first for prominence */}
+        <GoalProgressCard />
+
         {/* Weight Statistics */}
         <Card>
           <CardHeader>

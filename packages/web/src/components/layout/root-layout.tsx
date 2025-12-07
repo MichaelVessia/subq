@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
+import { Toaster } from 'sonner'
 import { signOut, useSession } from '../../auth.js'
 import { cn } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
@@ -105,6 +106,7 @@ export function RootLayout() {
       <main>
         <Outlet />
       </main>
+      <Toaster position="top-center" richColors />
     </div>
   )
 }

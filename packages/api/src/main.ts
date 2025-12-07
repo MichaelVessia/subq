@@ -6,13 +6,14 @@ import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
+import { SqlLive } from './sql.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
-import { SqlLive } from './sql.js'
 
 // Auth configuration layer - creates better-auth instance with SQLite
 const AuthLive = Layer.unwrapEffect(
@@ -59,6 +60,7 @@ const RpcHandlersLive = Layer.mergeAll(
   InventoryRpcHandlersLive,
   ScheduleRpcHandlersLive,
   StatsRpcHandlersLive,
+  GoalRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
@@ -67,6 +69,7 @@ const RepositoriesLive = Layer.mergeAll(
   InjectionLogRepoLive,
   InventoryRepoLive,
   ScheduleRepoLive,
+  GoalRepoLive,
 ).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
 
 // RPC handler layer with auth middleware
@@ -102,6 +105,12 @@ const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer
 // Merge all route layers so they share the same Default router
 const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive)
 
+// Services that depend on repositories
+const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive).pipe(
+  Layer.provide(RepositoriesLive),
+  Layer.provide(SqlLive),
+)
+
 // HTTP server with all dependencies
 const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(RpcLive),
@@ -110,7 +119,7 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
   // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
-  Layer.provide(StatsServiceLive),
+  Layer.provide(ServicesLive),
   // Provide auth service
   Layer.provide(AuthLive),
   // Provide SQL client to repositories and services
