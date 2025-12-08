@@ -204,6 +204,12 @@ const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, HealthRouteLive, RpcProtoco
 // Get port from environment
 const port = Number(process.env.PORT) || 3001
 
+// Services that depend on repositories
+const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive).pipe(
+  Layer.provide(RepositoriesLive),
+  Layer.provide(SqlLive),
+)
+
 // HTTP server with all dependencies (no CORS needed - same origin)
 const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.provide(RpcLive),
@@ -212,8 +218,7 @@ const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.provide(NodeHttpServer.layer(createServer, { port, host: '0.0.0.0' })),
   // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
-  Layer.provide(StatsServiceLive),
-  Layer.provide(GoalServiceLive),
+  Layer.provide(ServicesLive),
   // Provide auth service
   Layer.provide(AuthLive),
   // Provide SQL client to repositories and services
