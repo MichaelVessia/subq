@@ -209,7 +209,7 @@ const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.provide(RpcLive),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(NodeHttpServer.layer(createServer, { port })),
+  Layer.provide(NodeHttpServer.layer(createServer, { port, host: '0.0.0.0' })),
   // Provide repositories and services to handlers
   Layer.provide(RepositoriesLive),
   Layer.provide(StatsServiceLive),
