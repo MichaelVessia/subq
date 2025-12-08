@@ -1,0 +1,110 @@
+import { Command, Options, Prompt } from '@effect/cli'
+import { type Weight, WeightLogCreate } from '@subq/shared'
+import { Effect, Option } from 'effect'
+import { output, success, type OutputFormat } from '../../lib/output.js'
+import { ApiClient } from '../../services/api-client.js'
+
+const formatOption = Options.choice('format', ['json', 'table']).pipe(
+  Options.withAlias('f'),
+  Options.withDefault('json' as const),
+  Options.withDescription('Output format'),
+)
+
+const weightOption = Options.float('weight').pipe(
+  Options.withAlias('w'),
+  Options.optional,
+  Options.withDescription('Weight in lbs'),
+)
+
+const dateOption = Options.date('date').pipe(
+  Options.withAlias('d'),
+  Options.optional,
+  Options.withDescription('Date of measurement (YYYY-MM-DD), defaults to now'),
+)
+
+const notesOption = Options.text('notes').pipe(
+  Options.withAlias('n'),
+  Options.optional,
+  Options.withDescription('Optional notes'),
+)
+
+const interactiveOption = Options.boolean('interactive').pipe(
+  Options.withAlias('i'),
+  Options.withDefault(false),
+  Options.withDescription('Interactive mode - prompt for missing values'),
+)
+
+// Interactive prompts
+const weightPrompt = Prompt.float({
+  message: 'Weight (lbs):',
+  min: 0,
+  validate: (n) => (n > 0 ? Effect.succeed(n) : Effect.fail('Weight must be positive')),
+})
+
+const datePrompt = Prompt.date({
+  message: 'Date:',
+  initial: new Date(),
+})
+
+const notesPrompt = Prompt.text({
+  message: 'Notes (optional, press Enter to skip):',
+  default: '',
+})
+
+export const weightAddCommand = Command.make(
+  'add',
+  {
+    format: formatOption,
+    weight: weightOption,
+    date: dateOption,
+    notes: notesOption,
+    interactive: interactiveOption,
+  },
+  ({ format, weight: weightOpt, date: dateOpt, notes: notesOpt, interactive }) =>
+    Effect.gen(function* () {
+      const api = yield* ApiClient
+
+      // Get weight - from option or prompt if interactive
+      let weight: number
+      if (Option.isSome(weightOpt)) {
+        weight = weightOpt.value
+      } else if (interactive) {
+        weight = yield* weightPrompt
+      } else {
+        return yield* Effect.fail(new Error('--weight is required (or use -i for interactive mode)'))
+      }
+
+      // Get date - from option, prompt if interactive, or default to now
+      let datetime: Date
+      if (Option.isSome(dateOpt)) {
+        datetime = dateOpt.value
+      } else if (interactive) {
+        datetime = yield* datePrompt
+      } else {
+        datetime = new Date()
+      }
+
+      // Get notes - from option or prompt if interactive
+      let notes: string | undefined
+      if (Option.isSome(notesOpt)) {
+        notes = notesOpt.value
+      } else if (interactive) {
+        const notesInput = yield* notesPrompt
+        notes = notesInput || undefined
+      }
+
+      const payload = new WeightLogCreate({
+        weight: weight as Weight,
+        datetime,
+        notes: notes ? Option.some(notes as any) : Option.none(),
+      })
+
+      const created = yield* api.call((client) => client.WeightLogCreate(payload))
+
+      if (format === 'table') {
+        yield* success(`Created weight log: ${created.weight} lbs on ${created.datetime.toISOString().split('T')[0]}`)
+      } else {
+        yield* output(created, format as OutputFormat)
+      }
+    }),
+).pipe(Command.withDescription('Add a new weight log entry'))

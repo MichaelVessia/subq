@@ -1,0 +1,21 @@
+{
+  "name": "@subq/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/main.ts",
+    "build": "bun build --compile --outfile=dist/subq src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/cli": "0.68.0",
+    "@effect/platform": "0.92.1",
+    "@effect/platform-node": "0.87.0",
+    "@effect/rpc": "0.71.0",
+    "@subq/shared": "workspace:*",
+    "effect": "3.18.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}
