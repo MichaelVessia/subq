@@ -11,6 +11,7 @@ COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
+COPY packages/cli/package.json ./packages/cli/
 
 # Install dependencies (skip prepare script which needs effect-language-service)
 RUN bun install --ignore-scripts
@@ -32,13 +33,9 @@ WORKDIR /app
 # Install runtime dependencies for native modules
 RUN apk add --no-cache python3 make g++
 
-# Copy package files for production install
-COPY package.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/api/package.json ./packages/api/
-
-# Install production dependencies only (skip prepare script)
-RUN bun install --production --ignore-scripts
+# Copy node_modules from builder (includes properly resolved deps)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
 # Copy built artifacts and source
 COPY packages/shared ./packages/shared
