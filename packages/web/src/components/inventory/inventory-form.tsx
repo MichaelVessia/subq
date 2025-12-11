@@ -58,9 +58,14 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
     }
   }
   const [status, setStatus] = useState<'new' | 'opened' | 'finished'>(initialData?.status ?? 'new')
-  const [beyondUseDate, setBeyondUseDate] = useState(
-    initialData?.beyondUseDate ? initialData.beyondUseDate.toISOString().split('T')[0] : '',
-  )
+  const [beyondUseDate, setBeyondUseDate] = useState(() => {
+    if (!initialData?.beyondUseDate) return ''
+    const d = initialData.beyondUseDate
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })
   const [quantity, setQuantity] = useState('1')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
