@@ -10,7 +10,7 @@ import {
   WeightLogNotFoundError,
   type WeightLogUpdate,
 } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -34,11 +34,11 @@ const decodeRow = Schema.decodeUnknown(WeightLogRow)
 const rowToDomain = (row: typeof WeightLogRow.Type): WeightLog =>
   new WeightLog({
     id: WeightLogId.make(row.id),
-    datetime: new Date(row.datetime),
+    datetime: DateTime.unsafeMake(row.datetime),
     weight: Weight.make(row.weight),
     notes: row.notes ? Notes.make(row.notes) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 // Decode and transform raw DB row
@@ -75,9 +75,9 @@ export const WeightLogRepoLive = Layer.effect(
 
     const list = (params: WeightLogListParams, userId: string) =>
       Effect.gen(function* () {
-        // Convert Date params to ISO strings for SQLite comparison
-        const startDateStr = params.startDate?.toISOString()
-        const endDateStr = params.endDate?.toISOString()
+        // Convert DateTime params to ISO strings for SQLite comparison
+        const startDateStr = params.startDate ? DateTime.formatIso(params.startDate) : undefined
+        const endDateStr = params.endDate ? DateTime.formatIso(params.endDate) : undefined
 
         const rows = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
@@ -108,8 +108,8 @@ export const WeightLogRepoLive = Layer.effect(
       Effect.gen(function* () {
         const id = generateUuid()
         const notes = Option.isSome(data.notes) ? data.notes.value : null
-        const now = new Date().toISOString()
-        const datetimeStr = data.datetime.toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const datetimeStr = DateTime.formatIso(data.datetime)
 
         yield* sql`
           INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
@@ -140,10 +140,10 @@ export const WeightLogRepoLive = Layer.effect(
         const curr = yield* decodeRow(current[0]).pipe(
           Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })),
         )
-        const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
+        const newDatetime = data.datetime ? DateTime.formatIso(data.datetime) : curr.datetime
         const newWeight = data.weight ?? curr.weight
         const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         yield* sql`
           UPDATE weight_logs

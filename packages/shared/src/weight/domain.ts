@@ -85,11 +85,11 @@ export type WeightLogError = typeof WeightLogError.Type
  */
 export class WeightLog extends Schema.Class<WeightLog>('WeightLog')({
   id: WeightLogId,
-  datetime: Schema.Date,
+  datetime: Schema.DateTimeUtc,
   weight: Weight,
   notes: Schema.NullOr(Notes),
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date,
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
 }) {}
 
 // ============================================
@@ -102,7 +102,7 @@ export class WeightLog extends Schema.Class<WeightLog>('WeightLog')({
  * id, createdAt, updatedAt are generated server-side.
  */
 export class WeightLogCreate extends Schema.Class<WeightLogCreate>('WeightLogCreate')({
-  datetime: Schema.Date,
+  datetime: Schema.DateTimeUtc,
   weight: Weight,
   notes: Schema.optionalWith(Notes, { as: 'Option' }),
 }) {}
@@ -114,7 +114,7 @@ export class WeightLogCreate extends Schema.Class<WeightLogCreate>('WeightLogCre
  */
 export class WeightLogUpdate extends Schema.Class<WeightLogUpdate>('WeightLogUpdate')({
   id: WeightLogId,
-  datetime: Schema.optional(Schema.Date),
+  datetime: Schema.optional(Schema.DateTimeUtc),
   weight: Schema.optional(Weight),
   notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
 }) {}
@@ -137,6 +137,6 @@ export class WeightLogDelete extends Schema.Class<WeightLogDelete>('WeightLogDel
 export class WeightLogListParams extends Schema.Class<WeightLogListParams>('WeightLogListParams')({
   limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
   offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
-  startDate: Schema.optional(Schema.Date),
-  endDate: Schema.optional(Schema.Date),
+  startDate: Schema.optional(Schema.DateTimeUtc),
+  endDate: Schema.optional(Schema.DateTimeUtc),
 }) {}

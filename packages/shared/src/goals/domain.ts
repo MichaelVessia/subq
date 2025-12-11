@@ -34,13 +34,13 @@ export class UserGoal extends Schema.Class<UserGoal>('UserGoal')({
   id: GoalId,
   goalWeight: Weight,
   startingWeight: Weight,
-  startingDate: Schema.Date,
-  targetDate: Schema.NullOr(Schema.Date),
+  startingDate: Schema.DateTimeUtc,
+  targetDate: Schema.NullOr(Schema.DateTimeUtc),
   notes: Schema.NullOr(Notes),
   isActive: Schema.Boolean,
-  completedAt: Schema.NullOr(Schema.Date),
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date,
+  completedAt: Schema.NullOr(Schema.DateTimeUtc),
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
 }) {}
 
 // ============================================
@@ -54,7 +54,7 @@ export class UserGoal extends Schema.Class<UserGoal>('UserGoal')({
 export class UserGoalCreate extends Schema.Class<UserGoalCreate>('UserGoalCreate')({
   goalWeight: Weight,
   startingWeight: Schema.optional(Weight),
-  targetDate: Schema.optionalWith(Schema.Date, { as: 'Option' }),
+  targetDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
   notes: Schema.optionalWith(Notes, { as: 'Option' }),
 }) {}
 
@@ -64,7 +64,7 @@ export class UserGoalCreate extends Schema.Class<UserGoalCreate>('UserGoalCreate
 export class UserGoalUpdate extends Schema.Class<UserGoalUpdate>('UserGoalUpdate')({
   id: GoalId,
   goalWeight: Schema.optional(Weight),
-  targetDate: Schema.optional(Schema.NullOr(Schema.Date)),
+  targetDate: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   notes: Schema.optional(Schema.NullOr(Notes)),
   isActive: Schema.optional(Schema.Boolean),
 }) {}
@@ -89,7 +89,7 @@ export class GoalProgress extends Schema.Class<GoalProgress>('GoalProgress')({
   lbsLost: Schema.Number,
   lbsRemaining: Schema.Number,
   percentComplete: PercentComplete,
-  projectedDate: Schema.NullOr(Schema.Date),
+  projectedDate: Schema.NullOr(Schema.DateTimeUtc),
   paceStatus: PaceStatus,
   daysOnPlan: Schema.Number,
   avgLbsPerWeek: Schema.Number,

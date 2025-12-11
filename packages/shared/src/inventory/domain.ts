@@ -65,9 +65,9 @@ export class Inventory extends Schema.Class<Inventory>('Inventory')({
   form: InventoryForm,
   totalAmount: TotalAmount,
   status: InventoryStatus,
-  beyondUseDate: Schema.NullOr(Schema.Date),
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date,
+  beyondUseDate: Schema.NullOr(Schema.DateTimeUtc),
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
 }) {}
 
 // ============================================
@@ -83,7 +83,7 @@ export class InventoryCreate extends Schema.Class<InventoryCreate>('InventoryCre
   form: InventoryForm,
   totalAmount: TotalAmount,
   status: Schema.optionalWith(InventoryStatus, { default: () => 'new' as const }),
-  beyondUseDate: Schema.optionalWith(Schema.Date, { as: 'Option' }),
+  beyondUseDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
 }) {}
 
 /**
@@ -96,7 +96,7 @@ export class InventoryUpdate extends Schema.Class<InventoryUpdate>('InventoryUpd
   form: Schema.optional(InventoryForm),
   totalAmount: Schema.optional(TotalAmount),
   status: Schema.optional(InventoryStatus),
-  beyondUseDate: Schema.optionalWith(Schema.NullOr(Schema.Date), { as: 'Option' }),
+  beyondUseDate: Schema.optionalWith(Schema.NullOr(Schema.DateTimeUtc), { as: 'Option' }),
 }) {}
 
 /**

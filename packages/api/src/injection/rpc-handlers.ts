@@ -6,7 +6,7 @@ import {
   type InjectionLogUpdate,
   InjectionRpcs,
 } from '@subq/shared'
-import { Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { InjectionLogRepo } from './injection-log-repo.js'
 
 export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
@@ -19,8 +19,8 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
         Effect.annotateLogs({
           rpc: 'InjectionLogList',
           userId: user.id,
-          startDate: params.startDate?.toISOString() ?? 'none',
-          endDate: params.endDate?.toISOString() ?? 'none',
+          startDate: params.startDate ? DateTime.formatIso(params.startDate) : 'none',
+          endDate: params.endDate ? DateTime.formatIso(params.endDate) : 'none',
           limit: params.limit,
         }),
       )

@@ -11,7 +11,7 @@ import {
   type InventoryUpdate,
   TotalAmount,
 } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -39,9 +39,9 @@ const rowToDomain = (row: typeof InventoryRow.Type): Inventory =>
     form: row.form,
     totalAmount: TotalAmount.make(row.total_amount),
     status: row.status,
-    beyondUseDate: row.beyond_use_date ? new Date(row.beyond_use_date) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    beyondUseDate: row.beyond_use_date ? DateTime.unsafeMake(row.beyond_use_date) : null,
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDomain)
@@ -104,8 +104,11 @@ export const InventoryRepoLive = Layer.effect(
     const create = (data: InventoryCreate, userId: string) =>
       Effect.gen(function* () {
         const id = generateUuid()
-        const beyondUseDate = Option.isSome(data.beyondUseDate) ? data.beyondUseDate.value.toISOString() : null
-        const now = new Date().toISOString()
+        // Store as YYYY-MM-DD only to avoid timezone issues
+        const beyondUseDate = Option.isSome(data.beyondUseDate)
+          ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0]
+          : null
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         yield* sql`
           INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
@@ -140,10 +143,11 @@ export const InventoryRepoLive = Layer.effect(
         const newForm = data.form ?? curr.form
         const newTotalAmount = data.totalAmount ?? curr.total_amount
         const newStatus = data.status ?? curr.status
+        // Store as YYYY-MM-DD only to avoid timezone issues
         const newBeyondUseDate = Option.isSome(data.beyondUseDate)
-          ? (data.beyondUseDate.value?.toISOString() ?? null)
+          ? (data.beyondUseDate.value ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0] : null)
           : curr.beyond_use_date
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         yield* sql`
           UPDATE glp1_inventory
@@ -189,7 +193,7 @@ export const InventoryRepoLive = Layer.effect(
           return yield* InventoryNotFoundError.make({ id })
         }
 
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'finished', updated_at = ${now}
@@ -217,7 +221,7 @@ export const InventoryRepoLive = Layer.effect(
           return yield* InventoryNotFoundError.make({ id })
         }
 
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'opened', updated_at = ${now}

@@ -13,7 +13,7 @@ import {
   ScheduleRpcs,
   ScheduleView,
 } from '@subq/shared'
-import { Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { InjectionLogRepo } from '../injection/injection-log-repo.js'
 import { ScheduleRepo } from './schedule-repo.js'
 
@@ -136,11 +136,14 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
       // Get last injection for this drug
       const lastInjectionOpt = yield* scheduleRepo.getLastInjectionDate(user.id, schedule.drug)
-      const now = new Date()
+      const now = DateTime.unsafeNow()
 
       // Determine current phase based on days since start
       const startDate = schedule.startDate
-      const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+      const msPerDay = 1000 * 60 * 60 * 24
+      const daysSinceStart = Math.floor(
+        (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
+      )
 
       // Find which phase we're in
       let cumulativeDays = 0
@@ -171,17 +174,19 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
       // Calculate next dose date
       const intervalDays = frequencyToDays(schedule.frequency)
-      let suggestedDate: Date
+      let suggestedDate: DateTime.Utc
 
       if (Option.isNone(lastInjectionOpt)) {
         // No injections yet, suggest today or start date (whichever is later)
-        suggestedDate = now > startDate ? now : startDate
+        suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
       } else {
         const lastInjection = lastInjectionOpt.value
-        suggestedDate = new Date(lastInjection.getTime() + intervalDays * 24 * 60 * 60 * 1000)
+        suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
       }
 
-      const daysUntilDue = Math.round((suggestedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const daysUntilDue = Math.round(
+        (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
+      )
       const isOverdue = daysUntilDue < 0
 
       yield* Effect.logDebug('ScheduleGetNextDose completed').pipe(
@@ -230,30 +235,28 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
       // Calculate phase boundaries and assign injections
       const intervalDays = frequencyToDays(schedule.frequency)
       let cumulativeDays = 0
-      const now = new Date()
+      const now = DateTime.unsafeNow()
+      const msPerDay = 1000 * 60 * 60 * 24
 
       const phaseViews: SchedulePhaseView[] = schedule.phases.map((phase) => {
-        const phaseStartDate = new Date(schedule.startDate)
-        phaseStartDate.setDate(phaseStartDate.getDate() + cumulativeDays)
+        const phaseStartDate = DateTime.unsafeMake(
+          DateTime.toEpochMillis(schedule.startDate) + cumulativeDays * msPerDay,
+        )
 
         // Indefinite phase has no end date
         const isIndefinite = phase.durationDays === null
         const phaseEndDate = isIndefinite
           ? null
-          : (() => {
-              const end = new Date(phaseStartDate)
-              end.setDate(end.getDate() + phase.durationDays - 1)
-              return end
-            })()
+          : DateTime.unsafeMake(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
 
         // Determine phase status
         let status: 'completed' | 'current' | 'upcoming'
         if (isIndefinite) {
           // Indefinite phase is current if we've reached it, never completed
-          status = now >= phaseStartDate ? 'current' : 'upcoming'
-        } else if (phaseEndDate && now > phaseEndDate) {
+          status = DateTime.greaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
+        } else if (phaseEndDate && DateTime.greaterThan(now, phaseEndDate)) {
           status = 'completed'
-        } else if (now >= phaseStartDate) {
+        } else if (DateTime.greaterThanOrEqualTo(now, phaseStartDate)) {
           status = 'current'
         } else {
           status = 'upcoming'
@@ -265,11 +268,15 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         // Find injections that fall within this phase's date range
         // For indefinite phases, include all injections from start date onwards
         const phaseInjections = injections.filter((inj) => {
-          const injDate = new Date(inj.datetime)
+          const injDate = inj.datetime // already DateTime.Utc
           if (isIndefinite) {
-            return injDate >= phaseStartDate
+            return DateTime.greaterThanOrEqualTo(injDate, phaseStartDate)
           }
-          return phaseEndDate && injDate >= phaseStartDate && injDate <= phaseEndDate
+          return (
+            phaseEndDate &&
+            DateTime.greaterThanOrEqualTo(injDate, phaseStartDate) &&
+            DateTime.lessThanOrEqualTo(injDate, phaseEndDate)
+          )
         })
 
         if (!isIndefinite && phase.durationDays !== null) {
@@ -304,9 +311,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         ? null
         : (() => {
             const totalDays = schedule.phases.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
-            const end = new Date(schedule.startDate)
-            end.setDate(end.getDate() + totalDays - 1)
-            return end
+            return DateTime.unsafeMake(DateTime.toEpochMillis(schedule.startDate) + (totalDays - 1) * msPerDay)
           })()
 
       // Total expected is null if any phase is indefinite

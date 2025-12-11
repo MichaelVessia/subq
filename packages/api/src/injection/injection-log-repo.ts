@@ -15,7 +15,7 @@ import {
   InjectionSite,
   Notes,
 } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -42,15 +42,15 @@ const decodeRow = Schema.decodeUnknown(InjectionLogRow)
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
     id: InjectionLogId.make(row.id),
-    datetime: new Date(row.datetime),
+    datetime: DateTime.unsafeMake(row.datetime),
     drug: DrugName.make(row.drug),
     source: row.source ? DrugSource.make(row.source) : null,
     dosage: Dosage.make(row.dosage),
     injectionSite: row.injection_site ? InjectionSite.make(row.injection_site) : null,
     notes: row.notes ? Notes.make(row.notes) : null,
     scheduleId: row.schedule_id ? InjectionScheduleId.make(row.schedule_id) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDomain)
@@ -103,9 +103,9 @@ export const InjectionLogRepoLive = Layer.effect(
 
     const list = (params: InjectionLogListParams, userId: string) =>
       Effect.gen(function* () {
-        // Convert Date params to ISO strings for SQLite comparison
-        const startDateStr = params.startDate?.toISOString()
-        const endDateStr = params.endDate?.toISOString()
+        // Convert DateTime params to ISO strings for SQLite comparison
+        const startDateStr = params.startDate ? DateTime.formatIso(params.startDate) : undefined
+        const endDateStr = params.endDate ? DateTime.formatIso(params.endDate) : undefined
 
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
@@ -141,8 +141,8 @@ export const InjectionLogRepoLive = Layer.effect(
         const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
         const scheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : null
-        const now = new Date().toISOString()
-        const datetimeStr = data.datetime.toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const datetimeStr = DateTime.formatIso(data.datetime)
 
         yield* sql`
           INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
@@ -173,14 +173,14 @@ export const InjectionLogRepoLive = Layer.effect(
         const curr = yield* decodeRow(current[0]).pipe(
           Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })),
         )
-        const newDatetime = data.datetime ? data.datetime.toISOString() : curr.datetime
+        const newDatetime = data.datetime ? DateTime.formatIso(data.datetime) : curr.datetime
         const newDrug = data.drug ?? curr.drug
         const newSource = Option.isSome(data.source) ? data.source.value : curr.source
         const newDosage = data.dosage ?? curr.dosage
         const newInjectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : curr.injection_site
         const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
         const newScheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : curr.schedule_id
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         yield* sql`
           UPDATE injection_logs
@@ -255,7 +255,7 @@ export const InjectionLogRepoLive = Layer.effect(
       Effect.gen(function* () {
         if (data.ids.length === 0) return 0
 
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
         const scheduleId = data.scheduleId
 
         // Build a query that updates all matching IDs for this user

@@ -16,7 +16,7 @@ import {
   type SchedulePhaseCreate,
   SchedulePhaseId,
 } from '@subq/shared'
-import { Effect, Layer, Option } from 'effect'
+import { DateTime, Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
@@ -26,12 +26,12 @@ import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
 const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
   const scheduleStore = new Map<string, InjectionSchedule>()
-  const injectionDateStore = new Map<string, Date>() // key: `${userId}-${drug}`
+  const injectionDateStore = new Map<string, DateTime.Utc>() // key: `${userId}-${drug}`
   let scheduleCounter = 0
   let phaseCounter = 0
 
   const createPhases = (scheduleId: string, phases: readonly SchedulePhaseCreate[]): SchedulePhase[] => {
-    const now = new Date()
+    const now = DateTime.unsafeNow()
     return phases.map(
       (p) =>
         new SchedulePhase({
@@ -50,7 +50,9 @@ const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
     list: (_userId: string) =>
       Effect.sync(() => {
         const schedules = Array.from(scheduleStore.values())
-        return schedules.sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+        return schedules.sort(
+          (a, b) => DateTime.toEpochMillis(b.startDate) - DateTime.toEpochMillis(a.startDate),
+        )
       }),
 
     getActive: (_userId: string) =>
@@ -77,13 +79,13 @@ const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
               new InjectionSchedule({
                 ...schedule,
                 isActive: false,
-                updatedAt: new Date(),
+                updatedAt: DateTime.unsafeNow(),
               }),
             )
           }
         }
 
-        const now = new Date()
+        const now = DateTime.unsafeNow()
         const schedule = new InjectionSchedule({
           id: InjectionScheduleId.make(id),
           name: data.name,
@@ -117,14 +119,14 @@ const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
                 new InjectionSchedule({
                   ...schedule,
                   isActive: false,
-                  updatedAt: new Date(),
+                  updatedAt: DateTime.unsafeNow(),
                 }),
               )
             }
           }
         }
 
-        const now = new Date()
+        const now = DateTime.unsafeNow()
         const phases = data.phases ? createPhases(data.id, data.phases) : current.phases
 
         const updated = new InjectionSchedule({
@@ -175,7 +177,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Testosterone Cypionate'),
             source: Option.some(DrugSource.make('Empower')),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.some(Notes.make('Start low')),
             phases: [
               { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') },
@@ -207,7 +209,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Drug A'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
           },
@@ -222,7 +224,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Drug B'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-02-01'),
+            startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('200mg') }],
           },
@@ -260,7 +262,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Test Drug'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
           },
@@ -295,7 +297,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Test'),
             source: Option.none(),
             frequency: 'daily' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: 7 as PhaseDurationDays, dosage: Dosage.make('50mg') }],
           },
@@ -322,7 +324,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Drug'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
           },
@@ -351,7 +353,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Drug'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
           },
@@ -384,7 +386,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('A'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
           },
@@ -398,7 +400,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('B'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-02-01'),
+            startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('200mg') }],
           },
@@ -431,7 +433,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('Drug'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
           },
@@ -476,7 +478,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('A'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-01-01'),
+            startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
           },
@@ -489,7 +491,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('B'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-03-01'),
+            startDate: DateTime.unsafeMake('2024-03-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('200mg') }],
           },
@@ -502,7 +504,7 @@ describe('ScheduleRepo', () => {
             drug: DrugName.make('C'),
             source: Option.none(),
             frequency: 'weekly' as Frequency,
-            startDate: new Date('2024-02-01'),
+            startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
             phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('150mg') }],
           },

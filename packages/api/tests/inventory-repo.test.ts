@@ -9,7 +9,7 @@ import {
   type InventoryUpdate,
   TotalAmount,
 } from '@subq/shared'
-import { Effect, Layer, Option } from 'effect'
+import { DateTime, Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InventoryRepo } from '../src/inventory/inventory-repo.js'
 
@@ -31,7 +31,9 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
         if (params.drug) {
           items = items.filter((item) => item.drug === params.drug)
         }
-        return items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        return items.sort(
+          (a, b) => DateTime.toEpochMillis(b.createdAt) - DateTime.toEpochMillis(a.createdAt),
+        )
       }),
 
     findById: (id: string) =>
@@ -43,7 +45,7 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
     create: (data: InventoryCreate, _userId: string) =>
       Effect.sync(() => {
         const id = `inventory-${counter++}`
-        const now = new Date()
+        const now = DateTime.unsafeNow()
         const item = new Inventory({
           id: InventoryId.make(id),
           drug: data.drug,
@@ -74,7 +76,7 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
           status: data.status ?? current.status,
           beyondUseDate:
             data.beyondUseDate && Option.isSome(data.beyondUseDate) ? data.beyondUseDate.value : current.beyondUseDate,
-          updatedAt: new Date(),
+          updatedAt: DateTime.unsafeNow(),
         })
         store.set(data.id, updated)
         return updated
@@ -96,7 +98,7 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
         const updated = new Inventory({
           ...current,
           status: 'finished',
-          updatedAt: new Date(),
+          updatedAt: DateTime.unsafeNow(),
         })
         store.set(id, updated)
         return updated
@@ -111,7 +113,7 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
         const updated = new Inventory({
           ...current,
           status: 'opened',
-          updatedAt: new Date(),
+          updatedAt: DateTime.unsafeNow(),
         })
         store.set(id, updated)
         return updated
@@ -129,7 +131,7 @@ describe('InventoryRepo', () => {
       Effect.gen(function* () {
         const repo = yield* InventoryRepo
 
-        const beyondUseDate = new Date('2024-03-01')
+        const beyondUseDate = DateTime.unsafeMake('2024-03-01')
         const created = yield* repo.create(
           {
             drug: DrugName.make('Semaglutide'),
@@ -147,7 +149,7 @@ describe('InventoryRepo', () => {
         expect(created.form).toBe('vial')
         expect(created.totalAmount).toBe('10mg')
         expect(created.status).toBe('new')
-        expect(created.beyondUseDate).toEqual(beyondUseDate)
+        expect(DateTime.toEpochMillis(created.beyondUseDate!)).toBe(DateTime.toEpochMillis(beyondUseDate))
       }).pipe(Effect.provide(InventoryRepoTest)),
     )
 
@@ -329,14 +331,15 @@ describe('InventoryRepo', () => {
           'user-123',
         )
 
+        const newBeyondUseDate = DateTime.unsafeMake('2024-04-01')
         const updated = yield* repo.update({
           id: created.id,
           status: 'opened',
-          beyondUseDate: Option.some(new Date('2024-04-01')),
+          beyondUseDate: Option.some(newBeyondUseDate),
         })
 
         expect(updated.status).toBe('opened')
-        expect(updated.beyondUseDate).toEqual(new Date('2024-04-01'))
+        expect(DateTime.toEpochMillis(updated.beyondUseDate!)).toBe(DateTime.toEpochMillis(newBeyondUseDate))
         expect(updated.drug).toBe('Original') // unchanged
       }).pipe(Effect.provide(InventoryRepoTest)),
     )

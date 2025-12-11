@@ -20,7 +20,7 @@ import {
   SchedulePhase,
   SchedulePhaseId,
 } from '@subq/shared'
-import { Effect, Layer, Option } from 'effect'
+import { DateTime, Effect, Layer, Option } from 'effect'
 import { describe, expect, it, vi } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
@@ -52,7 +52,7 @@ const frequencyToDays = (frequency: string): number => {
 
 interface TestScheduleState {
   activeSchedule: InjectionSchedule | null
-  lastInjectionDate: Date | null
+  lastInjectionDate: DateTime.Utc | null
   injectionsBySchedule: Map<string, InjectionLog[]>
 }
 
@@ -123,11 +123,11 @@ const TestLayer = Layer.mergeAll(ScheduleRepoTest, InjectionLogRepoTest, AuthCon
 // ============================================
 
 const createTestSchedule = (
-  startDate: Date,
+  startDate: DateTime.Utc,
   frequency: Frequency,
   phases: Array<{ order: PhaseOrder; durationDays: PhaseDurationDays | null; dosage: string }>,
 ): InjectionSchedule => {
-  const now = new Date()
+  const now = DateTime.unsafeNow()
   const scheduleId = InjectionScheduleId.make('test-schedule-1')
   return new InjectionSchedule({
     id: scheduleId,
@@ -159,8 +159,8 @@ const createTestSchedule = (
 // Helper: Create a test injection log
 // ============================================
 
-const createTestInjection = (scheduleId: string, datetime: Date, dosage: string): InjectionLog => {
-  const now = new Date()
+const createTestInjection = (scheduleId: string, datetime: DateTime.Utc, dosage: string): InjectionLog => {
+  const now = DateTime.unsafeNow()
   return new InjectionLog({
     id: InjectionLogId.make(`injection-${Math.random()}`),
     datetime,
@@ -196,11 +196,14 @@ const calculateNextDose = Effect.gen(function* () {
 
   // Get last injection for this drug
   const lastInjectionOpt = yield* scheduleRepo.getLastInjectionDate(user.id, schedule.drug)
-  const now = new Date()
+  const now = DateTime.unsafeNow()
+  const msPerDay = 1000 * 60 * 60 * 24
 
   // Determine current phase based on days since start
   const startDate = schedule.startDate
-  const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  const daysSinceStart = Math.floor(
+    (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
+  )
 
   // Find which phase we're in
   let cumulativeDays = 0
@@ -231,17 +234,19 @@ const calculateNextDose = Effect.gen(function* () {
 
   // Calculate next dose date
   const intervalDays = frequencyToDays(schedule.frequency)
-  let suggestedDate: Date
+  let suggestedDate: DateTime.Utc
 
   if (Option.isNone(lastInjectionOpt)) {
     // No injections yet, suggest today or start date (whichever is later)
-    suggestedDate = now > startDate ? now : startDate
+    suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
   } else {
     const lastInjection = lastInjectionOpt.value
-    suggestedDate = new Date(lastInjection.getTime() + intervalDays * 24 * 60 * 60 * 1000)
+    suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
   }
 
-  const daysUntilDue = Math.floor((suggestedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  const daysUntilDue = Math.floor(
+    (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
+  )
   const isOverdue = daysUntilDue < 0
 
   return {
@@ -278,7 +283,7 @@ describe('ScheduleGetNextDose', () => {
     it.effect('suggests start date when schedule starts in the future', () =>
       Effect.gen(function* () {
         resetTestState()
-        const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+        const futureDate = DateTime.unsafeMake(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
         testState.activeSchedule = createTestSchedule(futureDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
@@ -287,7 +292,7 @@ describe('ScheduleGetNextDose', () => {
         const result = yield* calculateNextDose
 
         expect(result).not.toBeNull()
-        expect(result!.suggestedDate.getTime()).toBe(futureDate.getTime())
+        expect(DateTime.toEpochMillis(result!.suggestedDate)).toBe(DateTime.toEpochMillis(futureDate))
         expect(result!.isOverdue).toBe(false)
       }).pipe(Effect.provide(TestLayer)),
     )
@@ -295,7 +300,7 @@ describe('ScheduleGetNextDose', () => {
     it.effect('suggests today when schedule started in the past', () =>
       Effect.gen(function* () {
         resetTestState()
-        const pastDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
+        const pastDate = DateTime.unsafeMake(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
         testState.activeSchedule = createTestSchedule(pastDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
@@ -305,8 +310,8 @@ describe('ScheduleGetNextDose', () => {
 
         expect(result).not.toBeNull()
         // Should suggest today (within a day tolerance)
-        const now = new Date()
-        const diffMs = Math.abs(result!.suggestedDate.getTime() - now.getTime())
+        const now = DateTime.unsafeNow()
+        const diffMs = Math.abs(DateTime.toEpochMillis(result!.suggestedDate) - DateTime.toEpochMillis(now))
         expect(diffMs).toBeLessThan(24 * 60 * 60 * 1000) // Within 1 day
       }).pipe(Effect.provide(TestLayer)),
     )
@@ -316,14 +321,13 @@ describe('ScheduleGetNextDose', () => {
     it.effect('calculates next dose based on weekly frequency', () =>
       Effect.gen(function* () {
         resetTestState()
-        const now = new Date()
-        now.setHours(12, 0, 0, 0) // Normalize to noon to avoid edge cases
-        const startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000) // 14 days ago
+        const now = DateTime.unsafeNow()
+        const startDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) - 14 * 24 * 60 * 60 * 1000) // 14 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
         // Last injection was 5 days ago at noon
-        testState.lastInjectionDate = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000)
+        testState.lastInjectionDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) - 5 * 24 * 60 * 60 * 1000)
 
         const result = yield* calculateNextDose
 
@@ -341,12 +345,12 @@ describe('ScheduleGetNextDose', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
-        const startDate = new Date('2024-01-05T12:00:00Z') // 10 days before reference
+        const startDate = DateTime.unsafeMake('2024-01-05T12:00:00Z') // 10 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'every_3_days', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '100mg' },
         ])
         // Last injection was 2 days ago
-        testState.lastInjectionDate = new Date('2024-01-13T12:00:00Z')
+        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-13T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -366,12 +370,12 @@ describe('ScheduleGetNextDose', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
-        const startDate = new Date('2024-01-01T12:00:00Z') // 14 days before reference
+        const startDate = DateTime.unsafeMake('2024-01-01T12:00:00Z') // 14 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
         // Last injection was 10 days before reference (overdue by 3 days for weekly)
-        testState.lastInjectionDate = new Date('2024-01-05T12:00:00Z')
+        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-05T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -388,7 +392,7 @@ describe('ScheduleGetNextDose', () => {
     it.effect('returns first phase dosage at start', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
+        const startDate = DateTime.unsafeMake(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -408,13 +412,13 @@ describe('ScheduleGetNextDose', () => {
     it.effect('transitions to second phase after first phase duration', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+        const startDate = DateTime.unsafeMake(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
           { order: 3 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
-        testState.lastInjectionDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        testState.lastInjectionDate = DateTime.unsafeMake(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
         const result = yield* calculateNextDose
 
@@ -427,13 +431,13 @@ describe('ScheduleGetNextDose', () => {
     it.effect('stays on indefinite (maintenance) phase', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000) // 100 days ago
+        const startDate = DateTime.unsafeMake(Date.now() - 100 * 24 * 60 * 60 * 1000) // 100 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
           { order: 3 as PhaseOrder, durationDays: null, dosage: '200mg' }, // Indefinite
         ])
-        testState.lastInjectionDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+        testState.lastInjectionDate = DateTime.unsafeMake(Date.now() - 5 * 24 * 60 * 60 * 1000)
 
         const result = yield* calculateNextDose
 
@@ -446,14 +450,13 @@ describe('ScheduleGetNextDose', () => {
     it.effect('handles single indefinite phase schedule', () =>
       Effect.gen(function* () {
         resetTestState()
-        const now = new Date()
-        now.setHours(12, 0, 0, 0) // Normalize to noon
-        const startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000) // 1 year ago
+        const now = DateTime.unsafeNow()
+        const startDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) - 365 * 24 * 60 * 60 * 1000) // 1 year ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
-        // Last injection was 5 days ago at noon, so next is due in ~2 days
-        testState.lastInjectionDate = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000)
+        // Last injection was 5 days ago, so next is due in ~2 days
+        testState.lastInjectionDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) - 5 * 24 * 60 * 60 * 1000)
 
         const result = yield* calculateNextDose
 
@@ -473,7 +476,7 @@ describe('ScheduleGetNextDose', () => {
     it.effect('returns null for schedule with no phases', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date()
+        const startDate = DateTime.unsafeNow()
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [])
         testState.lastInjectionDate = null
 
@@ -488,12 +491,12 @@ describe('ScheduleGetNextDose', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
-        const startDate = new Date('2024-01-10T12:00:00Z') // 5 days before reference
+        const startDate = DateTime.unsafeMake('2024-01-10T12:00:00Z') // 5 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'daily', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '10mg' },
         ])
         // Last injection was today
-        testState.lastInjectionDate = new Date('2024-01-15T12:00:00Z')
+        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-15T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -510,12 +513,12 @@ describe('ScheduleGetNextDose', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2024-03-15T12:00:00Z'))
 
-        const startDate = new Date('2024-01-15T12:00:00Z') // 60 days before reference
+        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 60 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'monthly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '1000mg' },
         ])
         // Last injection was 20 days ago
-        testState.lastInjectionDate = new Date('2024-02-24T12:00:00Z')
+        testState.lastInjectionDate = DateTime.unsafeMake('2024-02-24T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -538,7 +541,7 @@ describe('ScheduleGetView', () => {
     it.effect('marks past phases as completed', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) // 60 days ago
+        const startDate = DateTime.unsafeMake(Date.now() - 60 * 24 * 60 * 60 * 1000) // 60 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -548,28 +551,28 @@ describe('ScheduleGetView', () => {
         testState.injectionsBySchedule.set(schedule.id, [])
 
         // Calculate phase status manually (simulating what the handler does)
-        const now = new Date()
+        const now = DateTime.unsafeNow()
+        const msPerDay = 1000 * 60 * 60 * 24
         let cumulativeDays = 0
 
         const phaseStatuses = schedule.phases.map((phase) => {
-          const phaseStartDate = new Date(startDate)
-          phaseStartDate.setDate(phaseStartDate.getDate() + cumulativeDays)
+          const phaseStartDate = DateTime.unsafeMake(
+            DateTime.toEpochMillis(startDate) + cumulativeDays * msPerDay,
+          )
 
           const isIndefinite = phase.durationDays === null
           const phaseEndDate = isIndefinite
             ? null
-            : (() => {
-                const end = new Date(phaseStartDate)
-                end.setDate(end.getDate() + phase.durationDays - 1)
-                return end
-              })()
+            : DateTime.unsafeMake(
+                DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay,
+              )
 
           let status: 'completed' | 'current' | 'upcoming'
           if (isIndefinite) {
-            status = now >= phaseStartDate ? 'current' : 'upcoming'
-          } else if (phaseEndDate && now > phaseEndDate) {
+            status = DateTime.greaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
+          } else if (phaseEndDate && DateTime.greaterThan(now, phaseEndDate)) {
             status = 'completed'
-          } else if (now >= phaseStartDate) {
+          } else if (DateTime.greaterThanOrEqualTo(now, phaseStartDate)) {
             status = 'current'
           } else {
             status = 'upcoming'
@@ -594,7 +597,7 @@ describe('ScheduleGetView', () => {
     it.effect('marks current phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000) // 35 days ago
+        const startDate = DateTime.unsafeMake(Date.now() - 35 * 24 * 60 * 60 * 1000) // 35 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -603,8 +606,11 @@ describe('ScheduleGetView', () => {
         testState.activeSchedule = schedule
 
         // We're in phase 2 (day 35, which is in range 28-55)
-        const now = new Date()
-        const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+        const now = DateTime.unsafeNow()
+        const msPerDay = 1000 * 60 * 60 * 24
+        const daysSinceStart = Math.floor(
+          (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
+        )
 
         expect(daysSinceStart).toBeGreaterThanOrEqual(28)
         expect(daysSinceStart).toBeLessThan(56)
@@ -614,7 +620,7 @@ describe('ScheduleGetView', () => {
     it.effect('marks future phases as upcoming', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
+        const startDate = DateTime.unsafeMake(Date.now() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -626,8 +632,11 @@ describe('ScheduleGetView', () => {
         // Phase 1 (days 0-27): current
         // Phase 2 (days 28-55): upcoming
         // Phase 3 (day 56+): upcoming
-        const now = new Date()
-        const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+        const now = DateTime.unsafeNow()
+        const msPerDay = 1000 * 60 * 60 * 24
+        const daysSinceStart = Math.floor(
+          (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
+        )
 
         expect(daysSinceStart).toBeLessThan(28) // Still in phase 1
       }).pipe(Effect.provide(TestLayer)),
@@ -638,7 +647,7 @@ describe('ScheduleGetView', () => {
     it.effect('counts injections per phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date('2024-01-01')
+        const startDate = DateTime.unsafeMake('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' },
@@ -647,26 +656,30 @@ describe('ScheduleGetView', () => {
 
         // Create injections: 4 in phase 1, 2 in phase 2
         const injections = [
-          createTestInjection(schedule.id, new Date('2024-01-01'), '100mg'),
-          createTestInjection(schedule.id, new Date('2024-01-08'), '100mg'),
-          createTestInjection(schedule.id, new Date('2024-01-15'), '100mg'),
-          createTestInjection(schedule.id, new Date('2024-01-22'), '100mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-01'), '100mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-08'), '100mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-15'), '100mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-22'), '100mg'),
           // Phase 2 starts day 28 = 2024-01-29
-          createTestInjection(schedule.id, new Date('2024-01-29'), '200mg'),
-          createTestInjection(schedule.id, new Date('2024-02-05'), '200mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-29'), '200mg'),
+          createTestInjection(schedule.id, DateTime.unsafeMake('2024-02-05'), '200mg'),
         ]
         testState.injectionsBySchedule.set(schedule.id, injections)
 
         // Phase 1: Jan 1 - Jan 28 (4 injections)
+        const jan1 = DateTime.unsafeMake('2024-01-01')
+        const jan29 = DateTime.unsafeMake('2024-01-29')
         const phase1Injections = injections.filter((inj) => {
           const injDate = inj.datetime
-          return injDate >= new Date('2024-01-01') && injDate < new Date('2024-01-29')
+          return (
+            DateTime.greaterThanOrEqualTo(injDate, jan1) && DateTime.lessThan(injDate, jan29)
+          )
         })
         expect(phase1Injections.length).toBe(4)
 
         // Phase 2: Jan 29+ (2 injections)
         const phase2Injections = injections.filter((inj) => {
-          return inj.datetime >= new Date('2024-01-29')
+          return DateTime.greaterThanOrEqualTo(inj.datetime, jan29)
         })
         expect(phase2Injections.length).toBe(2)
       }).pipe(Effect.provide(TestLayer)),
@@ -675,7 +688,7 @@ describe('ScheduleGetView', () => {
     it.effect('calculates expected injections based on frequency', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date('2024-01-01')
+        const startDate = DateTime.unsafeMake('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' }, // Indefinite
@@ -697,7 +710,7 @@ describe('ScheduleGetView', () => {
     it.effect('calculates phase start and end dates correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date('2024-01-01T00:00:00Z')
+        const startDate = DateTime.unsafeMake('2024-01-01T00:00:00Z')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 14 as PhaseDurationDays, dosage: '150mg' },
@@ -705,35 +718,33 @@ describe('ScheduleGetView', () => {
         ])
         testState.activeSchedule = schedule
 
-        // Phase 1: Jan 1 - Jan 28 (28 days, end = start + 27)
-        const phase1Start = new Date(startDate)
-        const phase1End = new Date(startDate)
-        phase1End.setDate(phase1End.getDate() + 28 - 1)
+        const msPerDay = 1000 * 60 * 60 * 24
 
-        expect(phase1Start.toISOString().split('T')[0]).toBe('2024-01-01')
-        expect(phase1End.toISOString().split('T')[0]).toBe('2024-01-28')
+        // Phase 1: Jan 1 - Jan 28 (28 days, end = start + 27)
+        const phase1Start = startDate
+        const phase1End = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + (28 - 1) * msPerDay)
+
+        expect(DateTime.formatIso(phase1Start).split('T')[0]).toBe('2024-01-01')
+        expect(DateTime.formatIso(phase1End).split('T')[0]).toBe('2024-01-28')
 
         // Phase 2: Jan 29 - Feb 11 (14 days)
-        const phase2Start = new Date(startDate)
-        phase2Start.setDate(phase2Start.getDate() + 28)
-        const phase2End = new Date(phase2Start)
-        phase2End.setDate(phase2End.getDate() + 14 - 1)
+        const phase2Start = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + 28 * msPerDay)
+        const phase2End = DateTime.unsafeMake(DateTime.toEpochMillis(phase2Start) + (14 - 1) * msPerDay)
 
-        expect(phase2Start.toISOString().split('T')[0]).toBe('2024-01-29')
-        expect(phase2End.toISOString().split('T')[0]).toBe('2024-02-11')
+        expect(DateTime.formatIso(phase2Start).split('T')[0]).toBe('2024-01-29')
+        expect(DateTime.formatIso(phase2End).split('T')[0]).toBe('2024-02-11')
 
         // Phase 3: Feb 12 - no end (indefinite)
-        const phase3Start = new Date(phase2Start)
-        phase3Start.setDate(phase3Start.getDate() + 14)
+        const phase3Start = DateTime.unsafeMake(DateTime.toEpochMillis(phase2Start) + 14 * msPerDay)
 
-        expect(phase3Start.toISOString().split('T')[0]).toBe('2024-02-12')
+        expect(DateTime.formatIso(phase3Start).split('T')[0]).toBe('2024-02-12')
       }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('schedule end date is null for indefinite final phase', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date('2024-01-01')
+        const startDate = DateTime.unsafeMake('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' },
@@ -749,7 +760,7 @@ describe('ScheduleGetView', () => {
     it.effect('schedule end date is calculated for finite schedules', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = new Date('2024-01-01')
+        const startDate = DateTime.unsafeMake('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '200mg' },
@@ -764,9 +775,9 @@ describe('ScheduleGetView', () => {
         const totalDays = schedule.phases.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
         expect(totalDays).toBe(56)
 
-        const endDate = new Date(startDate)
-        endDate.setDate(endDate.getDate() + totalDays - 1)
-        expect(endDate.toISOString().split('T')[0]).toBe('2024-02-25')
+        const msPerDay = 1000 * 60 * 60 * 24
+        const endDate = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + (totalDays - 1) * msPerDay)
+        expect(DateTime.formatIso(endDate).split('T')[0]).toBe('2024-02-25')
       }).pipe(Effect.provide(TestLayer)),
     )
   })

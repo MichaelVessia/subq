@@ -63,15 +63,15 @@ export type InjectionLogError = typeof InjectionLogError.Type
  */
 export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
   id: InjectionLogId,
-  datetime: Schema.Date,
+  datetime: Schema.DateTimeUtc,
   drug: DrugName,
   source: Schema.NullOr(DrugSource),
   dosage: Dosage,
   injectionSite: Schema.NullOr(InjectionSite),
   notes: Schema.NullOr(Notes),
   scheduleId: Schema.NullOr(InjectionScheduleId),
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date,
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
 }) {}
 
 // ============================================
@@ -82,7 +82,7 @@ export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
  * Payload for creating a new injection log entry.
  */
 export class InjectionLogCreate extends Schema.Class<InjectionLogCreate>('InjectionLogCreate')({
-  datetime: Schema.Date,
+  datetime: Schema.DateTimeUtc,
   drug: DrugName,
   source: Schema.optionalWith(DrugSource, { as: 'Option' }),
   dosage: Dosage,
@@ -96,7 +96,7 @@ export class InjectionLogCreate extends Schema.Class<InjectionLogCreate>('Inject
  */
 export class InjectionLogUpdate extends Schema.Class<InjectionLogUpdate>('InjectionLogUpdate')({
   id: InjectionLogId,
-  datetime: Schema.optional(Schema.Date),
+  datetime: Schema.optional(Schema.DateTimeUtc),
   drug: Schema.optional(DrugName),
   source: Schema.optionalWith(Schema.NullOr(DrugSource), { as: 'Option' }),
   dosage: Schema.optional(Dosage),
@@ -120,8 +120,8 @@ export class InjectionLogDelete extends Schema.Class<InjectionLogDelete>('Inject
 export class InjectionLogListParams extends Schema.Class<InjectionLogListParams>('InjectionLogListParams')({
   limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
   offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
-  startDate: Schema.optional(Schema.Date),
-  endDate: Schema.optional(Schema.Date),
+  startDate: Schema.optional(Schema.DateTimeUtc),
+  endDate: Schema.optional(Schema.DateTimeUtc),
   drug: Schema.optional(DrugName), // Filter by specific drug
 }) {}
 

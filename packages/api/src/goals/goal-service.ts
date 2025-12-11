@@ -1,6 +1,6 @@
 import { SqlClient } from '@effect/sql'
 import { GoalDatabaseError, GoalProgress, type PaceStatus, PercentComplete, type UserGoal, Weight } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 import { GoalRepo } from './goal-repo.js'
 
 // ============================================
@@ -28,7 +28,11 @@ export class GoalService extends Effect.Tag('GoalService')<
     /** Calculate goal progress including projection */
     readonly getGoalProgress: (userId: string) => Effect.Effect<GoalProgress | null, GoalDatabaseError>
     /** Calculate projected goal date based on rate of change */
-    readonly calculateProjectedDate: (goal: UserGoal, currentWeight: number, rateOfChange: number) => Date | null
+    readonly calculateProjectedDate: (
+      goal: UserGoal,
+      currentWeight: number,
+      rateOfChange: number,
+    ) => DateTime.Utc | null
     /** Calculate pace status */
     readonly calculatePaceStatus: (goal: UserGoal, currentWeight: number, rateOfChange: number) => PaceStatus
   }
@@ -51,14 +55,14 @@ interface LinearRegressionResult {
   intercept: number
 }
 
-function computeLinearRegression(points: { date: Date; weight: number }[]): LinearRegressionResult | null {
+function computeLinearRegression(points: { date: DateTime.Utc; weight: number }[]): LinearRegressionResult | null {
   if (points.length < 2) return null
 
   const n = points.length
-  const sumX = points.reduce((acc, p) => acc + p.date.getTime(), 0)
+  const sumX = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date), 0)
   const sumY = points.reduce((acc, p) => acc + p.weight, 0)
-  const sumXY = points.reduce((acc, p) => acc + p.date.getTime() * p.weight, 0)
-  const sumX2 = points.reduce((acc, p) => acc + p.date.getTime() * p.date.getTime(), 0)
+  const sumXY = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date) * p.weight, 0)
+  const sumX2 = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date) * DateTime.toEpochMillis(p.date), 0)
 
   const denominator = n * sumX2 - sumX * sumX
   if (denominator === 0) return null
@@ -69,7 +73,7 @@ function computeLinearRegression(points: { date: Date; weight: number }[]): Line
   return { slope, intercept }
 }
 
-function computeRateOfChange(points: { date: Date; weight: number }[]): number {
+function computeRateOfChange(points: { date: DateTime.Utc; weight: number }[]): number {
   const regression = computeLinearRegression(points)
   if (!regression) return 0
   return regression.slope * MS_PER_WEEK
@@ -102,7 +106,7 @@ export const GoalServiceLive = Layer.effect(
 
     const getMostRecentWeight = getCurrentWeight // Same implementation
 
-    const calculateProjectedDate = (goal: UserGoal, currentWeight: number, rateOfChange: number): Date | null => {
+    const calculateProjectedDate = (goal: UserGoal, currentWeight: number, rateOfChange: number): DateTime.Utc | null => {
       // Rate of change is lbs per week (negative = losing)
       if (rateOfChange >= 0) {
         // Not losing weight, can't project
@@ -112,16 +116,17 @@ export const GoalServiceLive = Layer.effect(
       const remainingLbs = currentWeight - goal.goalWeight
       if (remainingLbs <= 0) {
         // Already at or below goal
-        return new Date()
+        return DateTime.unsafeNow()
       }
 
       const weeksToGoal = remainingLbs / Math.abs(rateOfChange)
       const msToGoal = weeksToGoal * MS_PER_WEEK
-      const projectedDate = new Date(Date.now() + msToGoal)
+      const now = DateTime.unsafeNow()
+      const projectedDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) + msToGoal)
 
       // Cap at 5 years
-      const maxDate = new Date(Date.now() + MAX_PROJECTION_YEARS * 365 * MS_PER_DAY)
-      if (projectedDate > maxDate) {
+      const maxDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) + MAX_PROJECTION_YEARS * 365 * MS_PER_DAY)
+      if (DateTime.greaterThan(projectedDate, maxDate)) {
         return null // Too far out to be meaningful
       }
 
@@ -145,7 +150,8 @@ export const GoalServiceLive = Layer.effect(
         return 'ahead' // Already at goal
       }
 
-      const msRemaining = goal.targetDate.getTime() - Date.now()
+      const now = DateTime.unsafeNow()
+      const msRemaining = DateTime.toEpochMillis(goal.targetDate) - DateTime.toEpochMillis(now)
       if (msRemaining <= 0) {
         return 'behind' // Target date passed
       }
@@ -187,12 +193,12 @@ export const GoalServiceLive = Layer.effect(
           ORDER BY datetime ASC
         `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
-        const points: { date: Date; weight: number }[] = []
+        const points: { date: DateTime.Utc; weight: number }[] = []
         for (const row of rows) {
           const decoded = yield* decodeWeightRow(row).pipe(
             Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
           )
-          points.push({ date: new Date(decoded.datetime), weight: decoded.weight })
+          points.push({ date: DateTime.unsafeMake(decoded.datetime), weight: decoded.weight })
         }
 
         const rateOfChange = computeRateOfChange(points)
@@ -205,7 +211,10 @@ export const GoalServiceLive = Layer.effect(
         const projectedDate = calculateProjectedDate(goal, currentWeight, rateOfChange)
         const paceStatus = calculatePaceStatus(goal, currentWeight, rateOfChange)
 
-        const daysOnPlan = Math.floor((Date.now() - goal.startingDate.getTime()) / MS_PER_DAY)
+        const now = DateTime.unsafeNow()
+        const daysOnPlan = Math.floor(
+          (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(goal.startingDate)) / MS_PER_DAY,
+        )
         // Use the linear regression rate (from all weight history) as the avg rate
         // rateOfChange is negative when losing, so negate for display as positive loss rate
         const avgLbsPerWeek = rateOfChange < 0 ? Math.abs(rateOfChange) : 0

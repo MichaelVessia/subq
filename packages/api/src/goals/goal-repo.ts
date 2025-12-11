@@ -9,7 +9,7 @@ import {
   type UserGoalUpdate,
   Weight,
 } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schemas
@@ -36,13 +36,13 @@ const goalRowToDomain = (row: typeof GoalRow.Type): UserGoal =>
     id: GoalId.make(row.id),
     goalWeight: Weight.make(row.goal_weight),
     startingWeight: Weight.make(row.starting_weight),
-    startingDate: new Date(row.starting_date),
-    targetDate: row.target_date ? new Date(row.target_date) : null,
+    startingDate: DateTime.unsafeMake(row.starting_date),
+    targetDate: row.target_date ? DateTime.unsafeMake(row.target_date) : null,
     notes: row.notes ? Notes.make(row.notes) : null,
     isActive: row.is_active === 1,
-    completedAt: row.completed_at ? new Date(row.completed_at) : null,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    completedAt: row.completed_at ? DateTime.unsafeMake(row.completed_at) : null,
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 const generateUuid = () => crypto.randomUUID()
@@ -122,9 +122,9 @@ export const GoalRepoLive = Layer.effect(
     const create = (data: UserGoalCreate, startingWeight: number, userId: string) =>
       Effect.gen(function* () {
         const id = generateUuid()
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
         const startingDate = now.split('T')[0]! // Just the date part
-        const targetDate = Option.isSome(data.targetDate) ? data.targetDate.value.toISOString() : null
+        const targetDate = Option.isSome(data.targetDate) ? DateTime.formatIso(data.targetDate.value) : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
 
         // Deactivate any existing active goals for this user
@@ -153,7 +153,7 @@ export const GoalRepoLive = Layer.effect(
         }
 
         const userId = (existing[0] as { user_id: string }).user_id
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         // If activating this goal, deactivate others
         if (data.isActive === true) {
@@ -169,7 +169,7 @@ export const GoalRepoLive = Layer.effect(
           updates.push(`goal_weight = ${data.goalWeight}`)
         }
         if (data.targetDate !== undefined) {
-          const val = data.targetDate === null ? 'NULL' : `'${data.targetDate.toISOString()}'`
+          const val = data.targetDate === null ? 'NULL' : `'${DateTime.formatIso(data.targetDate)}'`
           updates.push(`target_date = ${val}`)
         }
         if (data.notes !== undefined) {

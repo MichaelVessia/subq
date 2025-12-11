@@ -18,7 +18,7 @@ import {
   type SchedulePhaseCreate,
   SchedulePhaseId,
 } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schemas
@@ -81,8 +81,8 @@ const phaseRowToDomain = (row: typeof PhaseRow.Type): SchedulePhase =>
     order: row.order as PhaseOrder,
     durationDays: row.duration_days as PhaseDurationDays | null,
     dosage: Dosage.make(row.dosage),
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 const scheduleRowToDomain = (row: typeof ScheduleRow.Type, phases: SchedulePhase[]): InjectionSchedule =>
@@ -92,12 +92,12 @@ const scheduleRowToDomain = (row: typeof ScheduleRow.Type, phases: SchedulePhase
     drug: DrugName.make(row.drug),
     source: row.source ? DrugSource.make(row.source) : null,
     frequency: row.frequency as Frequency,
-    startDate: new Date(row.start_date),
+    startDate: DateTime.unsafeMake(row.start_date),
     isActive: row.is_active === 1,
     notes: row.notes ? Notes.make(row.notes) : null,
     phases,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: DateTime.unsafeMake(row.created_at),
+    updatedAt: DateTime.unsafeMake(row.updated_at),
   })
 
 // Helper to group joined rows into schedules with phases (avoids N+1 queries)
@@ -133,8 +133,8 @@ const groupSchedulesWithPhases = (rows: Array<typeof ScheduleWithPhaseRow.Type>)
           order: (row.phase_order ?? 0) as PhaseOrder,
           durationDays: row.phase_duration_days as PhaseDurationDays | null,
           dosage: Dosage.make(row.phase_dosage),
-          createdAt: new Date(row.phase_created_at),
-          updatedAt: new Date(row.phase_updated_at),
+          createdAt: DateTime.unsafeMake(row.phase_created_at),
+          updatedAt: DateTime.unsafeMake(row.phase_updated_at),
         }),
       )
     }
@@ -166,7 +166,7 @@ export class ScheduleRepo extends Effect.Tag('ScheduleRepo')<
     readonly getLastInjectionDate: (
       userId: string,
       drug: string,
-    ) => Effect.Effect<Option.Option<Date>, ScheduleDatabaseError>
+    ) => Effect.Effect<Option.Option<DateTime.Utc>, ScheduleDatabaseError>
   }
 >() {}
 
@@ -195,7 +195,7 @@ export const ScheduleRepoLive = Layer.effect(
     // Helper to create phases for a schedule
     const createPhases = (scheduleId: string, phases: readonly SchedulePhaseCreate[]) =>
       Effect.gen(function* () {
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
         for (const phase of phases) {
           const phaseId = generateUuid()
           yield* sql`
@@ -275,8 +275,8 @@ export const ScheduleRepoLive = Layer.effect(
         const id = generateUuid()
         const source = Option.isSome(data.source) ? data.source.value : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
-        const now = new Date().toISOString()
-        const startDateStr = data.startDate.toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const startDateStr = DateTime.formatIso(data.startDate)
 
         // Deactivate any existing active schedules for this user
         yield* sql`UPDATE injection_schedules SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
@@ -323,10 +323,10 @@ export const ScheduleRepoLive = Layer.effect(
         const newDrug = data.drug ?? curr.drug
         const newSource = data.source !== undefined ? data.source : curr.source
         const newFrequency = data.frequency ?? curr.frequency
-        const newStartDate = data.startDate ? data.startDate.toISOString() : curr.start_date
+        const newStartDate = data.startDate ? DateTime.formatIso(data.startDate) : curr.start_date
         const newIsActive = data.isActive ?? curr.is_active === 1
         const newNotes = data.notes !== undefined ? data.notes : curr.notes
-        const now = new Date().toISOString()
+        const now = DateTime.formatIso(DateTime.unsafeNow())
 
         // If activating this schedule, deactivate others
         if (newIsActive && curr.is_active !== 1) {
@@ -398,7 +398,7 @@ export const ScheduleRepoLive = Layer.effect(
         if (!row) {
           return Option.none()
         }
-        return Option.some(new Date(row.datetime))
+        return Option.some(DateTime.unsafeMake(row.datetime))
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     return {

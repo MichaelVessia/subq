@@ -5,7 +5,7 @@ import {
   WeightRpcs,
   type WeightLogListParams,
 } from '@subq/shared'
-import { Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { WeightLogRepo } from './weight-log-repo.js'
 
 export const WeightRpcHandlersLive = WeightRpcs.toLayer(
@@ -18,8 +18,8 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
         Effect.annotateLogs({
           rpc: 'WeightLogList',
           userId: user.id,
-          startDate: params.startDate?.toISOString() ?? 'none',
-          endDate: params.endDate?.toISOString() ?? 'none',
+          startDate: params.startDate ? DateTime.formatIso(params.startDate) : 'none',
+          endDate: params.endDate ? DateTime.formatIso(params.endDate) : 'none',
         }),
       )
       const result = yield* repo.list(params, user.id)

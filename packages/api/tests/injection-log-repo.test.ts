@@ -12,7 +12,7 @@ import {
   InjectionSite,
   Notes,
 } from '@subq/shared'
-import { Effect, Layer, Option } from 'effect'
+import { DateTime, Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 
@@ -30,15 +30,15 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
         const logs = Array.from(store.values())
         let filtered = logs
         if (params.startDate) {
-          filtered = filtered.filter((log) => log.datetime >= params.startDate!)
+          filtered = filtered.filter((log) => DateTime.greaterThanOrEqualTo(log.datetime, params.startDate!))
         }
         if (params.endDate) {
-          filtered = filtered.filter((log) => log.datetime <= params.endDate!)
+          filtered = filtered.filter((log) => DateTime.lessThanOrEqualTo(log.datetime, params.endDate!))
         }
         if (params.drug) {
           filtered = filtered.filter((log) => log.drug === params.drug)
         }
-        filtered.sort((a, b) => b.datetime.getTime() - a.datetime.getTime())
+        filtered.sort((a, b) => DateTime.toEpochMillis(b.datetime) - DateTime.toEpochMillis(a.datetime))
         return filtered.slice(params.offset, params.offset + params.limit)
       }),
 
@@ -50,7 +50,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
 
     create: (data: InjectionLogCreate, _userId: string) =>
       Effect.sync(() => {
-        const now = new Date()
+        const now = DateTime.unsafeNow()
         const id = InjectionLogId.make(`injection-${counter++}`)
         const log = new InjectionLog({
           id,
@@ -84,7 +84,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
             data.injectionSite && Option.isSome(data.injectionSite) ? data.injectionSite.value : current.injectionSite,
           notes: data.notes && Option.isSome(data.notes) ? data.notes.value : current.notes,
           scheduleId: data.scheduleId && Option.isSome(data.scheduleId) ? data.scheduleId.value : current.scheduleId,
-          updatedAt: new Date(),
+          updatedAt: DateTime.unsafeNow(),
         })
         store.set(data.id, updated)
         return updated
@@ -119,7 +119,9 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
 
     getLastSite: (_userId: string) =>
       Effect.sync(() => {
-        const logs = Array.from(store.values()).sort((a, b) => b.datetime.getTime() - a.datetime.getTime())
+        const logs = Array.from(store.values()).sort(
+          (a, b) => DateTime.toEpochMillis(b.datetime) - DateTime.toEpochMillis(a.datetime),
+        )
         return logs[0]?.injectionSite ?? null
       }),
 
@@ -132,7 +134,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
             const updated = new InjectionLog({
               ...log,
               scheduleId: data.scheduleId,
-              updatedAt: new Date(),
+              updatedAt: DateTime.unsafeNow(),
             })
             store.set(id, updated)
             count++
@@ -144,7 +146,7 @@ const InjectionLogRepoTest = Layer.sync(InjectionLogRepo, () => {
     listBySchedule: (scheduleId: string, _userId: string) =>
       Effect.sync(() => {
         const logs = Array.from(store.values()).filter((log) => log.scheduleId === scheduleId)
-        return logs.sort((a, b) => a.datetime.getTime() - b.datetime.getTime())
+        return logs.sort((a, b) => DateTime.toEpochMillis(a.datetime) - DateTime.toEpochMillis(b.datetime))
       }),
   }
 })
@@ -160,7 +162,7 @@ describe('InjectionLogRepo', () => {
 
       const created = yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.some(DrugSource.make('Empower Pharmacy')),
           dosage: Dosage.make('200mg'),
@@ -185,7 +187,7 @@ describe('InjectionLogRepo', () => {
 
       const created = yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('BPC-157'),
           source: Option.none(),
           dosage: Dosage.make('250mcg'),
@@ -209,7 +211,7 @@ describe('InjectionLogRepo', () => {
 
       const created = yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('HCG'),
           source: Option.none(),
           dosage: Dosage.make('500IU'),
@@ -244,7 +246,7 @@ describe('InjectionLogRepo', () => {
       for (let i = 0; i < 5; i++) {
         yield* repo.create(
           {
-            datetime: new Date(`2024-01-${15 + i}T10:00:00Z`),
+            datetime: DateTime.unsafeMake(`2024-01-${15 + i}T10:00:00Z`),
             drug: DrugName.make('Testosterone Cypionate'),
             source: Option.none(),
             dosage: Dosage.make(`${100 + i * 10}mg`),
@@ -270,7 +272,7 @@ describe('InjectionLogRepo', () => {
 
       yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -282,7 +284,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-16T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-16T10:00:00Z'),
           drug: DrugName.make('BPC-157'),
           source: Option.none(),
           dosage: Dosage.make('250mcg'),
@@ -294,7 +296,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-17T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-17T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -321,7 +323,7 @@ describe('InjectionLogRepo', () => {
 
       const created = yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -354,7 +356,7 @@ describe('InjectionLogRepo', () => {
 
       const created = yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('HCG'),
           source: Option.none(),
           dosage: Dosage.make('500IU'),
@@ -387,7 +389,7 @@ describe('InjectionLogRepo', () => {
 
       yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -399,7 +401,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-16T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-16T10:00:00Z'),
           drug: DrugName.make('BPC-157'),
           source: Option.none(),
           dosage: Dosage.make('250mcg'),
@@ -411,7 +413,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-17T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-17T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -433,7 +435,7 @@ describe('InjectionLogRepo', () => {
 
       yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -445,7 +447,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-16T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-16T10:00:00Z'),
           drug: DrugName.make('BPC-157'),
           source: Option.none(),
           dosage: Dosage.make('250mcg'),
@@ -457,7 +459,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-17T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-17T10:00:00Z'),
           drug: DrugName.make('Testosterone Cypionate'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -479,7 +481,7 @@ describe('InjectionLogRepo', () => {
 
       yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Testosterone'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -491,7 +493,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-17T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-17T10:00:00Z'),
           drug: DrugName.make('Testosterone'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -503,7 +505,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-16T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-16T10:00:00Z'),
           drug: DrugName.make('Testosterone'),
           source: Option.none(),
           dosage: Dosage.make('200mg'),
@@ -536,7 +538,7 @@ describe('InjectionLogRepo', () => {
       // Create logs with and without schedule assignment
       yield* repo.create(
         {
-          datetime: new Date('2024-01-01T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-01T10:00:00Z'),
           drug: DrugName.make('Test Drug'),
           source: Option.none(),
           dosage: Dosage.make('100mg'),
@@ -548,7 +550,7 @@ describe('InjectionLogRepo', () => {
       )
       yield* repo.create(
         {
-          datetime: new Date('2024-01-08T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-08T10:00:00Z'),
           drug: DrugName.make('Test Drug'),
           source: Option.none(),
           dosage: Dosage.make('100mg'),
@@ -561,7 +563,7 @@ describe('InjectionLogRepo', () => {
       // This one has no schedule
       yield* repo.create(
         {
-          datetime: new Date('2024-01-15T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
           drug: DrugName.make('Test Drug'),
           source: Option.none(),
           dosage: Dosage.make('100mg'),
@@ -575,7 +577,7 @@ describe('InjectionLogRepo', () => {
       const scheduled = yield* repo.listBySchedule(scheduleId, 'user-123')
       expect(scheduled.length).toBe(2)
       // Should be sorted by datetime ASC
-      expect(scheduled[0]!.datetime.getTime()).toBeLessThan(scheduled[1]!.datetime.getTime())
+      expect(DateTime.toEpochMillis(scheduled[0]!.datetime)).toBeLessThan(DateTime.toEpochMillis(scheduled[1]!.datetime))
     }).pipe(Effect.provide(InjectionLogRepoTest)),
   )
 
@@ -585,7 +587,7 @@ describe('InjectionLogRepo', () => {
 
       yield* repo.create(
         {
-          datetime: new Date('2024-01-01T10:00:00Z'),
+          datetime: DateTime.unsafeMake('2024-01-01T10:00:00Z'),
           drug: DrugName.make('Test Drug'),
           source: Option.none(),
           dosage: Dosage.make('100mg'),
