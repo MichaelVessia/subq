@@ -1,4 +1,5 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import {
   Dosage,
   DrugName,
@@ -12,8 +13,9 @@ import {
   Notes,
 } from '@subq/shared'
 import { Option } from 'effect'
-import { useCallback, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
+import { type InjectionLogFormInput, injectionLogFormStandardSchema } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
@@ -67,25 +69,8 @@ interface InjectionLogFormProps {
   }
 }
 
-interface FormErrors {
-  datetime?: string | undefined
-  drug?: string | undefined
-  dosage?: string | undefined
-}
-
 export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished, initialData }: InjectionLogFormProps) {
   const isEditing = !!initialData?.id
-  const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
-  const [drug, setDrug] = useState(initialData?.drug ?? '')
-  const [source, setSource] = useState(initialData?.source ?? '')
-  const [dosage, setDosage] = useState(initialData?.dosage ?? '')
-  const [injectionSite, setInjectionSite] = useState(initialData?.injectionSite ?? '')
-  const [notes, setNotes] = useState(initialData?.notes ?? '')
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [touched, setTouched] = useState<Record<string, boolean>>({})
-  const [finishVial, setFinishVial] = useState(false)
-  const [selectedInventoryId, setSelectedInventoryId] = useState<string>('')
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
@@ -95,106 +80,79 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   const userSites = Result.getOrElse(sitesResult, () => [])
   const inventory = Result.getOrElse(inventoryResult, () => [])
 
-  // Get active (non-finished) inventory items for current drug
-  const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
-
   const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS.map((d) => d.name)])]
   const allSites = [...new Set([...userSites, ...INJECTION_SITES])]
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<InjectionLogFormInput>({
+    resolver: standardSchemaResolver(injectionLogFormStandardSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      datetime: toLocalDatetimeString(initialData?.datetime ?? new Date()),
+      drug: initialData?.drug ?? '',
+      source: initialData?.source ?? '',
+      dosage: initialData?.dosage ?? '',
+      injectionSite: initialData?.injectionSite ?? '',
+      notes: initialData?.notes ?? '',
+      finishVial: false,
+      selectedInventoryId: '',
+    },
+  })
+
+  const drug = watch('drug')
+  const dosage = watch('dosage')
+  const finishVial = watch('finishVial')
+
+  // Simple validity check for button enable state (matches original behavior)
+  const hasRequiredFields = drug !== '' && dosage !== ''
+
+  // Get active (non-finished) inventory items for current drug
+  const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
 
   const selectedDrugInfo = GLP1_DRUGS.find((d) => d.name === drug || drug.toLowerCase().includes(d.name.toLowerCase()))
   const dosageSuggestions = selectedDrugInfo?.dosages ?? []
 
-  const validateField = useCallback((field: string, value: string): string | undefined => {
-    switch (field) {
-      case 'datetime': {
-        if (!value) return 'Date & time is required'
-        const date = new Date(value)
-        if (Number.isNaN(date.getTime())) return 'Invalid date'
-        if (date > new Date()) return 'Cannot log future injections'
-        return undefined
+  const onFormSubmit = async (data: InjectionLogFormInput) => {
+    if (isEditing && onUpdate && initialData?.id) {
+      await onUpdate(
+        new InjectionLogUpdate({
+          id: initialData.id,
+          datetime: new Date(data.datetime),
+          drug: DrugName.make(data.drug),
+          source: Option.some(data.source ? DrugSource.make(data.source) : null),
+          dosage: Dosage.make(data.dosage),
+          injectionSite: Option.some(data.injectionSite ? InjectionSite.make(data.injectionSite) : null),
+          notes: Option.some(data.notes ? Notes.make(data.notes) : null),
+          scheduleId: Option.none(), // Don't change scheduleId when editing via form
+        }),
+      )
+    } else {
+      await onSubmit(
+        new InjectionLogCreate({
+          datetime: new Date(data.datetime),
+          drug: DrugName.make(data.drug),
+          source: data.source ? Option.some(DrugSource.make(data.source)) : Option.none(),
+          dosage: Dosage.make(data.dosage),
+          injectionSite: data.injectionSite ? Option.some(InjectionSite.make(data.injectionSite)) : Option.none(),
+          notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
+          scheduleId: initialData?.scheduleId
+            ? Option.some(initialData.scheduleId as InjectionScheduleId)
+            : Option.none(),
+        }),
+      )
+      // Mark inventory as finished if requested
+      if (data.finishVial && data.selectedInventoryId && onMarkFinished) {
+        await onMarkFinished(data.selectedInventoryId as InventoryId)
       }
-      case 'drug': {
-        if (!value.trim()) return 'Medication is required'
-        if (value.trim().length < 2) return 'Enter a valid medication name'
-        return undefined
-      }
-      case 'dosage': {
-        if (!value.trim()) return 'Dosage is required'
-        const dosagePattern = /^\d+(\.\d+)?\s*(mg|mcg|ml|units?|iu)$/i
-        if (!dosagePattern.test(value.trim())) {
-          return 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)'
-        }
-        return undefined
-      }
-      default:
-        return undefined
-    }
-  }, [])
-
-  const validateForm = useCallback((): boolean => {
-    const newErrors: FormErrors = {
-      datetime: validateField('datetime', datetime),
-      drug: validateField('drug', drug),
-      dosage: validateField('dosage', dosage),
-    }
-    setErrors(newErrors)
-    return !newErrors.datetime && !newErrors.drug && !newErrors.dosage
-  }, [datetime, drug, dosage, validateField])
-
-  const handleBlur = (field: string, value: string) => {
-    setTouched((prev) => ({ ...prev, [field]: true }))
-    setErrors((prev) => ({ ...prev, [field]: validateField(field, value) }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setTouched({ datetime: true, drug: true, dosage: true })
-
-    if (!validateForm()) return
-
-    setLoading(true)
-    try {
-      if (isEditing && onUpdate && initialData?.id) {
-        await onUpdate(
-          new InjectionLogUpdate({
-            id: initialData.id,
-            datetime: new Date(datetime),
-            drug: DrugName.make(drug),
-            source: Option.some(source ? DrugSource.make(source) : null),
-            dosage: Dosage.make(dosage),
-            injectionSite: Option.some(injectionSite ? InjectionSite.make(injectionSite) : null),
-            notes: Option.some(notes ? Notes.make(notes) : null),
-            scheduleId: Option.none(), // Don't change scheduleId when editing via form
-          }),
-        )
-      } else {
-        await onSubmit(
-          new InjectionLogCreate({
-            datetime: new Date(datetime),
-            drug: DrugName.make(drug),
-            source: source ? Option.some(DrugSource.make(source)) : Option.none(),
-            dosage: Dosage.make(dosage),
-            injectionSite: injectionSite ? Option.some(InjectionSite.make(injectionSite)) : Option.none(),
-            notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-            scheduleId: initialData?.scheduleId
-              ? Option.some(initialData.scheduleId as InjectionScheduleId)
-              : Option.none(),
-          }),
-        )
-        // Mark inventory as finished if requested
-        if (finishVial && selectedInventoryId && onMarkFinished) {
-          await onMarkFinished(selectedInventoryId as InventoryId)
-        }
-      }
-    } finally {
-      setLoading(false)
     }
   }
-
-  const isValid = !errors.datetime && !errors.drug && !errors.dosage && drug !== '' && dosage !== ''
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit(onFormSubmit)} noValidate>
       <div className="mb-4">
         <Label htmlFor="datetime" className="mb-2 block">
           Date & Time <span className="text-destructive">*</span>
@@ -202,38 +160,18 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         <Input
           type="datetime-local"
           id="datetime"
-          value={datetime}
-          onChange={(e) => {
-            setDatetime(e.target.value)
-            if (touched.datetime) {
-              setErrors((prev) => ({ ...prev, datetime: validateField('datetime', e.target.value) }))
-            }
-          }}
-          onBlur={(e) => handleBlur('datetime', e.target.value)}
-          error={touched.datetime && !!errors.datetime}
+          {...register('datetime')}
+          error={!!errors.datetime}
           max={toLocalDatetimeString(new Date())}
         />
-        {touched.datetime && errors.datetime && (
-          <span className="block text-xs text-destructive mt-1">{errors.datetime}</span>
-        )}
+        {errors.datetime && <span className="block text-xs text-destructive mt-1">{errors.datetime.message}</span>}
       </div>
 
       <div className="mb-4">
         <Label htmlFor="drug" className="mb-2 block">
           Medication <span className="text-destructive">*</span>
         </Label>
-        <Select
-          id="drug"
-          value={drug}
-          onChange={(e) => {
-            setDrug(e.target.value)
-            if (touched.drug) {
-              setErrors((prev) => ({ ...prev, drug: validateField('drug', e.target.value) }))
-            }
-          }}
-          onBlur={(e) => handleBlur('drug', e.target.value)}
-          error={touched.drug && !!errors.drug}
-        >
+        <Select id="drug" {...register('drug')} error={!!errors.drug}>
           <option value="">Select medication</option>
           {allDrugs.map((d) => (
             <option key={d} value={d}>
@@ -241,7 +179,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             </option>
           ))}
         </Select>
-        {touched.drug && errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug}</span>}
+        {errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug.message}</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
@@ -252,39 +190,24 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
           <Input
             type="text"
             id="dosage"
-            value={dosage}
-            onChange={(e) => {
-              setDosage(e.target.value)
-              if (touched.dosage) {
-                setErrors((prev) => ({ ...prev, dosage: validateField('dosage', e.target.value) }))
-              }
-            }}
-            onBlur={(e) => handleBlur('dosage', e.target.value)}
+            {...register('dosage')}
             list="dosage-suggestions"
             placeholder="e.g., 2.5mg"
-            error={touched.dosage && !!errors.dosage}
+            error={!!errors.dosage}
           />
           <datalist id="dosage-suggestions">
             {dosageSuggestions.map((d) => (
               <option key={d} value={d} />
             ))}
           </datalist>
-          {touched.dosage && errors.dosage && (
-            <span className="block text-xs text-destructive mt-1">{errors.dosage}</span>
-          )}
+          {errors.dosage && <span className="block text-xs text-destructive mt-1">{errors.dosage.message}</span>}
         </div>
 
         <div>
           <Label htmlFor="source" className="mb-2 block">
             Source
           </Label>
-          <Input
-            type="text"
-            id="source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="e.g., CVS, Pharmacy"
-          />
+          <Input type="text" id="source" {...register('source')} placeholder="e.g., CVS, Pharmacy" />
         </div>
       </div>
 
@@ -292,7 +215,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         <Label htmlFor="injectionSite" className="mb-2 block">
           Injection Site
         </Label>
-        <Select id="injectionSite" value={injectionSite} onChange={(e) => setInjectionSite(e.target.value)}>
+        <Select id="injectionSite" {...register('injectionSite')}>
           <option value="">Select site (optional)</option>
           {allSites.map((s) => (
             <option key={s} value={s}>
@@ -309,8 +232,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         </Label>
         <Textarea
           id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          {...register('notes')}
           rows={2}
           placeholder="Any side effects, observations, or reminders..."
         />
@@ -322,11 +244,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             <input
               type="checkbox"
               id="finishVial"
-              checked={finishVial}
-              onChange={(e) => {
-                setFinishVial(e.target.checked)
-                if (!e.target.checked) setSelectedInventoryId('')
-              }}
+              {...register('finishVial')}
               className="h-4 w-4 rounded border-gray-300"
             />
             <Label htmlFor="finishVial" className="text-sm font-medium cursor-pointer">
@@ -334,11 +252,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             </Label>
           </div>
           {finishVial && (
-            <Select
-              id="inventorySelect"
-              value={selectedInventoryId}
-              onChange={(e) => setSelectedInventoryId(e.target.value)}
-            >
+            <Select id="inventorySelect" {...register('selectedInventoryId')}>
               <option value="">Select inventory item to mark finished</option>
               {activeInventory.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -354,8 +268,8 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || !isValid}>
-          {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+        <Button type="submit" disabled={isSubmitting || !hasRequiredFields}>
+          {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}
         </Button>
       </div>
     </form>

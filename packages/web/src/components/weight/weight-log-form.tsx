@@ -1,7 +1,9 @@
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId } from '@subq/shared'
 import { Option } from 'effect'
-import { useCallback, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { type WeightLogFormInput, weightLogFormStandardSchema } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
@@ -28,11 +30,6 @@ interface WeightLogFormProps {
   }
 }
 
-interface FormErrors {
-  datetime?: string | undefined
-  weight?: string | undefined
-}
-
 export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: WeightLogFormProps) {
   const { weightUnit, displayWeight, toStorageLbs } = useUserSettings()
   const isEditing = !!initialData?.id
@@ -40,87 +37,51 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
   // Convert initial weight from storage (lbs) to display unit for the form
   const initialDisplayWeight = initialData?.weight ? displayWeight(initialData.weight).toString() : ''
 
-  const [datetime, setDatetime] = useState(toLocalDatetimeString(initialData?.datetime ?? new Date()))
-  const [weight, setWeight] = useState(initialDisplayWeight)
-  const [notes, setNotes] = useState(initialData?.notes ?? '')
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<WeightLogFormInput>({
+    resolver: standardSchemaResolver(weightLogFormStandardSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      datetime: toLocalDatetimeString(initialData?.datetime ?? new Date()),
+      weight: initialDisplayWeight,
+      notes: initialData?.notes ?? '',
+    },
+  })
 
-  const validateField = useCallback((field: string, value: string): string | undefined => {
-    switch (field) {
-      case 'datetime': {
-        if (!value) return 'Date & time is required'
-        const date = new Date(value)
-        if (Number.isNaN(date.getTime())) return 'Invalid date'
-        if (date > new Date()) return 'Cannot log future weights'
-        return undefined
-      }
-      case 'weight': {
-        if (!value) return 'Weight is required'
-        const num = Number.parseFloat(value)
-        if (Number.isNaN(num)) return 'Must be a number'
-        if (num <= 0) return 'Must be greater than 0'
-        if (num > 1000) return 'Please enter a realistic weight'
-        return undefined
-      }
-      default:
-        return undefined
-    }
-  }, [])
+  const weight = watch('weight')
+  // Simple validity check for button enable state (matches original behavior)
+  const hasRequiredFields = weight !== ''
 
-  const validateForm = useCallback((): boolean => {
-    const newErrors: FormErrors = {
-      datetime: validateField('datetime', datetime),
-      weight: validateField('weight', weight),
-    }
-    setErrors(newErrors)
-    return !newErrors.datetime && !newErrors.weight
-  }, [datetime, weight, validateField])
+  const onFormSubmit = async (data: WeightLogFormInput) => {
+    // Convert from user's display unit to storage unit (lbs)
+    const weightInLbs = toStorageLbs(Number.parseFloat(data.weight))
 
-  const handleBlur = (field: string, value: string) => {
-    setTouched((prev) => ({ ...prev, [field]: true }))
-    setErrors((prev) => ({ ...prev, [field]: validateField(field, value) }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setTouched({ datetime: true, weight: true })
-
-    if (!validateForm()) return
-
-    setLoading(true)
-    try {
-      // Convert from user's display unit to storage unit (lbs)
-      const weightInLbs = toStorageLbs(Number.parseFloat(weight))
-
-      if (isEditing && onUpdate && initialData?.id) {
-        await onUpdate(
-          new WeightLogUpdate({
-            id: initialData.id,
-            datetime: new Date(datetime),
-            weight: Weight.make(weightInLbs),
-            notes: Option.some(notes ? Notes.make(notes) : null),
-          }),
-        )
-      } else {
-        await onSubmit(
-          new WeightLogCreate({
-            datetime: new Date(datetime),
-            weight: Weight.make(weightInLbs),
-            notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-          }),
-        )
-      }
-    } finally {
-      setLoading(false)
+    if (isEditing && onUpdate && initialData?.id) {
+      await onUpdate(
+        new WeightLogUpdate({
+          id: initialData.id,
+          datetime: new Date(data.datetime),
+          weight: Weight.make(weightInLbs),
+          notes: Option.some(data.notes ? Notes.make(data.notes) : null),
+        }),
+      )
+    } else {
+      await onSubmit(
+        new WeightLogCreate({
+          datetime: new Date(data.datetime),
+          weight: Weight.make(weightInLbs),
+          notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
+        }),
+      )
     }
   }
-
-  const isValid = !errors.datetime && !errors.weight && weight !== ''
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit(onFormSubmit)} noValidate>
       <div className="mb-4">
         <Label htmlFor="datetime" className="mb-2 block">
           Date & Time <span className="text-destructive">*</span>
@@ -128,20 +89,11 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         <Input
           type="datetime-local"
           id="datetime"
-          value={datetime}
-          onChange={(e) => {
-            setDatetime(e.target.value)
-            if (touched.datetime) {
-              setErrors((prev) => ({ ...prev, datetime: validateField('datetime', e.target.value) }))
-            }
-          }}
-          onBlur={(e) => handleBlur('datetime', e.target.value)}
-          error={touched.datetime && !!errors.datetime}
+          {...register('datetime')}
+          error={!!errors.datetime}
           max={toLocalDatetimeString(new Date())}
         />
-        {touched.datetime && errors.datetime && (
-          <span className="block text-xs text-destructive mt-1">{errors.datetime}</span>
-        )}
+        {errors.datetime && <span className="block text-xs text-destructive mt-1">{errors.datetime.message}</span>}
       </div>
 
       <div className="mb-4">
@@ -151,23 +103,14 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         <Input
           type="number"
           id="weight"
-          value={weight}
-          onChange={(e) => {
-            setWeight(e.target.value)
-            if (touched.weight) {
-              setErrors((prev) => ({ ...prev, weight: validateField('weight', e.target.value) }))
-            }
-          }}
-          onBlur={(e) => handleBlur('weight', e.target.value)}
+          {...register('weight')}
           step="0.1"
           min="0"
           max="1000"
           placeholder={weightUnit === 'kg' ? 'e.g., 84.0' : 'e.g., 185.5'}
-          error={touched.weight && !!errors.weight}
+          error={!!errors.weight}
         />
-        {touched.weight && errors.weight && (
-          <span className="block text-xs text-destructive mt-1">{errors.weight}</span>
-        )}
+        {errors.weight && <span className="block text-xs text-destructive mt-1">{errors.weight.message}</span>}
       </div>
 
       <div className="mb-5">
@@ -176,8 +119,7 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         </Label>
         <Textarea
           id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          {...register('notes')}
           rows={2}
           placeholder="e.g., Morning weigh-in, after workout, fasted..."
         />
@@ -187,8 +129,8 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || !isValid}>
-          {loading ? 'Saving...' : isEditing ? 'Update' : 'Save'}
+        <Button type="submit" disabled={isSubmitting || !hasRequiredFields}>
+          {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}
         </Button>
       </div>
     </form>
