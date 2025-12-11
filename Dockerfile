@@ -37,9 +37,9 @@ RUN apk add --no-cache python3 make g++
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-# Copy built artifacts and source
-COPY packages/shared ./packages/shared
-COPY packages/api ./packages/api
+# Copy built artifacts and source (including workspace node_modules)
+COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder /app/packages/api ./packages/api
 COPY --from=builder /app/packages/web/dist ./packages/web/dist
 
 # Create data directory for SQLite
