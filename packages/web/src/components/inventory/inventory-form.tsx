@@ -1,6 +1,6 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { DrugName, DrugSource, InventoryCreate, type InventoryId, InventoryUpdate, TotalAmount } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { type InventoryFormInput, inventoryFormStandardSchema } from '../../lib/form-schemas.js'
@@ -83,7 +83,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
     if (drug && !availableDrugs.includes(drug)) {
       setValue('drug', '')
     }
-  }, [formType, drug, availableDrugs, setValue])
+  }, [drug, availableDrugs, setValue])
 
   const onFormSubmit = async (data: InventoryFormInput) => {
     if (isEditing && onUpdate && initialData?.id) {
@@ -95,7 +95,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           form: data.form,
           totalAmount: TotalAmount.make(data.totalAmount),
           status: data.status,
-          beyondUseDate: data.beyondUseDate ? Option.some(new Date(data.beyondUseDate)) : Option.some(null),
+          beyondUseDate: data.beyondUseDate
+            ? Option.some(DateTime.unsafeMake(new Date(data.beyondUseDate)))
+            : Option.some(null),
         }),
       )
     } else {
@@ -107,7 +109,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           form: data.form,
           totalAmount: TotalAmount.make(data.totalAmount),
           status: data.status,
-          beyondUseDate: data.beyondUseDate ? Option.some(new Date(data.beyondUseDate)) : Option.none(),
+          beyondUseDate: data.beyondUseDate
+            ? Option.some(DateTime.unsafeMake(new Date(data.beyondUseDate)))
+            : Option.none(),
         }),
         quantity,
       )
@@ -127,7 +131,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             <option value="pen">Pen (Branded)</option>
           </Select>
           <p className="text-xs text-muted-foreground mt-1">
-            {formType === 'vial' ? 'Multi-dose vials from compounding pharmacies' : 'Pre-filled pens from manufacturers'}
+            {formType === 'vial'
+              ? 'Multi-dose vials from compounding pharmacies'
+              : 'Pre-filled pens from manufacturers'}
           </p>
         </div>
 
@@ -173,7 +179,9 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             placeholder={formType === 'vial' ? 'e.g., 10mg, 20mg' : 'e.g., 2.5mg, 5mg'}
             error={!!errors.totalAmount}
           />
-          {errors.totalAmount && <span className="block text-xs text-destructive mt-1">{errors.totalAmount.message}</span>}
+          {errors.totalAmount && (
+            <span className="block text-xs text-destructive mt-1">{errors.totalAmount.message}</span>
+          )}
         </div>
 
         <div>

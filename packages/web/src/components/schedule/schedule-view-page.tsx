@@ -1,27 +1,29 @@
 import { Result, useAtomValue } from '@effect-atom/atom-react'
 import type { InjectionScheduleId, SchedulePhaseView, ScheduleView } from '@subq/shared'
 import { Link, useParams } from '@tanstack/react-router'
+import type { DateTime } from 'effect'
 import { ArrowLeft, Calendar, Check, Clock, Syringe } from 'lucide-react'
 import { useMemo } from 'react'
+import { toDate } from '../../lib/utils.js'
 import { createScheduleViewAtom } from '../../rpc.js'
 import { Card } from '../ui/card.js'
 
-const formatDate = (date: Date) =>
+const formatDate = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
-const formatDateShort = (date: Date) =>
+const formatDateShort = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
-const formatDateTime = (date: Date) =>
+const formatDateTime = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'short',
     timeStyle: 'short',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
 const frequencyLabels: Record<string, string> = {
   daily: 'Daily',

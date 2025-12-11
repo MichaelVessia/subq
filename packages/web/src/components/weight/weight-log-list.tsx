@@ -1,9 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { WeightLog, WeightLogCreate, WeightLogId, WeightLogUpdate } from '@subq/shared'
+import type { DateTime } from 'effect'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, createWeightLogListAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
@@ -18,11 +20,11 @@ import {
 } from '../ui/dropdown-menu.js'
 import { WeightLogForm } from './weight-log-form.js'
 
-const formatDate = (date: Date) =>
+const formatDate = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
 export function WeightLogList() {
   const { formatWeight, unitLabel } = useUserSettings()
@@ -150,7 +152,7 @@ export function WeightLogList() {
             onCancel={handleCancelEdit}
             initialData={{
               id: editingLog.id,
-              datetime: editingLog.datetime,
+              datetime: toDate(editingLog.datetime),
               weight: editingLog.weight,
               notes: editingLog.notes,
             }}

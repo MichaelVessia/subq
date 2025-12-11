@@ -1,18 +1,20 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { GoalProgress, UserGoalCreate, UserGoalUpdate } from '@subq/shared'
 import { UserGoalDelete } from '@subq/shared'
+import type { DateTime } from 'effect'
 import { Target, TrendingDown, TrendingUp, Calendar, Minus, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, GoalProgressAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { GoalForm } from './goal-form.js'
 
-const formatDate = (date: Date) =>
+const formatDate = (date: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
-  }).format(new Date(date))
+  }).format(toDate(date))
 
 function PaceStatusBadge({ status }: { status: GoalProgress['paceStatus'] }) {
   const config = {

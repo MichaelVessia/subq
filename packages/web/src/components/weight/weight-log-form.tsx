@@ -1,6 +1,6 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { Notes, Weight, WeightLogCreate, WeightLogUpdate, type WeightLogId } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { useForm } from 'react-hook-form'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { type WeightLogFormInput, weightLogFormStandardSchema } from '../../lib/form-schemas.js'
@@ -64,7 +64,7 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
       await onUpdate(
         new WeightLogUpdate({
           id: initialData.id,
-          datetime: new Date(data.datetime),
+          datetime: DateTime.unsafeMake(new Date(data.datetime)),
           weight: Weight.make(weightInLbs),
           notes: Option.some(data.notes ? Notes.make(data.notes) : null),
         }),
@@ -72,7 +72,7 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
     } else {
       await onSubmit(
         new WeightLogCreate({
-          datetime: new Date(data.datetime),
+          datetime: DateTime.unsafeMake(new Date(data.datetime)),
           weight: Weight.make(weightInLbs),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
         }),

@@ -1,0 +1,31 @@
+# Dependencies (keep bun.lock for reproducible builds)
+node_modules
+**/node_modules
+!bun.lock
+
+# Build outputs
+dist
+**/dist
+build
+**/build
+.tsbuildinfo
+**/.tsbuildinfo
+
+# Test artifacts
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+
+# Dev/IDE files
+.git
+.vscode
+.idea
+*.log
+
+# Misc
+.DS_Store
+*.local
+.env
+.env.*
+!.env.production

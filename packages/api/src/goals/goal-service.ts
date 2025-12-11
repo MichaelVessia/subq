@@ -106,7 +106,11 @@ export const GoalServiceLive = Layer.effect(
 
     const getMostRecentWeight = getCurrentWeight // Same implementation
 
-    const calculateProjectedDate = (goal: UserGoal, currentWeight: number, rateOfChange: number): DateTime.Utc | null => {
+    const calculateProjectedDate = (
+      goal: UserGoal,
+      currentWeight: number,
+      rateOfChange: number,
+    ): DateTime.Utc | null => {
       // Rate of change is lbs per week (negative = losing)
       if (rateOfChange >= 0) {
         // Not losing weight, can't project

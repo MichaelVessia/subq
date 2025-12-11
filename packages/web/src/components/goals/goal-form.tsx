@@ -1,13 +1,14 @@
 import { Notes, type UserGoal, UserGoalCreate, UserGoalUpdate, Weight } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { useCallback, useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { toDateString } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 import { Textarea } from '../ui/textarea.js'
 
-function toDateString(date: Date): string {
+function toLocalDateString(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -46,7 +47,7 @@ export function GoalForm(props: GoalFormProps) {
     existingGoal ? String(displayWeight(existingGoal.goalWeight).toFixed(1)) : '',
   )
   const [targetDate, setTargetDate] = useState(() =>
-    existingGoal?.targetDate ? toDateString(new Date(existingGoal.targetDate)) : '',
+    existingGoal?.targetDate ? toDateString(existingGoal.targetDate) : '',
   )
   const [notes, setNotes] = useState(() => existingGoal?.notes ?? '')
   const [loading, setLoading] = useState(false)
@@ -104,7 +105,7 @@ export function GoalForm(props: GoalFormProps) {
           new UserGoalUpdate({
             id: props.existingGoal.id,
             goalWeight: Weight.make(goalWeightInLbs),
-            targetDate: targetDate ? new Date(targetDate) : null,
+            targetDate: targetDate ? DateTime.unsafeMake(new Date(targetDate)) : null,
             notes: notes ? Notes.make(notes) : null,
           }),
         )
@@ -112,7 +113,7 @@ export function GoalForm(props: GoalFormProps) {
         await props.onSubmit(
           new UserGoalCreate({
             goalWeight: Weight.make(goalWeightInLbs),
-            targetDate: targetDate ? Option.some(new Date(targetDate)) : Option.none(),
+            targetDate: targetDate ? Option.some(DateTime.unsafeMake(new Date(targetDate))) : Option.none(),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
           }),
         )
@@ -127,7 +128,7 @@ export function GoalForm(props: GoalFormProps) {
   // Calculate minimum target date (tomorrow)
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 1)
-  const minDateStr = toDateString(minDate)
+  const minDateStr = toLocalDateString(minDate)
 
   return (
     <form onSubmit={handleSubmit} noValidate>

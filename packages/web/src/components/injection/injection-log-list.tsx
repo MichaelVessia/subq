@@ -12,8 +12,10 @@ import type {
   NextScheduledDose,
 } from '@subq/shared'
 import { InjectionLogBulkAssignSchedule } from '@subq/shared'
+import type { DateTime } from 'effect'
 import { Calendar, ChevronDown, MoreHorizontal, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, createInjectionLogListAtom, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { NextDoseBanner } from '../schedule/next-dose-banner.js'
 import { ScheduleForm } from '../schedule/schedule-form.js'
@@ -30,11 +32,11 @@ import {
 } from '../ui/dropdown-menu.js'
 import { InjectionLogForm } from './injection-log-form.js'
 
-const formatDate = (date: Date) =>
+const formatDate = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
 export function InjectionLogList() {
   const injectionLogAtom = useMemo(() => createInjectionLogListAtom(), [])
@@ -274,7 +276,7 @@ export function InjectionLogList() {
             onCancel={handleCancelEdit}
             initialData={{
               id: editingLog.id,
-              datetime: editingLog.datetime,
+              datetime: toDate(editingLog.datetime),
               drug: editingLog.drug,
               source: editingLog.source,
               dosage: editingLog.dosage,

@@ -12,7 +12,7 @@ import {
   type InventoryId,
   Notes,
 } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { useForm } from 'react-hook-form'
 import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
 import { type InjectionLogFormInput, injectionLogFormStandardSchema } from '../../lib/form-schemas.js'
@@ -121,7 +121,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
       await onUpdate(
         new InjectionLogUpdate({
           id: initialData.id,
-          datetime: new Date(data.datetime),
+          datetime: DateTime.unsafeMake(new Date(data.datetime)),
           drug: DrugName.make(data.drug),
           source: Option.some(data.source ? DrugSource.make(data.source) : null),
           dosage: Dosage.make(data.dosage),
@@ -133,7 +133,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     } else {
       await onSubmit(
         new InjectionLogCreate({
-          datetime: new Date(data.datetime),
+          datetime: DateTime.unsafeMake(new Date(data.datetime)),
           drug: DrugName.make(data.drug),
           source: data.source ? Option.some(DrugSource.make(data.source)) : Option.none(),
           dosage: Dosage.make(data.dosage),

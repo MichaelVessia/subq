@@ -141,9 +141,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
       // Determine current phase based on days since start
       const startDate = schedule.startDate
       const msPerDay = 1000 * 60 * 60 * 24
-      const daysSinceStart = Math.floor(
-        (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
-      )
+      const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
 
       // Find which phase we're in
       let cumulativeDays = 0
@@ -184,9 +182,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
       }
 
-      const daysUntilDue = Math.round(
-        (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
-      )
+      const daysUntilDue = Math.round((DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay)
       const isOverdue = daysUntilDue < 0
 
       yield* Effect.logDebug('ScheduleGetNextDose completed').pipe(

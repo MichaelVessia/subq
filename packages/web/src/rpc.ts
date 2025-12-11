@@ -10,7 +10,7 @@ import {
   StatsParams,
   WeightLogListParams,
 } from '@subq/shared'
-import { Layer } from 'effect'
+import { DateTime, Layer } from 'effect'
 
 // FetchHttpClient layer with credentials for auth cookies
 const FetchWithCredentials = FetchHttpClient.layer.pipe(
@@ -41,16 +41,31 @@ export const ReactivityKeys = {
   settings: 'settings',
 } as const
 
+// Helper to convert optional Date to DateTime.Utc
+const toDateTimeUtc = (date?: Date) => (date ? DateTime.unsafeMake(date) : undefined)
+
 // Factory functions for queries (no longer need userId - server gets it from session)
 export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('WeightLogList', new WeightLogListParams({ startDate, endDate, limit: Limit.make(10000) }), {
-    reactivityKeys: [ReactivityKeys.weightLogs],
-  })
+  ApiClient.query(
+    'WeightLogList',
+    new WeightLogListParams({
+      startDate: toDateTimeUtc(startDate),
+      endDate: toDateTimeUtc(endDate),
+      limit: Limit.make(10000),
+    }),
+    { reactivityKeys: [ReactivityKeys.weightLogs] },
+  )
 
 export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('InjectionLogList', new InjectionLogListParams({ startDate, endDate, limit: Limit.make(10000) }), {
-    reactivityKeys: [ReactivityKeys.injectionLogs],
-  })
+  ApiClient.query(
+    'InjectionLogList',
+    new InjectionLogListParams({
+      startDate: toDateTimeUtc(startDate),
+      endDate: toDateTimeUtc(endDate),
+      limit: Limit.make(10000),
+    }),
+    { reactivityKeys: [ReactivityKeys.injectionLogs] },
+  )
 
 export const InjectionDrugsAtom = ApiClient.query('InjectionLogGetDrugs', undefined, {
   reactivityKeys: [ReactivityKeys.injectionDrugs],

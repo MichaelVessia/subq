@@ -7,9 +7,10 @@ import {
   InjectionSite,
   type NextScheduledDose,
 } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { Calendar, Clock, Pill, Zap } from 'lucide-react'
 import { useState } from 'react'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, LastInjectionSiteAtom, NextDoseAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 
@@ -36,12 +37,12 @@ interface NextDoseBannerProps {
   onQuickLogSuccess?: () => void
 }
 
-function formatDate(date: Date): string {
+function formatDate(dt: DateTime.Utc): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 }
 
 export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerProps) {
@@ -67,7 +68,7 @@ export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerP
     try {
       await createLog({
         payload: new InjectionLogCreate({
-          datetime: new Date(),
+          datetime: DateTime.unsafeNow(),
           drug: DrugName.make(nextDose.drug),
           source: Option.none(),
           dosage: Dosage.make(nextDose.dosage),

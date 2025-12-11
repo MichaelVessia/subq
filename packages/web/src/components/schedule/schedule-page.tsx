@@ -7,17 +7,19 @@ import type {
   SchedulePhase,
 } from '@subq/shared'
 import { Link } from '@tanstack/react-router'
+import type { DateTime } from 'effect'
 import { Calendar, Check, Edit, Eye, Pill, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
 import { ScheduleForm } from './schedule-form.js'
 
-const formatDate = (date: Date) =>
+const formatDate = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
-  }).format(new Date(date))
+  }).format(toDate(dt))
 
 const frequencyLabels: Record<string, string> = {
   daily: 'Daily',
@@ -31,11 +33,11 @@ type PhaseStatus = 'completed' | 'current' | 'upcoming'
 
 function computePhaseStatus(
   phase: SchedulePhase,
-  scheduleStartDate: Date,
+  scheduleStartDate: DateTime.Utc,
   allPhases: readonly SchedulePhase[],
 ): PhaseStatus {
   const now = new Date()
-  let phaseStart = new Date(scheduleStartDate)
+  let phaseStart = toDate(scheduleStartDate)
 
   // Sum durations of previous phases to get this phase's start date
   for (const p of allPhases) {

@@ -50,9 +50,7 @@ const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
     list: (_userId: string) =>
       Effect.sync(() => {
         const schedules = Array.from(scheduleStore.values())
-        return schedules.sort(
-          (a, b) => DateTime.toEpochMillis(b.startDate) - DateTime.toEpochMillis(a.startDate),
-        )
+        return schedules.sort((a, b) => DateTime.toEpochMillis(b.startDate) - DateTime.toEpochMillis(a.startDate))
       }),
 
     getActive: (_userId: string) =>

@@ -14,9 +14,10 @@ import {
   ScheduleName,
   SchedulePhaseCreate,
 } from '@subq/shared'
-import { Option } from 'effect'
+import { DateTime, Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { toDate, toDateString } from '../../lib/utils.js'
 import { InjectionDrugsAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -78,7 +79,7 @@ function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
   const byDosage = new Map<string, Date[]>()
   for (const inj of injections) {
     const dates = byDosage.get(inj.dosage) ?? []
-    dates.push(new Date(inj.datetime))
+    dates.push(toDate(inj.datetime))
     byDosage.set(inj.dosage, dates)
   }
 
@@ -136,8 +137,8 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
     inferredFromInjections && firstInjection
       ? toLocalDateString(
           preselectedInjections.reduce(
-            (min, inj) => (new Date(inj.datetime) < min ? new Date(inj.datetime) : min),
-            new Date(firstInjection.datetime),
+            (min, inj) => (toDate(inj.datetime) < min ? toDate(inj.datetime) : min),
+            toDate(firstInjection.datetime),
           ),
         )
       : toLocalDateString(new Date())
@@ -148,7 +149,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
   const [name, setName] = useState(initialData?.name ?? (inferredFromInjections ? `${inferredDrug} Schedule` : ''))
   const [drug, setDrug] = useState(initialData?.drug ?? inferredDrug)
   const [frequency, setFrequency] = useState<Frequency>(initialData?.frequency ?? 'weekly')
-  const [startDate, setStartDate] = useState(initialData ? toLocalDateString(initialData.startDate) : inferredStartDate)
+  const [startDate, setStartDate] = useState(initialData ? toDateString(initialData.startDate) : inferredStartDate)
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [phases, setPhases] = useState<PhaseInput[]>(
     initialData?.phases?.map((p) => ({
@@ -170,8 +171,8 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
       const drug = firstInj.drug
       const startDate = toLocalDateString(
         preselectedInjections.reduce(
-          (min, inj) => (new Date(inj.datetime) < min ? new Date(inj.datetime) : min),
-          new Date(firstInj.datetime),
+          (min, inj) => (toDate(inj.datetime) < min ? toDate(inj.datetime) : min),
+          toDate(firstInj.datetime),
         ),
       )
       const inferredPhases = inferPhasesFromInjections(preselectedInjections)
@@ -291,7 +292,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
             drug: DrugName.make(drug),
             source: null, // Source is not required for schedules
             frequency,
-            startDate: new Date(startDate),
+            startDate: DateTime.unsafeMake(new Date(startDate)),
             notes: notes ? Notes.make(notes) : null,
             phases: phasesData,
           }),
@@ -303,7 +304,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
             drug: DrugName.make(drug),
             source: Option.none(), // Source is not required for schedules
             frequency,
-            startDate: new Date(startDate),
+            startDate: DateTime.unsafeMake(new Date(startDate)),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
             phases: phasesData,
           }),

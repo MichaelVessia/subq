@@ -145,7 +145,9 @@ export const InventoryRepoLive = Layer.effect(
         const newStatus = data.status ?? curr.status
         // Store as YYYY-MM-DD only to avoid timezone issues
         const newBeyondUseDate = Option.isSome(data.beyondUseDate)
-          ? (data.beyondUseDate.value ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0] : null)
+          ? data.beyondUseDate.value
+            ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0]
+            : null
           : curr.beyond_use_date
         const now = DateTime.formatIso(DateTime.unsafeNow())
 

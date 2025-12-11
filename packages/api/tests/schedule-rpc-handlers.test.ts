@@ -201,9 +201,7 @@ const calculateNextDose = Effect.gen(function* () {
 
   // Determine current phase based on days since start
   const startDate = schedule.startDate
-  const daysSinceStart = Math.floor(
-    (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
-  )
+  const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
 
   // Find which phase we're in
   let cumulativeDays = 0
@@ -244,9 +242,7 @@ const calculateNextDose = Effect.gen(function* () {
     suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
   }
 
-  const daysUntilDue = Math.floor(
-    (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
-  )
+  const daysUntilDue = Math.floor((DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay)
   const isOverdue = daysUntilDue < 0
 
   return {
@@ -556,16 +552,12 @@ describe('ScheduleGetView', () => {
         let cumulativeDays = 0
 
         const phaseStatuses = schedule.phases.map((phase) => {
-          const phaseStartDate = DateTime.unsafeMake(
-            DateTime.toEpochMillis(startDate) + cumulativeDays * msPerDay,
-          )
+          const phaseStartDate = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + cumulativeDays * msPerDay)
 
           const isIndefinite = phase.durationDays === null
           const phaseEndDate = isIndefinite
             ? null
-            : DateTime.unsafeMake(
-                DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay,
-              )
+            : DateTime.unsafeMake(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
 
           let status: 'completed' | 'current' | 'upcoming'
           if (isIndefinite) {
@@ -608,9 +600,7 @@ describe('ScheduleGetView', () => {
         // We're in phase 2 (day 35, which is in range 28-55)
         const now = DateTime.unsafeNow()
         const msPerDay = 1000 * 60 * 60 * 24
-        const daysSinceStart = Math.floor(
-          (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
-        )
+        const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
 
         expect(daysSinceStart).toBeGreaterThanOrEqual(28)
         expect(daysSinceStart).toBeLessThan(56)
@@ -634,9 +624,7 @@ describe('ScheduleGetView', () => {
         // Phase 3 (day 56+): upcoming
         const now = DateTime.unsafeNow()
         const msPerDay = 1000 * 60 * 60 * 24
-        const daysSinceStart = Math.floor(
-          (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay,
-        )
+        const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
 
         expect(daysSinceStart).toBeLessThan(28) // Still in phase 1
       }).pipe(Effect.provide(TestLayer)),
@@ -671,9 +659,7 @@ describe('ScheduleGetView', () => {
         const jan29 = DateTime.unsafeMake('2024-01-29')
         const phase1Injections = injections.filter((inj) => {
           const injDate = inj.datetime
-          return (
-            DateTime.greaterThanOrEqualTo(injDate, jan1) && DateTime.lessThan(injDate, jan29)
-          )
+          return DateTime.greaterThanOrEqualTo(injDate, jan1) && DateTime.lessThan(injDate, jan29)
         })
         expect(phase1Injections.length).toBe(4)
 

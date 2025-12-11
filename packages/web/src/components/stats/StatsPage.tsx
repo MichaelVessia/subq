@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useContainerSize } from '../../hooks/use-container-size.js'
 import { useDateRangeParams } from '../../hooks/use-date-range-params.js'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { toDate } from '../../lib/utils.js'
 import {
   createDosageHistoryAtom,
   createDrugBreakdownAtom,
@@ -61,7 +62,7 @@ export interface SchedulePeriod {
 function computeSchedulePeriods(schedules: readonly InjectionSchedule[]): SchedulePeriod[] {
   return schedules.map((schedule) => {
     const phases: SchedulePeriod['phases'] = []
-    let currentDate = new Date(schedule.startDate)
+    let currentDate = toDate(schedule.startDate)
 
     const sortedPhases = [...schedule.phases].sort((a, b) => a.order - b.order)
     for (const phase of sortedPhases) {
@@ -90,7 +91,7 @@ function computeSchedulePeriods(schedules: readonly InjectionSchedule[]): Schedu
       scheduleId: schedule.id,
       scheduleName: schedule.name,
       drug: schedule.drug,
-      startDate: schedule.startDate,
+      startDate: toDate(schedule.startDate),
       endDate: schedule.isActive ? null : scheduleEnd,
       phases,
     }
@@ -1240,7 +1241,7 @@ export function StatsPage() {
 
   const injectionData = useMemo((): InjectionPoint[] => {
     return injections.map((inj) => ({
-      date: new Date(inj.datetime),
+      date: toDate(inj.datetime),
       weight: 0,
       dosage: inj.dosage,
       drug: inj.drug,

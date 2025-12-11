@@ -577,7 +577,9 @@ describe('InjectionLogRepo', () => {
       const scheduled = yield* repo.listBySchedule(scheduleId, 'user-123')
       expect(scheduled.length).toBe(2)
       // Should be sorted by datetime ASC
-      expect(DateTime.toEpochMillis(scheduled[0]!.datetime)).toBeLessThan(DateTime.toEpochMillis(scheduled[1]!.datetime))
+      expect(DateTime.toEpochMillis(scheduled[0]!.datetime)).toBeLessThan(
+        DateTime.toEpochMillis(scheduled[1]!.datetime),
+      )
     }).pipe(Effect.provide(InjectionLogRepoTest)),
   )
 

@@ -1,7 +1,9 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { Inventory, InventoryCreate, InventoryId, InventoryUpdate } from '@subq/shared'
+import type { DateTime } from 'effect'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
+import { toDate } from '../../lib/utils.js'
 import { ApiClient, createInventoryListAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
@@ -15,9 +17,9 @@ import {
 } from '../ui/dropdown-menu.js'
 import { InventoryForm } from './inventory-form.js'
 
-const formatDate = (date: Date | null) => {
-  if (!date) return '-'
-  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(date))
+const formatDate = (dt: DateTime.Utc | null) => {
+  if (!dt) return '-'
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(toDate(dt))
 }
 
 const statusColors = {
@@ -36,7 +38,7 @@ interface InventoryStack {
 
 /** Create a grouping key for an inventory item */
 const getStackKey = (item: Inventory): string => {
-  const budKey = item.beyondUseDate ? new Date(item.beyondUseDate).toISOString().split('T')[0] : 'no-bud'
+  const budKey = item.beyondUseDate ? toDate(item.beyondUseDate).toISOString().split('T')[0] : 'no-bud'
   return `${item.drug}|${item.source}|${item.form}|${item.totalAmount}|${item.status}|${budKey}`
 }
 
@@ -193,7 +195,7 @@ export function InventoryList() {
               form: editingItem.form,
               totalAmount: editingItem.totalAmount,
               status: editingItem.status,
-              beyondUseDate: editingItem.beyondUseDate,
+              beyondUseDate: editingItem.beyondUseDate ? toDate(editingItem.beyondUseDate) : null,
             }}
           />
         </Card>
@@ -210,7 +212,7 @@ export function InventoryList() {
               form: duplicatingItem.form,
               totalAmount: duplicatingItem.totalAmount,
               status: 'new',
-              beyondUseDate: duplicatingItem.beyondUseDate,
+              beyondUseDate: duplicatingItem.beyondUseDate ? toDate(duplicatingItem.beyondUseDate) : null,
             }}
           />
         </Card>

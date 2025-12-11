@@ -31,9 +31,7 @@ const InventoryRepoTest = Layer.sync(InventoryRepo, () => {
         if (params.drug) {
           items = items.filter((item) => item.drug === params.drug)
         }
-        return items.sort(
-          (a, b) => DateTime.toEpochMillis(b.createdAt) - DateTime.toEpochMillis(a.createdAt),
-        )
+        return items.sort((a, b) => DateTime.toEpochMillis(b.createdAt) - DateTime.toEpochMillis(a.createdAt))
       }),
 
     findById: (id: string) =>
