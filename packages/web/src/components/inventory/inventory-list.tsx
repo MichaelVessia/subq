@@ -26,6 +26,34 @@ const statusColors = {
   finished: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
 }
 
+/** Represents a group of identical inventory items */
+interface InventoryStack {
+  /** All items in this stack */
+  items: Inventory[]
+  /** The grouping key */
+  key: string
+}
+
+/** Create a grouping key for an inventory item */
+const getStackKey = (item: Inventory): string => {
+  const budKey = item.beyondUseDate ? new Date(item.beyondUseDate).toISOString().split('T')[0] : 'no-bud'
+  return `${item.drug}|${item.source}|${item.form}|${item.totalAmount}|${item.status}|${budKey}`
+}
+
+/** Group inventory items into stacks */
+const groupIntoStacks = (items: Inventory[]): InventoryStack[] => {
+  const stackMap = new Map<string, Inventory[]>()
+
+  for (const item of items) {
+    const key = getStackKey(item)
+    const existing = stackMap.get(key) ?? []
+    existing.push(item)
+    stackMap.set(key, existing)
+  }
+
+  return Array.from(stackMap.entries()).map(([key, items]) => ({ key, items }))
+}
+
 export function InventoryList() {
   const inventoryAtom = useMemo(() => createInventoryListAtom(), [])
   const inventoryResult = useAtomValue(inventoryAtom)
@@ -40,11 +68,18 @@ export function InventoryList() {
   const markOpened = useAtomSet(ApiClient.mutation('InventoryMarkOpened'), { mode: 'promise' })
 
   const handleCreate = async (data: InventoryCreate, quantity: number) => {
-    for (let i = 0; i < quantity; i++) {
-      await createItem({ payload: data, reactivityKeys: [ReactivityKeys.inventory] })
-    }
+    // Close form immediately to avoid flashing during multiple creates
     setShowForm(false)
     setDuplicatingItem(null)
+
+    // Create all items (only trigger reactivity on last one to avoid multiple re-renders)
+    for (let i = 0; i < quantity; i++) {
+      const isLast = i === quantity - 1
+      await createItem({
+        payload: data,
+        reactivityKeys: isLast ? [ReactivityKeys.inventory] : [],
+      })
+    }
   }
 
   const handleUpdate = async (data: InventoryUpdate) => {
@@ -91,15 +126,46 @@ export function InventoryList() {
     [markOpened],
   )
 
+  const handleMarkAllOpened = useCallback(
+    async (items: Inventory[]) => {
+      for (const item of items) {
+        await markOpened({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
+      }
+    },
+    [markOpened],
+  )
+
+  const handleMarkAllFinished = useCallback(
+    async (items: Inventory[]) => {
+      for (const item of items) {
+        await markFinished({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
+      }
+    },
+    [markFinished],
+  )
+
+  const handleDeleteAll = useCallback(
+    async (items: Inventory[]) => {
+      if (confirm(`Delete all ${items.length} inventory items?`)) {
+        for (const item of items) {
+          await deleteItem({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
+        }
+      }
+    },
+    [deleteItem],
+  )
+
   if (Result.isWaiting(inventoryResult)) {
     return <div className="p-6 text-center text-muted-foreground">Loading...</div>
   }
 
   const items = Result.getOrElse(inventoryResult, () => [])
 
-  // Group by status
+  // Group by status, then stack duplicates
   const activeItems = items.filter((i) => i.status !== 'finished')
   const finishedItems = items.filter((i) => i.status === 'finished')
+  const activeStacks = groupIntoStacks(activeItems)
+  const finishedStacks = groupIntoStacks(finishedItems)
 
   return (
     <div>
@@ -150,56 +216,88 @@ export function InventoryList() {
         </Card>
       )}
 
-      {activeItems.length > 0 ? (
+      {activeStacks.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-          {activeItems.map((item) => (
-            <Card key={item.id} className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-medium">{item.drug}</h3>
-                  <p className="text-sm text-muted-foreground">{item.source}</p>
+          {activeStacks.map((stack) => {
+            const item = stack.items[0]!
+            const count = stack.items.length
+            const isStacked = count > 1
+
+            return (
+              <Card key={stack.key} className="p-4 relative">
+                {isStacked && (
+                  <div className="absolute top-2 right-12 bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded">
+                    ×{count}
+                  </div>
+                )}
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-medium">{item.drug}</h3>
+                    <p className="text-sm text-muted-foreground">{item.source}</p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {item.status === 'new' && (
+                        <DropdownMenuItem onClick={() => handleMarkOpened(item.id)}>
+                          Mark Opened{isStacked ? ' (1)' : ''}
+                        </DropdownMenuItem>
+                      )}
+                      {item.status === 'new' && isStacked && (
+                        <DropdownMenuItem onClick={() => handleMarkAllOpened(stack.items)}>
+                          Mark All Opened ({count})
+                        </DropdownMenuItem>
+                      )}
+                      {item.status !== 'finished' && (
+                        <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>
+                          Mark Finished{isStacked ? ' (1)' : ''}
+                        </DropdownMenuItem>
+                      )}
+                      {item.status !== 'finished' && isStacked && (
+                        <DropdownMenuItem onClick={() => handleMarkAllFinished(stack.items)}>
+                          Mark All Finished ({count})
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleDuplicate(item)}>Duplicate</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEdit(item)}>
+                        Edit{isStacked ? ' (1)' : ''}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
+                        Delete{isStacked ? ' (1)' : ''}
+                      </DropdownMenuItem>
+                      {isStacked && (
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAll(stack.items)}>
+                          Delete All ({count})
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {item.status === 'new' && (
-                      <DropdownMenuItem onClick={() => handleMarkOpened(item.id)}>Mark Opened</DropdownMenuItem>
-                    )}
-                    {item.status !== 'finished' && (
-                      <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>Mark Finished</DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => handleDuplicate(item)}>Duplicate</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleEdit(item)}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
-                  {item.status}
-                </span>
-                <span className="text-xs text-muted-foreground capitalize">{item.form}</span>
-              </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
+                    {item.status}
+                  </span>
+                  <span className="text-xs text-muted-foreground capitalize">{item.form}</span>
+                </div>
 
-              <div className="text-sm">
-                <span className="font-mono font-medium">{item.totalAmount}</span>
-                <span className="text-muted-foreground"> total</span>
-              </div>
+                <div className="text-sm">
+                  <span className="font-mono font-medium">{item.totalAmount}</span>
+                  <span className="text-muted-foreground"> total</span>
+                </div>
 
-              {item.beyondUseDate && (
-                <div className="text-xs text-muted-foreground mt-2">BUD: {formatDate(item.beyondUseDate)}</div>
-              )}
-            </Card>
-          ))}
+                {item.beyondUseDate && (
+                  <div className="text-xs text-muted-foreground mt-2">BUD: {formatDate(item.beyondUseDate)}</div>
+                )}
+              </Card>
+            )
+          })}
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground mb-8">
@@ -207,29 +305,56 @@ export function InventoryList() {
         </div>
       )}
 
-      {finishedItems.length > 0 && (
+      {finishedStacks.length > 0 && (
         <>
           <h3 className="text-lg font-medium mb-4 text-muted-foreground">Finished</h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-60">
-            {finishedItems.map((item) => (
-              <Card key={item.id} className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-medium">{item.drug}</h3>
-                    <p className="text-sm text-muted-foreground">{item.source}</p>
+            {finishedStacks.map((stack) => {
+              const item = stack.items[0]!
+              const count = stack.items.length
+              const isStacked = count > 1
+
+              return (
+                <Card key={stack.key} className="p-4 relative">
+                  {isStacked && (
+                    <div className="absolute top-2 right-12 bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded">
+                      ×{count}
+                    </div>
+                  )}
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-medium">{item.drug}</h3>
+                      <p className="text-sm text-muted-foreground">{item.source}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
+                          Delete{isStacked ? ' (1)' : ''}
+                        </DropdownMenuItem>
+                        {isStacked && (
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAll(stack.items)}>
+                            Delete All ({count})
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(item.id)}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
-                    {item.status}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{item.totalAmount}</span>
-                </div>
-              </Card>
-            ))}
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
+                      {item.status}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{item.totalAmount}</span>
+                  </div>
+                </Card>
+              )
+            })}
           </div>
         </>
       )}

@@ -61,7 +61,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
   const [beyondUseDate, setBeyondUseDate] = useState(
     initialData?.beyondUseDate ? initialData.beyondUseDate.toISOString().split('T')[0] : '',
   )
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState('1')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -109,7 +109,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             status,
             beyondUseDate: beyondUseDate ? Option.some(new Date(beyondUseDate)) : Option.none(),
           }),
-          quantity,
+          Math.max(1, Math.min(10, Number.parseInt(quantity, 10) || 1)),
         )
       }
     } finally {
@@ -221,7 +221,11 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
               min={1}
               max={10}
               value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Math.min(10, Number.parseInt(e.target.value, 10) || 1)))}
+              onChange={(e) => setQuantity(e.target.value)}
+              onBlur={(e) => {
+                const val = Math.max(1, Math.min(10, Number.parseInt(e.target.value, 10) || 1))
+                setQuantity(String(val))
+              }}
             />
             <p className="text-xs text-muted-foreground mt-1">Create multiple identical items</p>
           </div>
