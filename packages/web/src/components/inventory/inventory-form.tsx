@@ -19,7 +19,7 @@ const PEN_DRUGS = [
 ]
 
 interface InventoryFormProps {
-  onSubmit: (data: InventoryCreate) => Promise<void>
+  onSubmit: (data: InventoryCreate, quantity: number) => Promise<void>
   onUpdate?: (data: InventoryUpdate) => Promise<void>
   onCancel: () => void
   initialData?: {
@@ -61,6 +61,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
   const [beyondUseDate, setBeyondUseDate] = useState(
     initialData?.beyondUseDate ? initialData.beyondUseDate.toISOString().split('T')[0] : '',
   )
+  const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -108,6 +109,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             status,
             beyondUseDate: beyondUseDate ? Option.some(new Date(beyondUseDate)) : Option.none(),
           }),
+          quantity,
         )
       }
     } finally {
@@ -156,7 +158,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className={`grid gap-4 mb-4 ${isEditing ? 'grid-cols-3' : 'grid-cols-4'}`}>
         <div>
           <Label htmlFor="source" className="mb-2 block">
             Pharmacy <span className="text-destructive">*</span>
@@ -207,6 +209,23 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             <option value="finished">Finished</option>
           </Select>
         </div>
+
+        {!isEditing && (
+          <div>
+            <Label htmlFor="quantity" className="mb-2 block">
+              Quantity
+            </Label>
+            <Input
+              type="number"
+              id="quantity"
+              min={1}
+              max={10}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, Math.min(10, Number.parseInt(e.target.value, 10) || 1)))}
+            />
+            <p className="text-xs text-muted-foreground mt-1">Create multiple identical items</p>
+          </div>
+        )}
       </div>
 
       {form === 'vial' && (

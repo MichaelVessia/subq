@@ -31,6 +31,7 @@ export function InventoryList() {
   const inventoryResult = useAtomValue(inventoryAtom)
   const [showForm, setShowForm] = useState(false)
   const [editingItem, setEditingItem] = useState<Inventory | null>(null)
+  const [duplicatingItem, setDuplicatingItem] = useState<Inventory | null>(null)
 
   const createItem = useAtomSet(ApiClient.mutation('InventoryCreate'), { mode: 'promise' })
   const updateItem = useAtomSet(ApiClient.mutation('InventoryUpdate'), { mode: 'promise' })
@@ -38,9 +39,12 @@ export function InventoryList() {
   const markFinished = useAtomSet(ApiClient.mutation('InventoryMarkFinished'), { mode: 'promise' })
   const markOpened = useAtomSet(ApiClient.mutation('InventoryMarkOpened'), { mode: 'promise' })
 
-  const handleCreate = async (data: InventoryCreate) => {
-    await createItem({ payload: data, reactivityKeys: [ReactivityKeys.inventory] })
+  const handleCreate = async (data: InventoryCreate, quantity: number) => {
+    for (let i = 0; i < quantity; i++) {
+      await createItem({ payload: data, reactivityKeys: [ReactivityKeys.inventory] })
+    }
     setShowForm(false)
+    setDuplicatingItem(null)
   }
 
   const handleUpdate = async (data: InventoryUpdate) => {
@@ -51,6 +55,13 @@ export function InventoryList() {
   const handleEdit = useCallback((item: Inventory) => {
     setEditingItem(item)
     setShowForm(false)
+    setDuplicatingItem(null)
+  }, [])
+
+  const handleDuplicate = useCallback((item: Inventory) => {
+    setDuplicatingItem(item)
+    setShowForm(false)
+    setEditingItem(null)
   }, [])
 
   const handleCancelEdit = () => {
@@ -122,6 +133,23 @@ export function InventoryList() {
         </Card>
       )}
 
+      {duplicatingItem && (
+        <Card className="mb-6 p-6">
+          <InventoryForm
+            onSubmit={handleCreate}
+            onCancel={() => setDuplicatingItem(null)}
+            initialData={{
+              drug: duplicatingItem.drug,
+              source: duplicatingItem.source,
+              form: duplicatingItem.form,
+              totalAmount: duplicatingItem.totalAmount,
+              status: 'new',
+              beyondUseDate: duplicatingItem.beyondUseDate,
+            }}
+          />
+        </Card>
+      )}
+
       {activeItems.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
           {activeItems.map((item) => (
@@ -146,6 +174,7 @@ export function InventoryList() {
                     {item.status !== 'finished' && (
                       <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>Mark Finished</DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => handleDuplicate(item)}>Duplicate</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleEdit(item)}>Edit</DropdownMenuItem>
                     <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
                       Delete
