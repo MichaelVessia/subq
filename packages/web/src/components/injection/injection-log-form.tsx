@@ -138,8 +138,17 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   }, [selectedSchedule])
 
   // Auto-select schedule when drug changes (if only one schedule for drug)
+  // Skip if we already have a scheduleId from initialData
   useEffect(() => {
-    if (schedulesForDrug.length === 1 && schedulesForDrug[0]) {
+    // Don't override if initialData provided a scheduleId that matches a schedule for this drug
+    const hasInitialScheduleForDrug =
+      initialData?.scheduleId && schedulesForDrug.some((s) => s.id === initialData.scheduleId)
+
+    if (hasInitialScheduleForDrug) {
+      // Keep the initial schedule, just ensure state is set
+      setSelectedScheduleId(initialData.scheduleId)
+      setUseCustomDosage(false)
+    } else if (schedulesForDrug.length === 1 && schedulesForDrug[0]) {
       setSelectedScheduleId(schedulesForDrug[0].id)
       setUseCustomDosage(false)
     } else if (schedulesForDrug.length === 0) {
@@ -148,7 +157,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     }
     // Reset confirmation when drug changes
     setConfirmedOffSchedule(false)
-  }, [schedulesForDrug])
+  }, [schedulesForDrug, initialData?.scheduleId])
 
   // Auto-populate source from schedule when schedule is selected
   useEffect(() => {
