@@ -4,6 +4,7 @@ import {
   Dosage,
   DrugName,
   DrugSource,
+  type InjectionSchedule,
   InjectionLogCreate,
   type InjectionLogId,
   InjectionLogUpdate,
@@ -13,8 +14,10 @@ import {
   Notes,
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
+import { AlertTriangle } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom } from '../../rpc.js'
+import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom, ScheduleListAtom } from '../../rpc.js'
 import { type InjectionLogFormInput, injectionLogFormStandardSchema } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -75,18 +78,28 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
   const inventoryResult = useAtomValue(ActiveInventoryAtom)
+  const schedulesResult = useAtomValue(ScheduleListAtom)
 
   const userDrugs = Result.getOrElse(drugsResult, () => [])
   const userSites = Result.getOrElse(sitesResult, () => [])
   const inventory = Result.getOrElse(inventoryResult, () => [])
+  const schedules = Result.getOrElse(schedulesResult, () => [] as InjectionSchedule[])
 
   const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS.map((d) => d.name)])]
   const allSites = [...new Set([...userSites, ...INJECTION_SITES])]
+
+  // Track selected schedule for auto-linking
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>(initialData?.scheduleId ?? '')
+  // Track if user is entering custom dosage (not from schedule)
+  const [useCustomDosage, setUseCustomDosage] = useState(false)
+  // Track if user confirmed off-schedule dose
+  const [confirmedOffSchedule, setConfirmedOffSchedule] = useState(false)
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<InjectionLogFormInput>({
     resolver: standardSchemaResolver(injectionLogFormStandardSchema),
@@ -107,16 +120,54 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   const dosage = watch('dosage')
   const finishVial = watch('finishVial')
 
+  // Get active schedules for the selected drug
+  const schedulesForDrug = useMemo(() => {
+    if (!drug) return []
+    return schedules.filter((s) => s.isActive && s.drug === drug)
+  }, [schedules, drug])
+
+  // Get unique dosages from selected schedule's phases
+  const scheduleDosages = useMemo(() => {
+    const schedule = schedules.find((s) => s.id === selectedScheduleId)
+    if (!schedule) return []
+    return [...new Set(schedule.phases.map((p) => p.dosage))]
+  }, [schedules, selectedScheduleId])
+
+  // Auto-select schedule when drug changes (if only one schedule for drug)
+  useEffect(() => {
+    if (schedulesForDrug.length === 1 && schedulesForDrug[0]) {
+      setSelectedScheduleId(schedulesForDrug[0].id)
+      setUseCustomDosage(false)
+    } else if (schedulesForDrug.length === 0) {
+      setSelectedScheduleId('')
+      setUseCustomDosage(false)
+    }
+    // Reset confirmation when drug changes
+    setConfirmedOffSchedule(false)
+  }, [schedulesForDrug])
+
+  // Check if current dosage matches schedule
+  const isOffScheduleDose = useMemo(() => {
+    if (!selectedScheduleId || !dosage) return false
+    return scheduleDosages.length > 0 && !scheduleDosages.includes(dosage)
+  }, [selectedScheduleId, dosage, scheduleDosages])
+
   // Simple validity check for button enable state (matches original behavior)
   const hasRequiredFields = drug !== '' && dosage !== ''
+  // Require confirmation if off-schedule
+  const needsOffScheduleConfirmation = isOffScheduleDose && !confirmedOffSchedule
 
   // Get active (non-finished) inventory items for current drug
   const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
 
   const selectedDrugInfo = GLP1_DRUGS.find((d) => d.name === drug || drug.toLowerCase().includes(d.name.toLowerCase()))
-  const dosageSuggestions = selectedDrugInfo?.dosages ?? []
+  // Fallback to generic suggestions only when no schedule
+  const fallbackDosageSuggestions = selectedDrugInfo?.dosages ?? []
 
   const onFormSubmit = async (data: InjectionLogFormInput) => {
+    // Determine scheduleId: use selected schedule (from dropdown or initial data)
+    const effectiveScheduleId = selectedScheduleId || initialData?.scheduleId
+
     if (isEditing && onUpdate && initialData?.id) {
       await onUpdate(
         new InjectionLogUpdate({
@@ -139,9 +190,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
           dosage: Dosage.make(data.dosage),
           injectionSite: data.injectionSite ? Option.some(InjectionSite.make(data.injectionSite)) : Option.none(),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
-          scheduleId: initialData?.scheduleId
-            ? Option.some(initialData.scheduleId as InjectionScheduleId)
-            : Option.none(),
+          scheduleId: effectiveScheduleId ? Option.some(effectiveScheduleId as InjectionScheduleId) : Option.none(),
         }),
       )
       // Mark inventory as finished if requested
@@ -182,24 +231,97 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         {errors.drug && <span className="block text-xs text-destructive mt-1">{errors.drug.message}</span>}
       </div>
 
+      {/* Schedule selection (when multiple schedules exist for drug) */}
+      {schedulesForDrug.length > 1 && (
+        <div className="mb-4">
+          <Label htmlFor="schedule" className="mb-2 block">
+            Link to Schedule
+          </Label>
+          <Select
+            id="schedule"
+            value={selectedScheduleId}
+            onChange={(e) => {
+              setSelectedScheduleId(e.target.value)
+              setUseCustomDosage(false)
+              setConfirmedOffSchedule(false)
+            }}
+          >
+            <option value="">No schedule</option>
+            {schedulesForDrug.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <Label htmlFor="dosage" className="mb-2 block">
             Dosage <span className="text-destructive">*</span>
           </Label>
-          <Input
-            type="text"
-            id="dosage"
-            {...register('dosage')}
-            list="dosage-suggestions"
-            placeholder="e.g., 2.5mg"
-            error={!!errors.dosage}
-          />
-          <datalist id="dosage-suggestions">
-            {dosageSuggestions.map((d) => (
-              <option key={d} value={d} />
-            ))}
-          </datalist>
+          {/* Show dropdown when schedule has dosages and not using custom */}
+          {scheduleDosages.length > 0 && !useCustomDosage ? (
+            <div className="space-y-2">
+              <Select
+                id="dosage-select"
+                value={dosage}
+                onChange={(e) => {
+                  if (e.target.value === '__custom__') {
+                    setUseCustomDosage(true)
+                    setValue('dosage', '')
+                  } else {
+                    setValue('dosage', e.target.value)
+                    setConfirmedOffSchedule(false)
+                  }
+                }}
+              >
+                <option value="">Select dosage</option>
+                {scheduleDosages.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+                <option value="__custom__">Other (custom dosage)</option>
+              </Select>
+              {schedulesForDrug.length === 1 && schedulesForDrug[0] && (
+                <p className="text-xs text-muted-foreground">From: {schedulesForDrug[0].name}</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Input
+                type="text"
+                id="dosage"
+                {...register('dosage')}
+                list="dosage-suggestions"
+                placeholder="e.g., 2.5mg"
+                error={!!errors.dosage}
+                onChange={(e) => {
+                  register('dosage').onChange(e)
+                  setConfirmedOffSchedule(false)
+                }}
+              />
+              <datalist id="dosage-suggestions">
+                {fallbackDosageSuggestions.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
+              {scheduleDosages.length > 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => {
+                    setUseCustomDosage(false)
+                    setValue('dosage', '')
+                  }}
+                >
+                  Use schedule dosages
+                </button>
+              )}
+            </div>
+          )}
           {errors.dosage && <span className="block text-xs text-destructive mt-1">{errors.dosage.message}</span>}
         </div>
 
@@ -210,6 +332,31 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
           <Input type="text" id="source" {...register('source')} placeholder="e.g., CVS, Pharmacy" />
         </div>
       </div>
+
+      {/* Off-schedule dose warning */}
+      {isOffScheduleDose && (
+        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-600">Off-schedule dosage</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                This dosage ({dosage}) doesn't match your schedule phases ({scheduleDosages.join(', ')}).
+              </p>
+              {!confirmedOffSchedule && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-amber-600 hover:underline font-medium"
+                  onClick={() => setConfirmedOffSchedule(true)}
+                >
+                  Log anyway
+                </button>
+              )}
+              {confirmedOffSchedule && <p className="mt-1 text-xs text-amber-600">Confirmed - will log as entered</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mb-4">
         <Label htmlFor="injectionSite" className="mb-2 block">
@@ -268,7 +415,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting || !hasRequiredFields}>
+        <Button type="submit" disabled={isSubmitting || !hasRequiredFields || needsOffScheduleConfirmation}>
           {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}
         </Button>
       </div>
