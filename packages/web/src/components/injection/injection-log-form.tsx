@@ -126,12 +126,16 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     return schedules.filter((s) => s.isActive && s.drug === drug)
   }, [schedules, drug])
 
+  // Get selected schedule
+  const selectedSchedule = useMemo(() => {
+    return schedules.find((s) => s.id === selectedScheduleId) ?? null
+  }, [schedules, selectedScheduleId])
+
   // Get unique dosages from selected schedule's phases
   const scheduleDosages = useMemo(() => {
-    const schedule = schedules.find((s) => s.id === selectedScheduleId)
-    if (!schedule) return []
-    return [...new Set(schedule.phases.map((p) => p.dosage))]
-  }, [schedules, selectedScheduleId])
+    if (!selectedSchedule) return []
+    return [...new Set(selectedSchedule.phases.map((p) => p.dosage))]
+  }, [selectedSchedule])
 
   // Auto-select schedule when drug changes (if only one schedule for drug)
   useEffect(() => {
@@ -145,6 +149,13 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     // Reset confirmation when drug changes
     setConfirmedOffSchedule(false)
   }, [schedulesForDrug])
+
+  // Auto-populate source from schedule when schedule is selected
+  useEffect(() => {
+    if (selectedSchedule?.source && !isEditing) {
+      setValue('source', selectedSchedule.source)
+    }
+  }, [selectedSchedule, setValue, isEditing])
 
   // Check if current dosage matches schedule
   const isOffScheduleDose = useMemo(() => {
