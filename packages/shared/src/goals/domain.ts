@@ -50,10 +50,12 @@ export class UserGoal extends Schema.Class<UserGoal>('UserGoal')({
 /**
  * Payload for creating a new goal.
  * startingWeight is optional - if not provided, uses most recent weight log.
+ * startingDate is optional - if not provided, uses current date.
  */
 export class UserGoalCreate extends Schema.Class<UserGoalCreate>('UserGoalCreate')({
   goalWeight: Weight,
   startingWeight: Schema.optional(Weight),
+  startingDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
   targetDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
   notes: Schema.optionalWith(Notes, { as: 'Option' }),
 }) {}
@@ -64,6 +66,8 @@ export class UserGoalCreate extends Schema.Class<UserGoalCreate>('UserGoalCreate
 export class UserGoalUpdate extends Schema.Class<UserGoalUpdate>('UserGoalUpdate')({
   id: GoalId,
   goalWeight: Schema.optional(Weight),
+  startingWeight: Schema.optional(Weight),
+  startingDate: Schema.optional(Schema.DateTimeUtc),
   targetDate: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   notes: Schema.optional(Schema.NullOr(Notes)),
   isActive: Schema.optional(Schema.Boolean),

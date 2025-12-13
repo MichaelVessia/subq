@@ -46,6 +46,9 @@ export function GoalForm(props: GoalFormProps) {
   const [goalWeight, setGoalWeight] = useState(() =>
     existingGoal ? String(displayWeight(existingGoal.goalWeight).toFixed(1)) : '',
   )
+  const [startDate, setStartDate] = useState(() =>
+    existingGoal?.startingDate ? toDateString(existingGoal.startingDate) : toLocalDateString(new Date()),
+  )
   const [targetDate, setTargetDate] = useState(() =>
     existingGoal?.targetDate ? toDateString(existingGoal.targetDate) : '',
   )
@@ -105,6 +108,7 @@ export function GoalForm(props: GoalFormProps) {
           new UserGoalUpdate({
             id: props.existingGoal.id,
             goalWeight: Weight.make(goalWeightInLbs),
+            startingDate: startDate ? DateTime.unsafeMake(new Date(startDate)) : undefined,
             targetDate: targetDate ? DateTime.unsafeMake(new Date(targetDate)) : null,
             notes: notes ? Notes.make(notes) : null,
           }),
@@ -113,6 +117,7 @@ export function GoalForm(props: GoalFormProps) {
         await props.onSubmit(
           new UserGoalCreate({
             goalWeight: Weight.make(goalWeightInLbs),
+            startingDate: startDate ? Option.some(DateTime.unsafeMake(new Date(startDate))) : Option.none(),
             targetDate: targetDate ? Option.some(DateTime.unsafeMake(new Date(targetDate))) : Option.none(),
             notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
           }),
@@ -165,6 +170,16 @@ export function GoalForm(props: GoalFormProps) {
         {touched.goalWeight && errors.goalWeight && (
           <span className="block text-xs text-destructive mt-1">{errors.goalWeight}</span>
         )}
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="startDate" className="mb-2 block">
+          Start Date
+        </Label>
+        <Input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <span className="block text-xs text-muted-foreground mt-1">
+          When you started working toward this goal. Use a past date if you've already been tracking progress.
+        </span>
       </div>
 
       <div className="mb-4">

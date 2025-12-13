@@ -4,7 +4,7 @@ import {
   GoalRpcs,
   NoWeightDataError,
   type UserGoalCreate,
-  type UserGoalUpdate,
+  UserGoalUpdate,
 } from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { GoalRepo } from './goal-repo.js'
@@ -52,10 +52,16 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
         }),
       )
 
-      // Get starting weight - use provided or fetch most recent
+      // Get starting weight - use provided, or lookup at startingDate, or fetch most recent
       let startingWeight: number
       if (data.startingWeight !== undefined) {
         startingWeight = data.startingWeight
+      } else if (Option.isSome(data.startingDate)) {
+        const weightOpt = yield* goalService.getWeightAtDate(user.id, data.startingDate.value)
+        if (Option.isNone(weightOpt)) {
+          return yield* NoWeightDataError.make({})
+        }
+        startingWeight = weightOpt.value
       } else {
         const weightOpt = yield* goalService.getMostRecentWeight(user.id)
         if (Option.isNone(weightOpt)) {
@@ -72,10 +78,21 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalUpdate = Effect.fn('rpc.goal.update')(function* (data: UserGoalUpdate) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('GoalUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'GoalUpdate', id: data.id, isActive: data.isActive }),
       )
-      const result = yield* goalRepo.update(data)
+
+      // If startingDate changed and no explicit startingWeight, lookup weight at new date
+      let updateData = data
+      if (data.startingDate !== undefined && data.startingWeight === undefined) {
+        const weightOpt = yield* goalService.getWeightAtDate(user.id, data.startingDate)
+        if (Option.isSome(weightOpt)) {
+          updateData = new UserGoalUpdate({ ...data, startingWeight: weightOpt.value })
+        }
+      }
+
+      const result = yield* goalRepo.update(updateData)
       yield* Effect.logInfo('GoalUpdate completed').pipe(Effect.annotateLogs({ rpc: 'GoalUpdate', id: data.id }))
       return result
     })

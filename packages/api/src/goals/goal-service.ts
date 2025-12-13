@@ -25,6 +25,11 @@ export class GoalService extends Effect.Tag('GoalService')<
     readonly getCurrentWeight: (userId: string) => Effect.Effect<Option.Option<number>, GoalDatabaseError>
     /** Get most recent weight (used as starting weight if not provided) */
     readonly getMostRecentWeight: (userId: string) => Effect.Effect<Option.Option<number>, GoalDatabaseError>
+    /** Get weight at or closest to a specific date */
+    readonly getWeightAtDate: (
+      userId: string,
+      date: DateTime.Utc,
+    ) => Effect.Effect<Option.Option<number>, GoalDatabaseError>
     /** Calculate goal progress including projection */
     readonly getGoalProgress: (userId: string) => Effect.Effect<GoalProgress | null, GoalDatabaseError>
     /** Calculate projected goal date based on rate of change */
@@ -105,6 +110,23 @@ export const GoalServiceLive = Layer.effect(
       }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
     const getMostRecentWeight = getCurrentWeight // Same implementation
+
+    const getWeightAtDate = (userId: string, date: DateTime.Utc) =>
+      Effect.gen(function* () {
+        const dateStr = DateTime.formatIso(date).split('T')[0]!
+        // Get weight entry closest to the target date (on or before preferred, else after)
+        const rows = yield* sql`
+          SELECT datetime, weight FROM weight_logs
+          WHERE user_id = ${userId}
+          ORDER BY ABS(julianday(date(datetime)) - julianday(${dateStr}))
+          LIMIT 1
+        `
+        if (rows.length === 0) {
+          return Option.none()
+        }
+        const decoded = yield* decodeWeightRow(rows[0])
+        return Option.some(decoded.weight)
+      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
     const calculateProjectedDate = (
       goal: UserGoal,
@@ -239,6 +261,7 @@ export const GoalServiceLive = Layer.effect(
     return {
       getCurrentWeight,
       getMostRecentWeight,
+      getWeightAtDate,
       getGoalProgress,
       calculateProjectedDate,
       calculatePaceStatus,

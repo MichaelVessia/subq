@@ -123,7 +123,9 @@ export const GoalRepoLive = Layer.effect(
       Effect.gen(function* () {
         const id = generateUuid()
         const now = DateTime.formatIso(DateTime.unsafeNow())
-        const startingDate = now.split('T')[0]! // Just the date part
+        const startingDate = Option.isSome(data.startingDate)
+          ? DateTime.formatIso(data.startingDate.value).split('T')[0]!
+          : now.split('T')[0]! // Just the date part
         const targetDate = Option.isSome(data.targetDate) ? DateTime.formatIso(data.targetDate.value) : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
 
@@ -167,6 +169,13 @@ export const GoalRepoLive = Layer.effect(
         const updates: string[] = [`updated_at = '${now}'`]
         if (data.goalWeight !== undefined) {
           updates.push(`goal_weight = ${data.goalWeight}`)
+        }
+        if (data.startingWeight !== undefined) {
+          updates.push(`starting_weight = ${data.startingWeight}`)
+        }
+        if (data.startingDate !== undefined) {
+          const val = DateTime.formatIso(data.startingDate).split('T')[0]!
+          updates.push(`starting_date = '${val}'`)
         }
         if (data.targetDate !== undefined) {
           const val = data.targetDate === null ? 'NULL' : `'${DateTime.formatIso(data.targetDate)}'`
