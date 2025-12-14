@@ -132,19 +132,17 @@ test.describe
     test('can cancel goal edit', async ({ authedPage: page }) => {
       await deleteGoalIfExists(page)
 
-      // Create goal first
+      // Create goal first (must be less than current weight ~81.6 kg / ~180 lbs)
       await page.click('button:has-text("Set Your Goal")')
-      await page.fill('input#goalWeight', '160')
+      await page.fill('input#goalWeight', '70')
       await page.click('button:has-text("Set Goal")')
       await expect(page.locator('text=Progress to goal')).toBeVisible({ timeout: 5000 })
 
       // Open edit form then cancel
       await page.click('[title="Edit goal"]')
       await expect(page.locator('button:has-text("Save Changes")')).toBeVisible()
-      // Fill with a valid value that won't trigger validation error (must be less than current weight)
-      await page.fill('input#goalWeight', '140')
-      // Wait a moment then cancel
-      await page.waitForTimeout(200)
+      // Fill with a valid value (must be less than current weight ~81.6 kg)
+      await page.fill('input#goalWeight', '75')
       await page.click('button:has-text("Cancel")')
 
       // Wait for form to close
@@ -153,7 +151,7 @@ test.describe
       // Original value should still be shown (goal weight in progress display)
       await expect(page.locator('text=Progress to goal')).toBeVisible({ timeout: 5000 })
       // The goal weight is shown in the progress bar area
-      await expect(page.locator('span.font-mono:has-text("160.0 lbs")')).toBeVisible({ timeout: 5000 })
+      await expect(page.locator('text=70.0 lbs')).toBeVisible({ timeout: 5000 })
 
       // Cleanup
       await deleteGoalIfExists(page)
