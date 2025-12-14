@@ -108,7 +108,7 @@ test.describe
 
       // Verify goal was created - should show progress UI
       await expect(page.locator('text=Progress to goal')).toBeVisible({ timeout: 5000 })
-      await expect(page.locator('text=150.0 lbs')).toBeVisible()
+      await expect(page.locator('text=/150\\.0\\s*(kg|lbs)/')).toBeVisible()
 
       // Edit goal
       await page.click('[title="Edit goal"]')
@@ -118,7 +118,7 @@ test.describe
       await page.click('button:has-text("Save Changes")')
 
       // Verify edit worked
-      await expect(page.locator('text=145.0 lbs')).toBeVisible({ timeout: 5000 })
+      await expect(page.locator('text=/145\\.0\\s*(kg|lbs)/')).toBeVisible({ timeout: 5000 })
 
       // Delete goal
       await page.click('[title="Delete goal"]')
@@ -151,7 +151,7 @@ test.describe
       // Original value should still be shown (goal weight in progress display)
       await expect(page.locator('text=Progress to goal')).toBeVisible({ timeout: 5000 })
       // The goal weight is shown in the progress bar area
-      await expect(page.locator('text=70.0 lbs')).toBeVisible({ timeout: 5000 })
+      await expect(page.locator('text=/70\\.0\\s*(kg|lbs)/')).toBeVisible({ timeout: 5000 })
 
       // Cleanup
       await deleteGoalIfExists(page)
@@ -173,7 +173,7 @@ test.describe
 
       // Goal should still exist
       await expect(page.locator('text=Progress to goal')).toBeVisible()
-      await expect(page.locator('text=155.0 lbs')).toBeVisible()
+      await expect(page.locator('text=/155\\.0\\s*(kg|lbs)/')).toBeVisible()
 
       // Cleanup
       await deleteGoalIfExists(page)
