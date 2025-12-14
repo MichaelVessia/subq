@@ -1,18 +1,36 @@
 pre-commit:
   commands:
+    beads-sync:
+      run: |
+        if command -v bd >/dev/null 2>&1 && [ -d .beads ]; then
+          bd sync --flush-only >/dev/null 2>&1 || echo "Warning: bd sync failed"
+          git add .beads/issues.jsonl 2>/dev/null || true
+        fi
+      priority: 1
     format-fix:
       glob: "*.{ts,mjs}"
       run: bun run format-fix {staged_files}
       stage_fixed: true
+      priority: 2
     lint-fix:
       glob: "*.{ts,mjs}"
       run: bun run lint-fix {staged_files}
       stage_fixed: true
+      priority: 3
     check:
       run: bun run check
+      priority: 4
 
 pre-push:
   commands:
     e2e:
       run: CI=true bun run test:e2e
       tags: slow
+
+post-merge:
+  commands:
+    beads-prime:
+      run: |
+        if command -v bd >/dev/null 2>&1 && [ -d .beads ]; then
+          bd prime >/dev/null 2>&1 || true
+        fi
