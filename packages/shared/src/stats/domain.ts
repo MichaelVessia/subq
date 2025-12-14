@@ -11,6 +11,8 @@ import { Weight, WeightRateOfChange } from '../weight/domain.js'
 export class StatsParams extends Schema.Class<StatsParams>('StatsParams')({
   startDate: Schema.optional(Schema.Date),
   endDate: Schema.optional(Schema.Date),
+  /** IANA timezone identifier (e.g., "America/New_York") for day-of-week calculations */
+  timezone: Schema.optional(Schema.String),
 }) {}
 
 // ============================================

@@ -144,7 +144,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     const hasInitialScheduleForDrug =
       initialData?.scheduleId && schedulesForDrug.some((s) => s.id === initialData.scheduleId)
 
-    if (hasInitialScheduleForDrug) {
+    if (hasInitialScheduleForDrug && initialData.scheduleId) {
       // Keep the initial schedule, just ensure state is set
       setSelectedScheduleId(initialData.scheduleId)
       setUseCustomDosage(false)
@@ -169,7 +169,7 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   // Check if current dosage matches schedule
   const isOffScheduleDose = useMemo(() => {
     if (!selectedScheduleId || !dosage) return false
-    return scheduleDosages.length > 0 && !scheduleDosages.includes(dosage)
+    return scheduleDosages.length > 0 && !scheduleDosages.some((d) => d === dosage)
   }, [selectedScheduleId, dosage, scheduleDosages])
 
   // Simple validity check for button enable state (matches original behavior)

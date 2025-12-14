@@ -75,6 +75,9 @@ export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefi
   reactivityKeys: [ReactivityKeys.injectionSites],
 })
 
+// Get the browser's timezone for stats that need it
+const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
+
 // Stats page atoms
 export const createWeightStatsAtom = (startDate?: Date, endDate?: Date) =>
   ApiClient.query('GetWeightStats', new StatsParams({ startDate, endDate }), {
@@ -97,7 +100,7 @@ export const createDosageHistoryAtom = (startDate?: Date, endDate?: Date) =>
   })
 
 export const createInjectionFrequencyAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionFrequency', new StatsParams({ startDate, endDate }), {
+  ApiClient.query('GetInjectionFrequency', new StatsParams({ startDate, endDate, timezone: getBrowserTimezone() }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 
@@ -107,7 +110,7 @@ export const createDrugBreakdownAtom = (startDate?: Date, endDate?: Date) =>
   })
 
 export const createInjectionByDayOfWeekAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ startDate, endDate }), {
+  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ startDate, endDate, timezone: getBrowserTimezone() }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
 

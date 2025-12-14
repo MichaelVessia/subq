@@ -94,6 +94,27 @@ function computeLinearRegression(points: { date: Date; weight: number }[]): Line
 
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000
 
+/**
+ * Gets the day of week (0=Sunday, 6=Saturday) for a date in a specific timezone.
+ */
+function getDayOfWeekInTimezone(date: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: timezone,
+  })
+  const weekdayStr = formatter.format(date)
+  const dayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  }
+  return dayMap[weekdayStr] ?? 0
+}
+
 function computeRateOfChange(points: { date: Date; weight: number }[]): number {
   const regression = computeLinearRegression(points)
   if (!regression) return 0
@@ -251,10 +272,11 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
       }
       const avgDaysBetween = intervals > 0 ? totalDaysBetween / intervals : 0
 
-      // Find most frequent day of week
+      // Find most frequent day of week (timezone-aware)
+      const timezone = params.timezone ?? 'UTC'
       const dowCounts = new Map<number, number>()
       for (const entry of filtered) {
-        const dow = entry.datetime.getDay()
+        const dow = getDayOfWeekInTimezone(entry.datetime, timezone)
         dowCounts.set(dow, (dowCounts.get(dow) ?? 0) + 1)
       }
       let mostFrequentDow: number | null = null
@@ -315,9 +337,11 @@ const StatsServiceTest = Layer.sync(StatsService, () => ({
         filtered = filtered.filter((e) => e.datetime <= params.endDate!)
       }
 
+      // Use timezone-aware day of week calculation
+      const timezone = params.timezone ?? 'UTC'
       const dowCounts = new Map<number, number>()
       for (const entry of filtered) {
-        const dow = entry.datetime.getDay()
+        const dow = getDayOfWeekInTimezone(entry.datetime, timezone)
         dowCounts.set(dow, (dowCounts.get(dow) ?? 0) + 1)
       }
 

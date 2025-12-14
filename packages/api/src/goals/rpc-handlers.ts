@@ -5,6 +5,7 @@ import {
   NoWeightDataError,
   type UserGoalCreate,
   UserGoalUpdate,
+  Weight,
 } from '@subq/shared'
 import { Effect, Option } from 'effect'
 import { GoalRepo } from './goal-repo.js'
@@ -88,7 +89,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
       if (data.startingDate !== undefined && data.startingWeight === undefined) {
         const weightOpt = yield* goalService.getWeightAtDate(user.id, data.startingDate)
         if (Option.isSome(weightOpt)) {
-          updateData = new UserGoalUpdate({ ...data, startingWeight: weightOpt.value })
+          updateData = new UserGoalUpdate({ ...data, startingWeight: Weight.make(weightOpt.value) })
         }
       }
 

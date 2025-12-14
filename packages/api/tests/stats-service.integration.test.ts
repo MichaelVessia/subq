@@ -237,7 +237,7 @@ describe('StatsService Integration', () => {
   })
 
   describe('getInjectionByDayOfWeek', () => {
-    it.effect('groups by day of week correctly', () =>
+    it.effect('groups by day of week correctly in UTC', () =>
       Effect.gen(function* () {
         yield* setupTables
         yield* clearTables
@@ -255,6 +255,53 @@ describe('StatsService Integration', () => {
         const tuesday = result.days.find((d) => d.dayOfWeek === 2)
         expect(monday?.count).toBe(2)
         expect(tuesday?.count).toBe(1)
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('respects timezone parameter for day of week calculation', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        // Wed Dec 4 2024 at 10:00 PM Eastern = Thu Dec 5 at 03:00 AM UTC
+        // Wed Dec 11 2024 at 9:00 PM Eastern = Thu Dec 12 at 02:00 AM UTC
+        // These are Wednesday evenings in America/New_York but Thursday in UTC
+        yield* insertInjectionLog('i1', new Date('2024-12-05T03:00:00Z'), 'Test', '200mg', null, 'user-123')
+        yield* insertInjectionLog('i2', new Date('2024-12-12T02:00:00Z'), 'Test', '200mg', null, 'user-123')
+
+        const stats = yield* StatsService
+
+        // Without timezone (defaults to UTC), these should be Thursday
+        const utcResult = yield* stats.getInjectionByDayOfWeek({}, 'user-123')
+        const utcThursday = utcResult.days.find((d) => d.dayOfWeek === 4)
+        expect(utcThursday?.count).toBe(2)
+
+        // With America/New_York timezone, these should be Wednesday
+        const nyResult = yield* stats.getInjectionByDayOfWeek({ timezone: 'America/New_York' }, 'user-123')
+        const nyWednesday = nyResult.days.find((d) => d.dayOfWeek === 3)
+        expect(nyWednesday?.count).toBe(2)
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  describe('getInjectionFrequency timezone handling', () => {
+    it.effect('respects timezone for most frequent day of week', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        // 3 Wednesday evenings Eastern (Thursday UTC)
+        yield* insertInjectionLog('i1', new Date('2024-12-05T03:00:00Z'), 'Test', '200mg', null, 'user-123')
+        yield* insertInjectionLog('i2', new Date('2024-12-12T02:00:00Z'), 'Test', '200mg', null, 'user-123')
+        yield* insertInjectionLog('i3', new Date('2024-12-19T03:30:00Z'), 'Test', '200mg', null, 'user-123')
+
+        const stats = yield* StatsService
+
+        // Without timezone, most frequent is Thursday (4)
+        const utcResult = yield* stats.getInjectionFrequency({}, 'user-123')
+        expect(utcResult?.mostFrequentDayOfWeek).toBe(4)
+
+        // With America/New_York, most frequent is Wednesday (3)
+        const nyResult = yield* stats.getInjectionFrequency({ timezone: 'America/New_York' }, 'user-123')
+        expect(nyResult?.mostFrequentDayOfWeek).toBe(3)
       }).pipe(Effect.provide(TestLayer)),
     )
   })
