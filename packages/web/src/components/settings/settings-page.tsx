@@ -3,6 +3,7 @@ import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { Label } from '../ui/label.js'
+import { ChangePasswordForm } from './change-password-form.js'
 
 export function SettingsPage() {
   const { weightUnit, setWeightUnit } = useUserSettings()
@@ -34,6 +35,15 @@ export function SettingsPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
         </CardContent>
       </Card>
     </div>

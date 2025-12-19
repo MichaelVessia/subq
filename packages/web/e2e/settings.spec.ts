@@ -75,4 +75,28 @@ test.describe('Settings', () => {
     await page.click('button:has-text("Pounds (lbs)")')
     await expect(page.locator('button:has-text("Pounds (lbs)")')).toHaveClass(/bg-primary/, { timeout: 5000 })
   })
+
+  test('displays change password form', async ({ authedPage: page }) => {
+    await expect(page.locator('text=Change Password')).toBeVisible()
+    await expect(page.locator('label:has-text("Current Password")')).toBeVisible()
+    await expect(page.locator('label:has-text("New Password")')).toBeVisible()
+    await expect(page.locator('label:has-text("Confirm New Password")')).toBeVisible()
+    await expect(page.locator('button:has-text("Change Password")')).toBeVisible()
+  })
+
+  test('shows error when passwords do not match', async ({ authedPage: page }) => {
+    await page.fill('input#currentPassword', 'currentpass')
+    await page.fill('input#newPassword', 'newpassword123')
+    await page.fill('input#confirmPassword', 'differentpassword')
+    await page.click('button:has-text("Change Password")')
+    await expect(page.locator('text=New passwords do not match')).toBeVisible()
+  })
+
+  test('shows error when new password is too short', async ({ authedPage: page }) => {
+    await page.fill('input#currentPassword', 'currentpass')
+    await page.fill('input#newPassword', 'short')
+    await page.fill('input#confirmPassword', 'short')
+    await page.click('button:has-text("Change Password")')
+    await expect(page.locator('text=New password must be at least 8 characters')).toBeVisible()
+  })
 })
