@@ -5,8 +5,10 @@
  * Uses SQLite for persistence with Fly volume.
  */
 import { createServer } from 'node:http'
-import { existsSync, readFileSync } from 'node:fs'
-import { join, extname } from 'node:path'
+import { existsSync, readFileSync, mkdirSync } from 'node:fs'
+import { join, extname, dirname } from 'node:path'
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
@@ -26,6 +28,37 @@ import { SqlLive } from './sql.js'
 
 // Static file directory (relative to where server runs from)
 const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
+
+// Run database migrations on startup
+const runMigrations = () => {
+  const databasePath = process.env.DATABASE_PATH || './data/subq.db'
+
+  // Ensure the data directory exists
+  mkdirSync(dirname(databasePath), { recursive: true })
+
+  console.log(`Running migrations on: ${databasePath}`)
+
+  const sqlite = new Database(databasePath)
+  const db = drizzle(sqlite)
+
+  // Migrations folder is relative to this file in the built output
+  // In dev: packages/api/src/server.ts -> packages/api/drizzle
+  // In prod: packages/api/src/server.ts -> packages/api/drizzle
+  const migrationsFolder = join(import.meta.dir, '../drizzle')
+
+  try {
+    migrate(db, { migrationsFolder })
+    console.log('Migrations completed successfully!')
+  } catch (error) {
+    console.error('Migration failed:', error)
+    process.exit(1)
+  } finally {
+    sqlite.close()
+  }
+}
+
+// Run migrations before starting server
+runMigrations()
 
 // MIME types for static files
 const MIME_TYPES: Record<string, string> = {
