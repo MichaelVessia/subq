@@ -22,6 +22,7 @@
     "format-fix": "biome format --write . || nix develop --command biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:cli": "bun run --filter @subq/cli test",
     "test:e2e": "bun run --filter @subq/web test:e2e",
     "coverage": "vitest run --coverage",
     "prepare": "effect-language-service patch",
