@@ -39,9 +39,12 @@ export default defineConfig({
           stderr: 'pipe',
         },
         {
-          command: 'bun run dev',
+          command: 'bun run --filter @subq/web dev',
           url: 'http://localhost:5173',
           reuseExistingServer: !process.env.CI,
+          cwd: '../..',
+          stdout: 'pipe',
+          stderr: 'pipe',
         },
       ],
 })
