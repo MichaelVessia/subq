@@ -17,8 +17,11 @@ pre-commit:
       run: bun run lint-fix {staged_files}
       stage_fixed: true
       priority: 3
-    check:
-      run: bun run check
+    typecheck:
+      run: bun run typecheck
+      priority: 4
+    test:
+      run: bun run test
       priority: 4
 
 
