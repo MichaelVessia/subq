@@ -1,6 +1,6 @@
 import { Command, Options, Prompt } from '@effect/cli'
 import { type Weight, WeightLogCreate } from '@subq/shared'
-import { Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { output, success, type OutputFormat } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
@@ -95,7 +95,7 @@ export const weightAddCommand = Command.make(
 
       const payload = new WeightLogCreate({
         weight: weight as Weight,
-        datetime,
+        datetime: DateTime.unsafeFromDate(datetime),
         notes: notes ? Option.some(notes as any) : Option.none(),
       })
 

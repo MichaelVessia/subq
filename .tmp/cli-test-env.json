@@ -1,0 +1,1 @@
+{"SUBQ_API_URL":"http://localhost:3002","HOME":"/home/michaelvessia/Projects/subq/.tmp/cli-test-home","DATABASE_PATH":"/home/michaelvessia/Projects/subq/packages/api/data/cli-test.db","BETTER_AUTH_SECRET":"test-secret-for-cli-integration-tests-min-32-chars","BETTER_AUTH_URL":"http://localhost:3002"}
