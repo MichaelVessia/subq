@@ -6,6 +6,7 @@ import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
@@ -63,6 +64,7 @@ const RpcHandlersLive = Layer.mergeAll(
   StatsRpcHandlersLive,
   GoalRpcHandlersLive,
   SettingsRpcHandlersLive,
+  DataExportRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
@@ -74,13 +76,6 @@ const RepositoriesLive = Layer.mergeAll(
   GoalRepoLive,
   SettingsRepoLive,
 ).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
-
-// RPC handler layer with auth middleware
-const RpcLive = RpcServer.layer(AppRpcs).pipe(
-  Layer.provide(RpcHandlersLive),
-  Layer.provide(AuthRpcMiddlewareLive),
-  Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
-)
 
 // CORS configuration - allow both localhost and 127.0.0.1
 const corsMiddleware = HttpMiddleware.cors({
@@ -108,25 +103,29 @@ const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer
 // Merge all route layers so they share the same Default router
 const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive)
 
-// Services that depend on repositories
-const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive).pipe(
+// Services that depend on SQL
+const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive, DataExportServiceLive).pipe(
+  Layer.provide(SqlLive),
+)
+
+// RPC handler layer with auth middleware - needs services and repos
+const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
+  Layer.provide(RpcHandlersLive),
+  Layer.provide(AuthRpcMiddlewareLive),
+  Layer.provide(ServicesLive),
   Layer.provide(RepositoriesLive),
   Layer.provide(SqlLive),
+  Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
 // HTTP server with all dependencies
 const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
-  Layer.provide(RpcLive),
+  Layer.provide(RpcLiveWithDeps),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
-  // Provide repositories and services to handlers
-  Layer.provide(RepositoriesLive),
-  Layer.provide(ServicesLive),
   // Provide auth service
   Layer.provide(AuthLive),
-  // Provide SQL client to repositories and services
-  Layer.provide(SqlLive),
   Layer.tap(() => Effect.logInfo('HTTP server layer configured on port 3001')),
 )
 

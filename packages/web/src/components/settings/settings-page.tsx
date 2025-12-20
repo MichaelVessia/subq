@@ -4,6 +4,7 @@ import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { Label } from '../ui/label.js'
 import { ChangePasswordForm } from './change-password-form.js'
+import { DataManagement } from './data-management.js'
 
 export function SettingsPage() {
   const { weightUnit, setWeightUnit } = useUserSettings()
@@ -44,6 +45,15 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ChangePasswordForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataManagement />
         </CardContent>
       </Card>
     </div>

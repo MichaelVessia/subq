@@ -1,4 +1,5 @@
 import { AuthRpcMiddleware } from './auth-middleware.js'
+import { DataExportRpcs } from './data-export/rpc.js'
 import { GoalRpcs } from './goals/rpc.js'
 import { InjectionRpcs } from './injection/rpc.js'
 import { InventoryRpcs } from './inventory/rpc.js'
@@ -17,6 +18,7 @@ export const AppRpcs = WeightRpcs.merge(InjectionRpcs)
   .merge(StatsRpcs)
   .merge(GoalRpcs)
   .merge(SettingsRpcs)
+  .merge(DataExportRpcs)
   .middleware(AuthRpcMiddleware)
 
 // Re-export domain RPCs for selective use
@@ -27,3 +29,4 @@ export { ScheduleRpcs } from './schedule/rpc.js'
 export { StatsRpcs } from './stats/rpc.js'
 export { GoalRpcs } from './goals/rpc.js'
 export { SettingsRpcs } from './settings/rpc.js'
+export { DataExportRpcs } from './data-export/rpc.js'

@@ -4,27 +4,29 @@
  * Serves both the API (/rpc, /api/auth/*) and static files (SPA).
  * Uses SQLite for persistence with Fly volume.
  */
+
+import { Database } from 'bun:sqlite'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { existsSync, readFileSync, mkdirSync } from 'node:fs'
-import { join, extname, dirname } from 'node:path'
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { dirname, extname, join } from 'node:path'
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
-import { Database } from 'bun:sqlite'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
+import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
+import { SqlLive } from './sql.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
-import { SqlLive } from './sql.js'
 
 // Static file directory (relative to where server runs from)
 const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
@@ -156,6 +158,7 @@ const RpcHandlersLive = Layer.mergeAll(
   StatsRpcHandlersLive,
   GoalRpcHandlersLive,
   SettingsRpcHandlersLive,
+  DataExportRpcHandlersLive,
 ).pipe(Layer.tap(() => Effect.logInfo('RPC handlers layer initialized')))
 
 // Combined repositories layer
@@ -168,10 +171,18 @@ const RepositoriesLive = Layer.mergeAll(
   SettingsRepoLive,
 ).pipe(Layer.tap(() => Effect.logInfo('Repository layer initialized')))
 
+// Services that depend on SQL (stats, goals, data export)
+const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive, DataExportServiceLive).pipe(
+  Layer.provide(SqlLive),
+)
+
 // RPC handler layer with auth middleware
 const RpcLive = RpcServer.layer(AppRpcs).pipe(
   Layer.provide(RpcHandlersLive),
   Layer.provide(AuthRpcMiddlewareLive),
+  Layer.provide(ServicesLive),
+  Layer.provide(RepositoriesLive),
+  Layer.provide(SqlLive),
   Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
@@ -237,25 +248,14 @@ const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, HealthRouteLive, RpcProtoco
 // Get port from environment
 const port = Number(process.env.PORT) || 3001
 
-// Services that depend on repositories
-const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive).pipe(
-  Layer.provide(RepositoriesLive),
-  Layer.provide(SqlLive),
-)
-
 // HTTP server with all dependencies (no CORS needed - same origin)
 const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.provide(RpcLive),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(NodeHttpServer.layer(createServer, { port, host: '0.0.0.0' })),
-  // Provide repositories and services to handlers
-  Layer.provide(RepositoriesLive),
-  Layer.provide(ServicesLive),
   // Provide auth service
   Layer.provide(AuthLive),
-  // Provide SQL client to repositories and services
-  Layer.provide(SqlLive),
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
