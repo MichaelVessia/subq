@@ -30,14 +30,13 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: 'bun run --filter @subq/api dev',
+          command:
+            'BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run --filter @subq/api dev',
           url: 'http://localhost:3001',
           reuseExistingServer: !process.env.CI,
           cwd: '../..',
-          env: {
-            BETTER_AUTH_SECRET: 'e2e-test-secret-must-be-at-least-32-characters-long',
-            BETTER_AUTH_URL: 'http://localhost:3001',
-          },
+          stdout: 'pipe',
+          stderr: 'pipe',
         },
         {
           command: 'bun run dev',

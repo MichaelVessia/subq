@@ -1,13 +1,16 @@
 import { defineConfig } from 'vitest/config'
-import { resolve } from 'node:path'
 
 export default defineConfig({
   test: {
-    root: resolve(__dirname),
     include: ['tests/**/*.test.ts'],
+    testTimeout: 30000,
+    hookTimeout: 60000,
+    // Global setup/teardown for starting/stopping test server
     globalSetup: ['tests/setup/global-setup.ts'],
     globalTeardown: ['tests/setup/global-teardown.ts'],
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    // Run tests sequentially since they share a server
+    sequence: {
+      concurrent: false,
+    },
   },
 })

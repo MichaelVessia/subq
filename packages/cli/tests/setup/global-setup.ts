@@ -85,6 +85,8 @@ async function setupDatabase(): Promise<void> {
 
 async function startServer(): Promise<void> {
   console.log(`Starting test API server on port ${TEST_PORT}...`)
+  console.log(`  API_DIR: ${API_DIR}`)
+  console.log(`  DATABASE_PATH: ${TEST_DB_PATH}`)
 
   // Create test HOME directory for CLI session storage
   await mkdir(TEST_HOME, { recursive: true })
@@ -106,16 +108,15 @@ async function startServer(): Promise<void> {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
+  // Always log server errors to help debug startup issues
+  serverProcess.stderr?.on('data', (data) => {
+    console.error(`[API ERROR] ${data.toString().trim()}`)
+  })
+
   // Log server output for debugging
   serverProcess.stdout?.on('data', (data) => {
     if (process.env.DEBUG) {
       console.log(`[API] ${data.toString().trim()}`)
-    }
-  })
-
-  serverProcess.stderr?.on('data', (data) => {
-    if (process.env.DEBUG) {
-      console.error(`[API ERROR] ${data.toString().trim()}`)
     }
   })
 
