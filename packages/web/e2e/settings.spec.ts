@@ -78,9 +78,9 @@ test.describe('Settings', () => {
 
   test('displays change password form', async ({ authedPage: page }) => {
     await expect(page.getByRole('heading', { name: 'Change Password' })).toBeVisible()
-    await expect(page.locator('label:has-text("Current Password")')).toBeVisible()
-    await expect(page.locator('label:has-text("New Password")')).toBeVisible()
-    await expect(page.locator('label:has-text("Confirm New Password")')).toBeVisible()
+    await expect(page.getByText('Current Password', { exact: true })).toBeVisible()
+    await expect(page.getByText('New Password', { exact: true })).toBeVisible()
+    await expect(page.getByText('Confirm New Password', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Change Password' })).toBeVisible()
   })
 

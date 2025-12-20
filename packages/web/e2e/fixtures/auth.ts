@@ -19,7 +19,7 @@ export async function login(page: Page, email: string, password: string) {
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
   await page.click('button[type="submit"]')
-  await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('text=Sign Out')).toBeVisible()
 }
 
 // Try login, sign up if user doesn't exist (for fresh preview envs)
@@ -47,7 +47,7 @@ export async function loginOrSignUp(page: Page, email: string, password: string,
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
   await page.click('button[type="submit"]')
-  await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('text=Sign Out')).toBeVisible()
 }
 
 export async function loginAsE2EUser(page: Page) {
@@ -71,7 +71,7 @@ export async function signUp(page: Page, email: string, password: string, name: 
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
   await page.click('button[type="submit"]')
-  await expect(page.locator('text=Sign Out')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('text=Sign Out')).toBeVisible()
 }
 
 // Extended test fixture with authenticated page
