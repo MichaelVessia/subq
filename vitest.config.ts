@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config'
 
-// This config is now primarily for settings shared across all workspaces
-// The actual test patterns are defined in vitest.workspace.ts
 export default defineConfig({
   test: {
-    // Workspace mode will use vitest.workspace.ts for test discovery
+    include: ['packages/**/tests/**/*.test.ts', 'packages/**/*.test.ts'],
+    // Exclude CLI tests (need bun runtime), e2e tests (run via playwright), and generated dirs
+    exclude: ['packages/cli/**', '**/node_modules/**', '**/e2e/**', '**/*.spec.ts', '.context/**', '.beads/**'],
   },
 })
