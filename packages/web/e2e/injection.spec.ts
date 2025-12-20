@@ -149,6 +149,7 @@ test.describe('Injection Log', () => {
 
     // Cleanup: delete
     await row.locator('button:has(.sr-only)').click()
+    await expect(page.locator('[role="menuitem"]:has-text("Delete")')).toBeVisible()
     await page.evaluate(() => {
       window.confirm = () => true
     })

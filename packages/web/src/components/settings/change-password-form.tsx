@@ -73,7 +73,6 @@ export function ChangePasswordForm() {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
-          minLength={8}
         />
       </div>
       <div>
@@ -86,7 +85,6 @@ export function ChangePasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
-          minLength={8}
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}

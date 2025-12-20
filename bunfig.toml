@@ -1,4 +1,0 @@
-[test]
-root = "./packages"
-testMatch = ["**/*.test.ts"]
-coverage = true

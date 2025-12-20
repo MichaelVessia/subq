@@ -77,11 +77,11 @@ test.describe('Settings', () => {
   })
 
   test('displays change password form', async ({ authedPage: page }) => {
-    await expect(page.locator('text=Change Password')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Change Password' })).toBeVisible()
     await expect(page.locator('label:has-text("Current Password")')).toBeVisible()
     await expect(page.locator('label:has-text("New Password")')).toBeVisible()
     await expect(page.locator('label:has-text("Confirm New Password")')).toBeVisible()
-    await expect(page.locator('button:has-text("Change Password")')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Change Password' })).toBeVisible()
   })
 
   test('shows error when passwords do not match', async ({ authedPage: page }) => {
