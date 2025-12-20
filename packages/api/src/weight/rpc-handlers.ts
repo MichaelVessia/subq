@@ -30,8 +30,9 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogGet = Effect.fn('rpc.weight.get')(function* ({ id }: { id: string }) {
+      const { user } = yield* AuthContext
       yield* Effect.logDebug('WeightLogGet called').pipe(Effect.annotateLogs({ rpc: 'WeightLogGet', id }))
-      const result = yield* repo.findById(id).pipe(Effect.map(Option.getOrNull))
+      const result = yield* repo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('WeightLogGet completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogGet', id, found: !!result }),
       )
@@ -56,8 +57,9 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogUpdate = Effect.fn('rpc.weight.update')(function* (data: WeightLogUpdate) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('WeightLogUpdate called').pipe(Effect.annotateLogs({ rpc: 'WeightLogUpdate', id: data.id }))
-      const result = yield* repo.update(data)
+      const result = yield* repo.update(data, user.id)
       yield* Effect.logInfo('WeightLogUpdate completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogUpdate', id: result.id }),
       )
@@ -65,8 +67,9 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogDelete = Effect.fn('rpc.weight.delete')(function* ({ id }: { id: string }) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('WeightLogDelete called').pipe(Effect.annotateLogs({ rpc: 'WeightLogDelete', id }))
-      const result = yield* repo.delete(id)
+      const result = yield* repo.delete(id, user.id)
       yield* Effect.logInfo('WeightLogDelete completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogDelete', id, deleted: result }),
       )

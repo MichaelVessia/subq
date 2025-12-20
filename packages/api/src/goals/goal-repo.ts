@@ -56,14 +56,17 @@ export class GoalRepo extends Effect.Tag('GoalRepo')<
   {
     readonly list: (userId: string) => Effect.Effect<UserGoal[], GoalDatabaseError>
     readonly getActive: (userId: string) => Effect.Effect<Option.Option<UserGoal>, GoalDatabaseError>
-    readonly findById: (id: string) => Effect.Effect<Option.Option<UserGoal>, GoalDatabaseError>
+    readonly findById: (id: string, userId: string) => Effect.Effect<Option.Option<UserGoal>, GoalDatabaseError>
     readonly create: (
       data: UserGoalCreate,
       startingWeight: number,
       userId: string,
     ) => Effect.Effect<UserGoal, GoalDatabaseError>
-    readonly update: (data: UserGoalUpdate) => Effect.Effect<UserGoal, GoalNotFoundError | GoalDatabaseError>
-    readonly delete: (id: string) => Effect.Effect<boolean, GoalDatabaseError>
+    readonly update: (
+      data: UserGoalUpdate,
+      userId: string,
+    ) => Effect.Effect<UserGoal, GoalNotFoundError | GoalDatabaseError>
+    readonly delete: (id: string, userId: string) => Effect.Effect<boolean, GoalDatabaseError>
   }
 >() {}
 
@@ -104,13 +107,13 @@ export const GoalRepoLive = Layer.effect(
         return Option.some(goalRowToDomain(decoded))
       }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
-    const findById = (id: string) =>
+    const findById = (id: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, user_id, goal_weight, starting_weight, starting_date,
                  target_date, notes, is_active, completed_at, created_at, updated_at
           FROM user_goals
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `
         if (rows.length === 0) {
           return Option.none()
@@ -139,22 +142,22 @@ export const GoalRepoLive = Layer.effect(
         `
 
         // Fetch and return the created goal
-        const result = yield* findById(id)
+        const result = yield* findById(id, userId)
         return Option.getOrThrow(result)
       }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'insert', cause })))
 
-    const update = (data: UserGoalUpdate) =>
+    const update = (data: UserGoalUpdate, userId: string) =>
       Effect.gen(function* () {
-        // First check if goal exists
-        const existing = yield* sql`SELECT id, user_id FROM user_goals WHERE id = ${data.id}`.pipe(
-          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
-        )
+        // First check if goal exists and belongs to user
+        const existing =
+          yield* sql`SELECT id, user_id FROM user_goals WHERE id = ${data.id} AND user_id = ${userId}`.pipe(
+            Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
+          )
 
         if (existing.length === 0) {
           return yield* GoalNotFoundError.make({ id: data.id })
         }
 
-        const userId = (existing[0] as { user_id: string }).user_id
         const now = DateTime.formatIso(DateTime.unsafeNow())
 
         // If activating this goal, deactivate others
@@ -190,23 +193,23 @@ export const GoalRepoLive = Layer.effect(
         }
 
         yield* sql
-          .unsafe(`UPDATE user_goals SET ${updates.join(', ')} WHERE id = '${data.id}'`)
+          .unsafe(`UPDATE user_goals SET ${updates.join(', ')} WHERE id = '${data.id}' AND user_id = '${userId}'`)
           .pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
 
         // Fetch updated
-        const result = yield* findById(data.id).pipe(
+        const result = yield* findById(data.id, userId).pipe(
           Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
         )
         return Option.getOrThrow(result)
       })
 
-    const del = (id: string) =>
+    const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM user_goals WHERE id = ${id}`
+        const existing = yield* sql`SELECT id FROM user_goals WHERE id = ${id} AND user_id = ${userId}`
         if (existing.length === 0) {
           return false
         }
-        yield* sql`DELETE FROM user_goals WHERE id = ${id}`
+        yield* sql`DELETE FROM user_goals WHERE id = ${id} AND user_id = ${userId}`
         return true
       }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'delete', cause })))
 

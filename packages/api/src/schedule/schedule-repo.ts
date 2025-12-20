@@ -154,15 +154,19 @@ export class ScheduleRepo extends Effect.Tag('ScheduleRepo')<
   {
     readonly list: (userId: string) => Effect.Effect<InjectionSchedule[], ScheduleDatabaseError>
     readonly getActive: (userId: string) => Effect.Effect<Option.Option<InjectionSchedule>, ScheduleDatabaseError>
-    readonly findById: (id: string) => Effect.Effect<Option.Option<InjectionSchedule>, ScheduleDatabaseError>
+    readonly findById: (
+      id: string,
+      userId: string,
+    ) => Effect.Effect<Option.Option<InjectionSchedule>, ScheduleDatabaseError>
     readonly create: (
       data: InjectionScheduleCreate,
       userId: string,
     ) => Effect.Effect<InjectionSchedule, ScheduleDatabaseError>
     readonly update: (
       data: InjectionScheduleUpdate,
+      userId: string,
     ) => Effect.Effect<InjectionSchedule, ScheduleNotFoundError | ScheduleDatabaseError>
-    readonly delete: (id: string) => Effect.Effect<boolean, ScheduleDatabaseError>
+    readonly delete: (id: string, userId: string) => Effect.Effect<boolean, ScheduleDatabaseError>
     readonly getLastInjectionDate: (
       userId: string,
       drug: string,
@@ -249,7 +253,7 @@ export const ScheduleRepoLive = Layer.effect(
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     // Single query to fetch schedule by ID with phases using LEFT JOIN
-    const findById = (id: string) =>
+    const findById = (id: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
           SELECT 
@@ -259,7 +263,7 @@ export const ScheduleRepoLive = Layer.effect(
             p.created_at as phase_created_at, p.updated_at as phase_updated_at
           FROM injection_schedules s
           LEFT JOIN schedule_phases p ON s.id = p.schedule_id
-          WHERE s.id = ${id}
+          WHERE s.id = ${id} AND s.user_id = ${userId}
           ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
@@ -301,12 +305,12 @@ export const ScheduleRepoLive = Layer.effect(
         return scheduleRowToDomain(decoded, phases)
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'insert', cause })))
 
-    const update = (data: InjectionScheduleUpdate) =>
+    const update = (data: InjectionScheduleUpdate, userId: string) =>
       Effect.gen(function* () {
-        // First get current values
+        // First get current values - include user_id check to prevent IDOR
         const current = yield* sql`
           SELECT id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at
-          FROM injection_schedules WHERE id = ${data.id}
+          FROM injection_schedules WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -316,8 +320,6 @@ export const ScheduleRepoLive = Layer.effect(
         const curr = yield* decodeScheduleRow(current[0]).pipe(
           Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })),
         )
-
-        const userId = (current[0] as { user_id: string }).user_id
 
         const newName = data.name ?? curr.name
         const newDrug = data.drug ?? curr.drug
@@ -346,7 +348,7 @@ export const ScheduleRepoLive = Layer.effect(
               is_active = ${newIsActive ? 1 : 0},
               notes = ${newNotes},
               updated_at = ${now}
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'update', cause })))
 
         // Update phases if provided
@@ -363,7 +365,7 @@ export const ScheduleRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
           FROM injection_schedules
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
         const decoded = yield* decodeScheduleRow(rows[0]).pipe(
@@ -375,14 +377,14 @@ export const ScheduleRepoLive = Layer.effect(
         return scheduleRowToDomain(decoded, phases)
       })
 
-    const del = (id: string) =>
+    const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id}`
+        const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id} AND user_id = ${userId}`
         if (existing.length === 0) {
           return false
         }
         // Phases are deleted via CASCADE
-        yield* sql`DELETE FROM injection_schedules WHERE id = ${id}`
+        yield* sql`DELETE FROM injection_schedules WHERE id = ${id} AND user_id = ${userId}`
         return true
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'delete', cause })))
 

@@ -32,8 +32,9 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogGet = Effect.fn('rpc.injection.get')(function* ({ id }: { id: string }) {
+      const { user } = yield* AuthContext
       yield* Effect.logDebug('InjectionLogGet called').pipe(Effect.annotateLogs({ rpc: 'InjectionLogGet', id }))
-      const result = yield* repo.findById(id).pipe(Effect.map(Option.getOrNull))
+      const result = yield* repo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('InjectionLogGet completed').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogGet', id, found: !!result }),
       )
@@ -59,10 +60,11 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogUpdate = Effect.fn('rpc.injection.update')(function* (data: InjectionLogUpdate) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('InjectionLogUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogUpdate', id: data.id }),
       )
-      const result = yield* repo.update(data)
+      const result = yield* repo.update(data, user.id)
       yield* Effect.logInfo('InjectionLogUpdate completed').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogUpdate', id: result.id }),
       )
@@ -70,8 +72,9 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogDelete = Effect.fn('rpc.injection.delete')(function* ({ id }: { id: string }) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('InjectionLogDelete called').pipe(Effect.annotateLogs({ rpc: 'InjectionLogDelete', id }))
-      const result = yield* repo.delete(id)
+      const result = yield* repo.delete(id, user.id)
       yield* Effect.logInfo('InjectionLogDelete completed').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogDelete', id, deleted: result }),
       )

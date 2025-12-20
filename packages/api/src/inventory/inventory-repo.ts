@@ -56,14 +56,21 @@ export class InventoryRepo extends Effect.Tag('InventoryRepo')<
   InventoryRepo,
   {
     readonly list: (params: InventoryListParams, userId: string) => Effect.Effect<Inventory[], InventoryDatabaseError>
-    readonly findById: (id: string) => Effect.Effect<Option.Option<Inventory>, InventoryDatabaseError>
+    readonly findById: (id: string, userId: string) => Effect.Effect<Option.Option<Inventory>, InventoryDatabaseError>
     readonly create: (data: InventoryCreate, userId: string) => Effect.Effect<Inventory, InventoryDatabaseError>
     readonly update: (
       data: InventoryUpdate,
+      userId: string,
     ) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
-    readonly delete: (id: string) => Effect.Effect<boolean, InventoryDatabaseError>
-    readonly markFinished: (id: string) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
-    readonly markOpened: (id: string) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
+    readonly delete: (id: string, userId: string) => Effect.Effect<boolean, InventoryDatabaseError>
+    readonly markFinished: (
+      id: string,
+      userId: string,
+    ) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
+    readonly markOpened: (
+      id: string,
+      userId: string,
+    ) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
   }
 >() {}
 
@@ -89,12 +96,12 @@ export const InventoryRepoLive = Layer.effect(
         return yield* Effect.all(rows.map(decodeAndTransform))
       }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
-    const findById = (id: string) =>
+    const findById = (id: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
@@ -123,11 +130,11 @@ export const InventoryRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0])
       }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'insert', cause })))
 
-    const update = (data: InventoryUpdate) =>
+    const update = (data: InventoryUpdate, userId: string) =>
       Effect.gen(function* () {
         const current = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
-          FROM glp1_inventory WHERE id = ${data.id}
+          FROM glp1_inventory WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -160,13 +167,13 @@ export const InventoryRepoLive = Layer.effect(
               status = ${newStatus},
               beyond_use_date = ${newBeyondUseDate},
               updated_at = ${now}
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })))
 
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         return yield* decodeAndTransform(rows[0]).pipe(
@@ -174,21 +181,21 @@ export const InventoryRepoLive = Layer.effect(
         )
       })
 
-    const del = (id: string) =>
+    const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM glp1_inventory WHERE id = ${id}`
+        const existing = yield* sql`SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}`
         if (existing.length === 0) {
           return false
         }
 
-        yield* sql`DELETE FROM glp1_inventory WHERE id = ${id}`
+        yield* sql`DELETE FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}`
         return true
       }).pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'delete', cause })))
 
-    const markFinished = (id: string) =>
+    const markFinished = (id: string, userId: string) =>
       Effect.gen(function* () {
         const current = yield* sql`
-          SELECT id FROM glp1_inventory WHERE id = ${id}
+          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -199,13 +206,13 @@ export const InventoryRepoLive = Layer.effect(
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'finished', updated_at = ${now}
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })))
 
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         return yield* decodeAndTransform(rows[0]).pipe(
@@ -213,10 +220,10 @@ export const InventoryRepoLive = Layer.effect(
         )
       })
 
-    const markOpened = (id: string) =>
+    const markOpened = (id: string, userId: string) =>
       Effect.gen(function* () {
         const current = yield* sql`
-          SELECT id FROM glp1_inventory WHERE id = ${id}
+          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -227,13 +234,13 @@ export const InventoryRepoLive = Layer.effect(
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'opened', updated_at = ${now}
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'update', cause })))
 
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         return yield* decodeAndTransform(rows[0]).pipe(

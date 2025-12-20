@@ -55,12 +55,13 @@ export class WeightLogRepo extends Effect.Tag('WeightLogRepo')<
   WeightLogRepo,
   {
     readonly list: (params: WeightLogListParams, userId: string) => Effect.Effect<WeightLog[], WeightLogDatabaseError>
-    readonly findById: (id: string) => Effect.Effect<Option.Option<WeightLog>, WeightLogDatabaseError>
+    readonly findById: (id: string, userId: string) => Effect.Effect<Option.Option<WeightLog>, WeightLogDatabaseError>
     readonly create: (data: WeightLogCreate, userId: string) => Effect.Effect<WeightLog, WeightLogDatabaseError>
     readonly update: (
       data: WeightLogUpdate,
+      userId: string,
     ) => Effect.Effect<WeightLog, WeightLogNotFoundError | WeightLogDatabaseError>
-    readonly delete: (id: string) => Effect.Effect<boolean, WeightLogDatabaseError>
+    readonly delete: (id: string, userId: string) => Effect.Effect<boolean, WeightLogDatabaseError>
   }
 >() {}
 
@@ -92,12 +93,12 @@ export const WeightLogRepoLive = Layer.effect(
         return yield* Effect.all(rows.map(decodeAndTransform))
       }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
-    const findById = (id: string) =>
+    const findById = (id: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
-          WHERE id = ${id}
+          WHERE id = ${id} AND user_id = ${userId}
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
@@ -125,12 +126,12 @@ export const WeightLogRepoLive = Layer.effect(
         return yield* decodeAndTransform(rows[0])
       }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'insert', cause })))
 
-    const update = (data: WeightLogUpdate) =>
+    const update = (data: WeightLogUpdate, userId: string) =>
       Effect.gen(function* () {
-        // First get current values
+        // First get current values - include user_id check to prevent IDOR
         const current = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
-          FROM weight_logs WHERE id = ${data.id}
+          FROM weight_logs WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -151,14 +152,14 @@ export const WeightLogRepoLive = Layer.effect(
               weight = ${newWeight},
               notes = ${newNotes},
               updated_at = ${now}
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'update', cause })))
 
         // Fetch updated row
         const rows = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
-          WHERE id = ${data.id}
+          WHERE id = ${data.id} AND user_id = ${userId}
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
         return yield* decodeAndTransform(rows[0]).pipe(
@@ -166,15 +167,15 @@ export const WeightLogRepoLive = Layer.effect(
         )
       })
 
-    const del = (id: string) =>
+    const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        // Check if exists first
-        const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id}`
+        // Check if exists and belongs to user
+        const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id} AND user_id = ${userId}`
         if (existing.length === 0) {
           return false
         }
 
-        yield* sql`DELETE FROM weight_logs WHERE id = ${id}`
+        yield* sql`DELETE FROM weight_logs WHERE id = ${id} AND user_id = ${userId}`
         return true
       }).pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'delete', cause })))
 

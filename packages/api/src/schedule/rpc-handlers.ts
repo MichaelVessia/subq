@@ -63,8 +63,9 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleGet = Effect.fn('rpc.schedule.get')(function* ({ id }: { id: InjectionScheduleId }) {
+      const { user } = yield* AuthContext
       yield* Effect.logDebug('ScheduleGet called').pipe(Effect.annotateLogs({ rpc: 'ScheduleGet', id }))
-      const result = yield* scheduleRepo.findById(id).pipe(Effect.map(Option.getOrNull))
+      const result = yield* scheduleRepo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('ScheduleGet completed').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleGet', id, found: !!result }),
       )
@@ -91,10 +92,11 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleUpdate = Effect.fn('rpc.schedule.update')(function* (data: InjectionScheduleUpdate) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('ScheduleUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleUpdate', id: data.id, isActive: data.isActive }),
       )
-      const result = yield* scheduleRepo.update(data)
+      const result = yield* scheduleRepo.update(data, user.id)
       yield* Effect.logInfo('ScheduleUpdate completed').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleUpdate', id: data.id }),
       )
@@ -102,8 +104,9 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleDelete = Effect.fn('rpc.schedule.delete')(function* ({ id }: { id: InjectionScheduleId }) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('ScheduleDelete called').pipe(Effect.annotateLogs({ rpc: 'ScheduleDelete', id }))
-      const result = yield* scheduleRepo.delete(id)
+      const result = yield* scheduleRepo.delete(id, user.id)
       yield* Effect.logInfo('ScheduleDelete completed').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleDelete', id, deleted: result }),
       )
@@ -215,7 +218,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
       )
 
       // Get schedule
-      const scheduleOpt = yield* scheduleRepo.findById(id)
+      const scheduleOpt = yield* scheduleRepo.findById(id, user.id)
       if (Option.isNone(scheduleOpt)) {
         yield* Effect.logDebug('ScheduleGetView: not found').pipe(Effect.annotateLogs({ rpc: 'ScheduleGetView', id }))
         return null

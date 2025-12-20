@@ -29,8 +29,9 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalGet = Effect.fn('rpc.goal.get')(function* ({ id }: { id: GoalId }) {
+      const { user } = yield* AuthContext
       yield* Effect.logDebug('GoalGet called').pipe(Effect.annotateLogs({ rpc: 'GoalGet', id }))
-      const result = yield* goalRepo.findById(id).pipe(Effect.map(Option.getOrNull))
+      const result = yield* goalRepo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('GoalGet completed').pipe(Effect.annotateLogs({ rpc: 'GoalGet', id, found: !!result }))
       return result
     })
@@ -93,14 +94,15 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
         }
       }
 
-      const result = yield* goalRepo.update(updateData)
+      const result = yield* goalRepo.update(updateData, user.id)
       yield* Effect.logInfo('GoalUpdate completed').pipe(Effect.annotateLogs({ rpc: 'GoalUpdate', id: data.id }))
       return result
     })
 
     const GoalDelete = Effect.fn('rpc.goal.delete')(function* ({ id }: { id: GoalId }) {
+      const { user } = yield* AuthContext
       yield* Effect.logInfo('GoalDelete called').pipe(Effect.annotateLogs({ rpc: 'GoalDelete', id }))
-      const result = yield* goalRepo.delete(id)
+      const result = yield* goalRepo.delete(id, user.id)
       yield* Effect.logInfo('GoalDelete completed').pipe(
         Effect.annotateLogs({ rpc: 'GoalDelete', id, deleted: result }),
       )
