@@ -21,11 +21,7 @@ pre-commit:
       run: bun run check
       priority: 4
 
-pre-push:
-  commands:
-    e2e:
-      run: CI=true bun run test:e2e
-      tags: slow
+
 
 post-merge:
   commands:
