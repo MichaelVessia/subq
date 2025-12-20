@@ -25,12 +25,20 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // Only start local dev server when not testing external URL
+  // Start both API and web servers when testing locally
   webServer: isExternal
     ? undefined
-    : {
-        command: 'bun run dev',
-        url: 'http://localhost:5173',
-        reuseExistingServer: true,
-      },
+    : [
+        {
+          command: 'bun run --filter @subq/api dev',
+          url: 'http://localhost:3001',
+          reuseExistingServer: !process.env.CI,
+          cwd: '../..',
+        },
+        {
+          command: 'bun run dev',
+          url: 'http://localhost:5173',
+          reuseExistingServer: !process.env.CI,
+        },
+      ],
 })

@@ -118,15 +118,18 @@ const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
   Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
+// Server port configuration
+const port = Number(process.env.PORT) || 3001
+
 // HTTP server with all dependencies
 const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(RpcLiveWithDeps),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
+  Layer.provide(NodeHttpServer.layer(createServer, { port })),
   // Provide auth service
   Layer.provide(AuthLive),
-  Layer.tap(() => Effect.logInfo('HTTP server layer configured on port 3001')),
+  Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
 // HttpServerRequest is provided by the HTTP router at request time, not layer time.
