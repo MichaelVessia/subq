@@ -39,7 +39,8 @@ jobs:
         run: |
           MACHINE_ID=$(flyctl machines list -q --json | jq -r '.[0].id')
           flyctl machine start $MACHINE_ID || true
-          flyctl machine wait $MACHINE_ID || true
-          flyctl ssh console --machine $MACHINE_ID -C "/usr/local/bin/bun run packages/api/scripts/migrate.ts"
+          sleep 5
+          flyctl machine wait $MACHINE_ID --state started --timeout 60 || true
+          flyctl ssh console --machine $MACHINE_ID -C "bun run packages/api/scripts/migrate.ts"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
