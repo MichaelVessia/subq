@@ -102,7 +102,9 @@ export const weightAddCommand = Command.make(
       const created = yield* api.call((client) => client.WeightLogCreate(payload))
 
       if (format === 'table') {
-        yield* success(`Created weight log: ${created.weight} lbs on ${created.datetime.toISOString().split('T')[0]}`)
+        yield* success(
+          `Created weight log: ${created.weight} lbs on ${DateTime.formatIso(created.datetime).split('T')[0]}`,
+        )
       } else {
         yield* output(created, format as OutputFormat)
       }

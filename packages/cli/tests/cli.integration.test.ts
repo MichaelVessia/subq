@@ -1,10 +1,167 @@
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { loginTestUser, logout, runCli, runCliJson } from './helpers/cli-runner.js'
 
+// Test configuration
+const TEST_PORT = 3002
+const TEST_USER = {
+  email: 'cli-test@example.com',
+  password: 'testpassword123',
+  name: 'CLI Test User',
+}
+
+// Paths
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const PROJECT_ROOT = join(__dirname, '../../..')
+const API_DIR = join(PROJECT_ROOT, 'packages/api')
+const TEST_DB_PATH = join(API_DIR, 'data/cli-test.db')
+const TEST_HOME = join(PROJECT_ROOT, '.tmp/cli-test-home')
+
+const testEnv = {
+  SUBQ_API_URL: `http://localhost:${TEST_PORT}`,
+  HOME: TEST_HOME,
+  DATABASE_PATH: TEST_DB_PATH,
+  BETTER_AUTH_SECRET: 'test-secret-for-cli-integration-tests-min-32-chars',
+  BETTER_AUTH_URL: `http://localhost:${TEST_PORT}`,
+}
+
+let serverProcess: ChildProcess | null = null
+
+async function waitForServer(url: string, maxAttempts = 60): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(url)
+      // Any response means server is up - 200, 401, 404 all count
+      if (response.status > 0) {
+        return
+      }
+    } catch {
+      // Server not ready yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  throw new Error(`Server did not start within ${maxAttempts * 500}ms`)
+}
+
+async function setupDatabase(): Promise<void> {
+  await mkdir(dirname(TEST_DB_PATH), { recursive: true })
+
+  // Remove existing test database
+  try {
+    await rm(TEST_DB_PATH, { force: true })
+    await rm(`${TEST_DB_PATH}-shm`, { force: true })
+    await rm(`${TEST_DB_PATH}-wal`, { force: true })
+  } catch {
+    // Files may not exist
+  }
+
+  console.log(`Setting up test database: ${TEST_DB_PATH}`)
+
+  const setupScript = join(__dirname, 'setup/setup-db.ts')
+  const result = spawnSync('bun', ['run', setupScript], {
+    cwd: PROJECT_ROOT,
+    env: {
+      ...process.env,
+      TEST_DB_PATH,
+      TEST_AUTH_SECRET: testEnv.BETTER_AUTH_SECRET,
+      TEST_AUTH_URL: testEnv.BETTER_AUTH_URL,
+      TEST_USER_EMAIL: TEST_USER.email,
+      TEST_USER_PASSWORD: TEST_USER.password,
+      TEST_USER_NAME: TEST_USER.name,
+    },
+    stdio: 'inherit',
+  })
+
+  if (result.status !== 0) {
+    throw new Error(`Database setup failed with exit code ${result.status}`)
+  }
+}
+
+async function startServer(): Promise<void> {
+  console.log(`Starting test API server on port ${TEST_PORT}...`)
+  console.log(`  API_DIR: ${API_DIR}`)
+  console.log(`  DATABASE_PATH: ${TEST_DB_PATH}`)
+
+  await mkdir(TEST_HOME, { recursive: true })
+
+  // Write test environment for CLI runner
+  const envFile = join(PROJECT_ROOT, '.tmp/cli-test-env.json')
+  await mkdir(dirname(envFile), { recursive: true })
+  await writeFile(envFile, JSON.stringify(testEnv))
+
+  serverProcess = spawn('bun', ['run', 'src/main.ts'], {
+    cwd: API_DIR,
+    env: {
+      ...process.env,
+      DATABASE_PATH: TEST_DB_PATH,
+      BETTER_AUTH_SECRET: testEnv.BETTER_AUTH_SECRET,
+      BETTER_AUTH_URL: testEnv.BETTER_AUTH_URL,
+      PORT: String(TEST_PORT),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true,
+  })
+
+  serverProcess.stdout?.on('data', (data) => {
+    console.log(`[API] ${data.toString().trim()}`)
+  })
+
+  serverProcess.stderr?.on('data', (data) => {
+    console.error(`[API ERROR] ${data.toString().trim()}`)
+  })
+
+  serverProcess.on('error', (err) => {
+    console.error('Failed to start server:', err)
+  })
+
+  serverProcess.on('exit', (code) => {
+    console.log(`Server process exited with code ${code}`)
+  })
+
+  await waitForServer(`${testEnv.SUBQ_API_URL}/api/auth/session`)
+  console.log('Test API server is ready')
+}
+
+async function stopServer(): Promise<void> {
+  if (serverProcess) {
+    console.log('Stopping test API server...')
+    serverProcess.kill('SIGTERM')
+
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        serverProcess?.kill('SIGKILL')
+        resolve()
+      }, 5000)
+
+      serverProcess?.on('exit', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
+    })
+  }
+
+  try {
+    await rm(TEST_HOME, { recursive: true, force: true })
+  } catch {
+    // Ignore
+  }
+}
+
 describe('CLI Integration Tests', () => {
+  beforeAll(async () => {
+    await setupDatabase()
+    await startServer()
+  }, 60000)
+
+  afterAll(async () => {
+    await stopServer()
+  }, 10000)
+
   describe('Auth Commands', () => {
     afterAll(async () => {
-      // Ensure we're logged out after auth tests
       await logout()
     })
 
@@ -15,10 +172,7 @@ describe('CLI Integration Tests', () => {
     })
 
     it('logout clears session', async () => {
-      // First login
       await loginTestUser()
-
-      // Then logout
       const result = await logout()
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('Logged out')
@@ -26,21 +180,17 @@ describe('CLI Integration Tests', () => {
 
     it('login with invalid credentials fails', async () => {
       const result = await runCli(['login', '--email', 'wrong@example.com', '--password', 'wrongpassword'])
-      // Should fail but not crash
       expect(result.stdout + result.stderr).toMatch(/failed|invalid|error/i)
     })
 
     it('login --demo uses demo credentials', async () => {
-      // Note: Demo user may not exist in test DB, so this tests the flag is accepted
       const result = await runCli(['login', '--demo'])
-      // Will fail if demo user doesn't exist, but should attempt login
       expect(result.exitCode).toBeDefined()
     })
   })
 
   describe('Weight Commands', () => {
     beforeAll(async () => {
-      // Login before weight tests
       await loginTestUser()
     })
 
@@ -63,7 +213,6 @@ describe('CLI Integration Tests', () => {
       it('--format table returns table output', async () => {
         const result = await runCli(['weight', 'list', '--format', 'table'])
         expect(result.exitCode).toBe(0)
-        // Table format should have headers or be empty message
       })
     })
 
@@ -71,9 +220,8 @@ describe('CLI Integration Tests', () => {
       let createdId: string | null = null
 
       afterAll(async () => {
-        // Clean up created entry
         if (createdId) {
-          await runCli(['weight', 'delete', createdId, '--yes'])
+          await runCli(['weight', 'delete', '--yes', createdId])
         }
       })
 
@@ -94,50 +242,42 @@ describe('CLI Integration Tests', () => {
 
       it('weight get retrieves entry', async () => {
         expect(createdId).not.toBeNull()
-
         const result = await runCliJson<{ id: string; weight: number }>(['weight', 'get', createdId!])
-
         expect(result.id).toBe(createdId)
         expect(result.weight).toBe(175.5)
       })
 
       it('weight get --format table shows details', async () => {
         expect(createdId).not.toBeNull()
-
-        const result = await runCli(['weight', 'get', createdId!, '--format', 'table'])
-
+        // Note: @effect/cli requires options before positional arguments
+        const result = await runCli(['weight', 'get', '--format', 'table', createdId!])
         expect(result.exitCode).toBe(0)
         expect(result.stdout).toContain('175.5')
       })
 
       it('weight update modifies entry', async () => {
         expect(createdId).not.toBeNull()
-
+        // Note: @effect/cli requires options before positional arguments
         const result = await runCliJson<{ id: string; weight: number }>([
           'weight',
           'update',
-          createdId!,
           '--weight',
           '176.0',
+          createdId!,
         ])
-
         expect(result.id).toBe(createdId)
         expect(result.weight).toBe(176)
       })
 
       it('weight delete removes entry', async () => {
         expect(createdId).not.toBeNull()
-
-        const result = await runCli(['weight', 'delete', createdId!, '--yes'])
-
+        // Note: @effect/cli requires options before positional arguments
+        const result = await runCli(['weight', 'delete', '--yes', createdId!])
         expect(result.exitCode).toBe(0)
         expect(result.stdout).toContain('Deleted')
 
-        // Verify it's gone
         const getResult = await runCli(['weight', 'get', createdId!])
         expect(getResult.stdout + getResult.stderr).toMatch(/not found|null/i)
-
-        // Clear so afterAll doesn't try to delete again
         createdId = null
       })
     })
@@ -183,13 +323,11 @@ describe('CLI Integration Tests', () => {
 
   describe('Unauthenticated Access', () => {
     beforeAll(async () => {
-      // Ensure logged out
       await logout()
     })
 
     it('weight list without auth fails', async () => {
       const result = await runCli(['weight', 'list'])
-      // Should fail with auth error
       expect(result.stdout + result.stderr).toMatch(/unauthorized|auth|login/i)
     })
   })

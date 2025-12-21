@@ -1,7 +1,7 @@
 import { Command, Options } from '@effect/cli'
-import { type Limit, WeightLogListParams } from '@subq/shared'
-import { Console, Effect, Option } from 'effect'
-import { formatWeightTable, output, type OutputFormat } from '../../lib/output.js'
+import { type Limit, type WeightLog, WeightLogListParams } from '@subq/shared'
+import { Console, DateTime, Effect, Option } from 'effect'
+import { output, type OutputFormat } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
 const formatOption = Options.choice('format', ['json', 'table']).pipe(
@@ -26,6 +26,24 @@ const endDateOption = Options.date('end-date').pipe(
   Options.withDescription('Filter by end date (YYYY-MM-DD)'),
 )
 
+// Format weight logs for table display
+const formatWeightTableFromLogs = (weights: readonly WeightLog[]): string => {
+  if (weights.length === 0) {
+    return 'No weight logs found.'
+  }
+
+  const header = 'ID                                    | Date       | Weight  | Notes'
+  const separator = '-'.repeat(header.length)
+  const rows = weights.map((w) => {
+    const date = DateTime.formatIso(w.datetime).split('T')[0]
+    const weight = w.weight.toFixed(1).padStart(6)
+    const notes = w.notes ?? ''
+    return `${w.id} | ${date} | ${weight} | ${notes}`
+  })
+
+  return [header, separator, ...rows].join('\n')
+}
+
 export const weightListCommand = Command.make(
   'list',
   { format: formatOption, limit: limitOption, startDate: startDateOption, endDate: endDateOption },
@@ -35,14 +53,14 @@ export const weightListCommand = Command.make(
 
       const params = new WeightLogListParams({
         limit: limit as Limit,
-        startDate: Option.getOrUndefined(startDate),
-        endDate: Option.getOrUndefined(endDate),
+        startDate: Option.isSome(startDate) ? DateTime.unsafeFromDate(startDate.value) : undefined,
+        endDate: Option.isSome(endDate) ? DateTime.unsafeFromDate(endDate.value) : undefined,
       })
 
       const weights = yield* api.call((client) => client.WeightLogList(params))
 
       if (format === 'table') {
-        yield* Console.log(formatWeightTable(weights))
+        yield* Console.log(formatWeightTableFromLogs(weights))
       } else {
         yield* output(weights, format as OutputFormat)
       }

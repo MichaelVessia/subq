@@ -1,5 +1,5 @@
 import { Args, Command, Options } from '@effect/cli'
-import { Console, Effect } from 'effect'
+import { Console, DateTime, Effect } from 'effect'
 import { output, type OutputFormat } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
@@ -23,12 +23,17 @@ export const weightGetCommand = Command.make('get', { format: formatOption, id: 
     }
 
     if (format === 'table') {
+      // RPC returns Effect DateTime.Utc objects, use DateTime.formatIso to convert
+      const datetime = DateTime.formatIso(weight.datetime)
+      const createdAt = DateTime.formatIso(weight.createdAt)
+      const updatedAt = DateTime.formatIso(weight.updatedAt)
+
       yield* Console.log(`ID:       ${weight.id}`)
-      yield* Console.log(`Date:     ${weight.datetime.toISOString().split('T')[0]}`)
+      yield* Console.log(`Date:     ${datetime.split('T')[0]}`)
       yield* Console.log(`Weight:   ${weight.weight} lbs`)
       yield* Console.log(`Notes:    ${weight.notes ?? '-'}`)
-      yield* Console.log(`Created:  ${weight.createdAt.toISOString()}`)
-      yield* Console.log(`Updated:  ${weight.updatedAt.toISOString()}`)
+      yield* Console.log(`Created:  ${createdAt}`)
+      yield* Console.log(`Updated:  ${updatedAt}`)
     } else {
       yield* output(weight, format as OutputFormat)
     }

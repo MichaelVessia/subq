@@ -1,6 +1,6 @@
 import { Args, Command, Options } from '@effect/cli'
 import { type Weight, type WeightLogId, WeightLogUpdate } from '@subq/shared'
-import { Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { output, success, type OutputFormat } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
@@ -40,14 +40,16 @@ export const weightUpdateCommand = Command.make(
       const payload = new WeightLogUpdate({
         id: id as WeightLogId,
         weight: Option.isSome(weight) ? (weight.value as Weight) : undefined,
-        datetime: Option.getOrUndefined(date),
+        datetime: Option.isSome(date) ? DateTime.unsafeFromDate(date.value) : undefined,
         notes: Option.isSome(notes) ? Option.some(notes.value as any) : Option.none(),
       })
 
       const updated = yield* api.call((client) => client.WeightLogUpdate(payload))
 
       if (format === 'table') {
-        yield* success(`Updated weight log: ${updated.weight} lbs on ${updated.datetime.toISOString().split('T')[0]}`)
+        yield* success(
+          `Updated weight log: ${updated.weight} lbs on ${DateTime.formatIso(updated.datetime).split('T')[0]}`,
+        )
       } else {
         yield* output(updated, format as OutputFormat)
       }
