@@ -39,6 +39,14 @@ jobs:
       - name: Test
         run: bun run test
 
+  test-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: CLI tests
+        run: bun run test:cli
+
   test-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +59,7 @@ jobs:
         run: bun run test:e2e
 
   deploy:
-    needs: [typecheck, lint, format, test, test-e2e]
+    needs: [typecheck, lint, format, test, test-cli, test-e2e]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
