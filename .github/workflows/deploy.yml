@@ -72,3 +72,49 @@ jobs:
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  build-cli:
+    needs: [typecheck, lint, format, test, test-cli, test-e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Build CLI binaries
+        run: |
+          mkdir -p dist
+          bun build --compile --target=bun-linux-x64 --outfile=dist/subq-linux-x64 packages/cli/src/main.ts
+          bun build --compile --target=bun-linux-arm64 --outfile=dist/subq-linux-arm64 packages/cli/src/main.ts
+          bun build --compile --target=bun-darwin-x64 --outfile=dist/subq-darwin-x64 packages/cli/src/main.ts
+          bun build --compile --target=bun-darwin-arm64 --outfile=dist/subq-darwin-arm64 packages/cli/src/main.ts
+
+      - name: Create or update latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cli-latest
+          name: CLI Latest
+          body: |
+            Latest CLI binaries built from commit ${{ github.sha }}
+
+            ## Download
+
+            - **Linux x64**: `subq-linux-x64`
+            - **Linux ARM64**: `subq-linux-arm64`
+            - **macOS Intel**: `subq-darwin-x64`
+            - **macOS Apple Silicon**: `subq-darwin-arm64`
+
+            ## Usage
+
+            ```bash
+            chmod +x subq-*
+            ./subq-darwin-arm64 --help
+            ```
+          files: |
+            dist/subq-linux-x64
+            dist/subq-linux-arm64
+            dist/subq-darwin-x64
+            dist/subq-darwin-arm64
+          prerelease: false
+          make_latest: true
