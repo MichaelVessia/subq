@@ -70,6 +70,7 @@ export const injectionUpdateCommand = Command.make(
         injectionSite: Option.isSome(site) ? Option.some(site.value as InjectionSite) : Option.none(),
         source: Option.isSome(source) ? Option.some(source.value as DrugSource) : Option.none(),
         notes: Option.isSome(notes) ? Option.some(notes.value as Notes) : Option.none(),
+        scheduleId: Option.none(),
       })
 
       const updated = yield* api.call((client) => client.InjectionLogUpdate(payload))

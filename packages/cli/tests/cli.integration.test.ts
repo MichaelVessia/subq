@@ -296,12 +296,258 @@ describe('CLI Integration Tests', () => {
     })
   })
 
+  describe('Injection Commands', () => {
+    beforeAll(async () => {
+      await loginTestUser()
+    })
+
+    afterAll(async () => {
+      await logout()
+    })
+
+    describe('injection list', () => {
+      it('returns JSON array', async () => {
+        const result = await runCliJson<unknown[]>(['injection', 'list'])
+        expect(Array.isArray(result)).toBe(true)
+      })
+
+      it('respects --limit option', async () => {
+        const result = await runCliJson<unknown[]>(['injection', 'list', '--limit', '5'])
+        expect(Array.isArray(result)).toBe(true)
+        expect(result.length).toBeLessThanOrEqual(5)
+      })
+
+      it('--format table returns table output', async () => {
+        const result = await runCli(['injection', 'list', '--format', 'table'])
+        expect(result.exitCode).toBe(0)
+      })
+    })
+
+    describe('injection CRUD operations', () => {
+      let createdId: string | null = null
+
+      afterAll(async () => {
+        if (createdId) {
+          await runCli(['injection', 'delete', '--yes', createdId])
+        }
+      })
+
+      it('injection add creates entry', async () => {
+        const result = await runCliJson<{ id: string; drug: string; dosage: string }>([
+          'injection',
+          'add',
+          '--drug',
+          'Test Drug',
+          '--dosage',
+          '10mg',
+          '--site',
+          'left abdomen',
+          '--notes',
+          'CLI integration test entry',
+        ])
+
+        expect(result.id).toBeDefined()
+        expect(result.drug).toBe('Test Drug')
+        expect(result.dosage).toBe('10mg')
+        createdId = result.id
+      })
+
+      it('injection get retrieves entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; drug: string }>(['injection', 'get', createdId!])
+        expect(result.id).toBe(createdId)
+        expect(result.drug).toBe('Test Drug')
+      })
+
+      it('injection get --format table shows details', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCli(['injection', 'get', '--format', 'table', createdId!])
+        expect(result.exitCode).toBe(0)
+        expect(result.stdout).toContain('Test Drug')
+      })
+
+      it('injection update modifies entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; dosage: string }>([
+          'injection',
+          'update',
+          '--dosage',
+          '15mg',
+          createdId!,
+        ])
+        expect(result.id).toBe(createdId)
+        expect(result.dosage).toBe('15mg')
+      })
+
+      it('injection delete removes entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCli(['injection', 'delete', '--yes', createdId!])
+        expect(result.exitCode).toBe(0)
+        expect(result.stdout).toContain('Deleted')
+
+        const getResult = await runCli(['injection', 'get', createdId!])
+        expect(getResult.stdout + getResult.stderr).toMatch(/not found|null/i)
+        createdId = null
+      })
+    })
+
+    describe('injection helper commands', () => {
+      it('injection drugs returns array', async () => {
+        const result = await runCliJson<string[]>(['injection', 'drugs'])
+        expect(Array.isArray(result)).toBe(true)
+      })
+
+      it('injection sites returns array', async () => {
+        const result = await runCliJson<string[]>(['injection', 'sites'])
+        expect(Array.isArray(result)).toBe(true)
+      })
+    })
+
+    describe('injection error handling', () => {
+      it('injection get with invalid ID returns not found', async () => {
+        const result = await runCli(['injection', 'get', 'non-existent-id-12345'])
+        expect(result.stdout + result.stderr).toMatch(/not found/i)
+      })
+
+      it('injection add without --drug shows error', async () => {
+        const result = await runCli(['injection', 'add'])
+        expect(result.exitCode).not.toBe(0)
+        expect(result.stdout + result.stderr).toMatch(/required|missing/i)
+      })
+    })
+  })
+
+  describe('Inventory Commands', () => {
+    beforeAll(async () => {
+      await loginTestUser()
+    })
+
+    afterAll(async () => {
+      await logout()
+    })
+
+    describe('inventory list', () => {
+      it('returns JSON array', async () => {
+        const result = await runCliJson<unknown[]>(['inventory', 'list'])
+        expect(Array.isArray(result)).toBe(true)
+      })
+
+      it('respects --status filter', async () => {
+        const result = await runCliJson<unknown[]>(['inventory', 'list', '--status', 'new'])
+        expect(Array.isArray(result)).toBe(true)
+      })
+
+      it('--format table returns table output', async () => {
+        const result = await runCli(['inventory', 'list', '--format', 'table'])
+        expect(result.exitCode).toBe(0)
+      })
+    })
+
+    describe('inventory CRUD operations', () => {
+      let createdId: string | null = null
+
+      afterAll(async () => {
+        if (createdId) {
+          await runCli(['inventory', 'delete', '--yes', createdId])
+        }
+      })
+
+      it('inventory add creates entry', async () => {
+        const result = await runCliJson<{ id: string; drug: string; form: string; status: string }>([
+          'inventory',
+          'add',
+          '--drug',
+          'Test Inventory Drug',
+          '--source',
+          'Test Pharmacy',
+          '--form',
+          'vial',
+          '--amount',
+          '10mg',
+        ])
+
+        expect(result.id).toBeDefined()
+        expect(result.drug).toBe('Test Inventory Drug')
+        expect(result.form).toBe('vial')
+        expect(result.status).toBe('new')
+        createdId = result.id
+      })
+
+      it('inventory get retrieves entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; drug: string }>(['inventory', 'get', createdId!])
+        expect(result.id).toBe(createdId)
+        expect(result.drug).toBe('Test Inventory Drug')
+      })
+
+      it('inventory get --format table shows details', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCli(['inventory', 'get', '--format', 'table', createdId!])
+        expect(result.exitCode).toBe(0)
+        expect(result.stdout).toContain('Test Inventory Drug')
+      })
+
+      it('inventory update modifies entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; totalAmount: string }>([
+          'inventory',
+          'update',
+          '--amount',
+          '20mg',
+          createdId!,
+        ])
+        expect(result.id).toBe(createdId)
+        expect(result.totalAmount).toBe('20mg')
+      })
+
+      it('inventory open marks as opened', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; status: string }>(['inventory', 'open', createdId!])
+        expect(result.id).toBe(createdId)
+        expect(result.status).toBe('opened')
+      })
+
+      it('inventory finish marks as finished', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCliJson<{ id: string; status: string }>(['inventory', 'finish', createdId!])
+        expect(result.id).toBe(createdId)
+        expect(result.status).toBe('finished')
+      })
+
+      it('inventory delete removes entry', async () => {
+        expect(createdId).not.toBeNull()
+        const result = await runCli(['inventory', 'delete', '--yes', createdId!])
+        expect(result.exitCode).toBe(0)
+        expect(result.stdout).toContain('Deleted')
+
+        const getResult = await runCli(['inventory', 'get', createdId!])
+        expect(getResult.stdout + getResult.stderr).toMatch(/not found|null/i)
+        createdId = null
+      })
+    })
+
+    describe('inventory error handling', () => {
+      it('inventory get with invalid ID returns not found', async () => {
+        const result = await runCli(['inventory', 'get', 'non-existent-id-12345'])
+        expect(result.stdout + result.stderr).toMatch(/not found/i)
+      })
+
+      it('inventory add without --drug shows error', async () => {
+        const result = await runCli(['inventory', 'add'])
+        expect(result.exitCode).not.toBe(0)
+        expect(result.stdout + result.stderr).toMatch(/required|missing/i)
+      })
+    })
+  })
+
   describe('Help and Version', () => {
     it('--help shows usage', async () => {
       const result = await runCli(['--help'])
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('subq')
       expect(result.stdout).toContain('weight')
+      expect(result.stdout).toContain('injection')
+      expect(result.stdout).toContain('inventory')
     })
 
     it('--version shows version', async () => {
@@ -318,6 +564,30 @@ describe('CLI Integration Tests', () => {
       expect(result.stdout).toContain('get')
       expect(result.stdout).toContain('update')
       expect(result.stdout).toContain('delete')
+    })
+
+    it('injection --help shows injection commands', async () => {
+      const result = await runCli(['injection', '--help'])
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('list')
+      expect(result.stdout).toContain('add')
+      expect(result.stdout).toContain('get')
+      expect(result.stdout).toContain('update')
+      expect(result.stdout).toContain('delete')
+      expect(result.stdout).toContain('drugs')
+      expect(result.stdout).toContain('sites')
+    })
+
+    it('inventory --help shows inventory commands', async () => {
+      const result = await runCli(['inventory', '--help'])
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('list')
+      expect(result.stdout).toContain('add')
+      expect(result.stdout).toContain('get')
+      expect(result.stdout).toContain('update')
+      expect(result.stdout).toContain('delete')
+      expect(result.stdout).toContain('open')
+      expect(result.stdout).toContain('finish')
     })
   })
 

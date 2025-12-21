@@ -63,10 +63,41 @@ export async function runCli(args: string[]): Promise<CliResult> {
 }
 
 /**
- * Run a CLI command and parse JSON output
+ * Run a CLI command and parse JSON output.
+ * Automatically adds --format json if not already present.
+ * Inserts it after the subcommand but before any positional arguments.
  */
 export async function runCliJson<T>(args: string[]): Promise<T> {
-  const result = await runCli(args)
+  // Add --format json if not already present
+  const hasFormat = args.some((arg) => arg === '--format' || arg === '-f')
+
+  let argsWithFormat: string[]
+  if (hasFormat) {
+    argsWithFormat = args
+  } else {
+    // Find insertion point: after command/subcommand, before positional args
+    // Options start with - or --, positional args don't
+    // Insert after the last option or subcommand
+    let insertIdx = 0
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i]
+      // Skip commands/subcommands (first few args that don't start with -)
+      // and skip options and their values
+      if (arg.startsWith('-')) {
+        // It's an option, skip it and its value if it has one
+        insertIdx = i + 1
+        if (!arg.includes('=') && i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          insertIdx = i + 2
+        }
+      } else if (i <= 1) {
+        // It's a command/subcommand
+        insertIdx = i + 1
+      }
+    }
+    argsWithFormat = [...args.slice(0, insertIdx), '--format', 'json', ...args.slice(insertIdx)]
+  }
+
+  const result = await runCli(argsWithFormat)
   if (result.exitCode !== 0) {
     throw new Error(`CLI exited with code ${result.exitCode}: ${result.stderr || result.stdout}`)
   }

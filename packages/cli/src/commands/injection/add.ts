@@ -175,6 +175,7 @@ export const injectionAddCommand = Command.make(
         source: source ? Option.some(source as DrugSource) : Option.none(),
         injectionSite: site ? Option.some(site as InjectionSite) : Option.none(),
         notes: notes ? Option.some(notes as Notes) : Option.none(),
+        scheduleId: Option.none(),
       })
 
       const created = yield* api.call((client) => client.InjectionLogCreate(payload))
