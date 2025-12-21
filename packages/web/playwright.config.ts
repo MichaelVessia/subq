@@ -28,22 +28,14 @@ export default defineConfig({
   // Start both API and web servers when testing locally
   webServer: isExternal
     ? undefined
-    : [
-        {
-          command:
-            'mkdir -p packages/api/data && BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run --filter @subq/api dev',
-          url: 'http://localhost:3001',
-          reuseExistingServer: !process.env.CI,
-          cwd: '../..',
-          stdout: 'pipe',
-          stderr: 'pipe',
-        },
-        {
-          command: 'bunx vite',
-          url: 'http://localhost:5173',
-          reuseExistingServer: !process.env.CI,
-          stdout: 'pipe',
-          stderr: 'pipe',
-        },
-      ],
+    : {
+        command:
+          'mkdir -p packages/api/data && BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run dev:api & (cd packages/web && bunx vite --port 5173) & wait',
+        url: 'http://localhost:5173',
+        reuseExistingServer: !process.env.CI,
+        cwd: '../..',
+        stdout: 'pipe',
+        stderr: 'pipe',
+        timeout: 120000,
+      },
 })
