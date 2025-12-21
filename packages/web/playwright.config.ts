@@ -30,7 +30,7 @@ export default defineConfig({
     ? undefined
     : {
         command:
-          'mkdir -p packages/api/data && BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run dev:api & (cd packages/web && bunx vite --port 5173) & wait',
+          'mkdir -p packages/api/data && BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run seed && BETTER_AUTH_SECRET=e2e-test-secret-must-be-at-least-32-characters-long BETTER_AUTH_URL=http://localhost:3001 bun run dev:api & (cd packages/web && bunx vite --port 5173) & wait',
         url: 'http://localhost:5173',
         reuseExistingServer: !process.env.CI,
         cwd: '../..',
