@@ -8,6 +8,8 @@ export class StoredSession extends Schema.Class<StoredSession>('StoredSession')(
   userId: Schema.String,
   email: Schema.String,
   expiresAt: Schema.Date,
+  // Whether to use __Secure- prefix for cookie (HTTPS)
+  isSecure: Schema.optionalWith(Schema.Boolean, { default: () => false }),
 }) {}
 
 export interface SessionService {

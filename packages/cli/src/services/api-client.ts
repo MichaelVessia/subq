@@ -27,7 +27,10 @@ export class ApiClient extends Context.Tag('@subq/cli/ApiClient')<ApiClient, Api
       const maybeSession = yield* session.get()
       const authHeaders = Option.match(maybeSession, {
         onNone: () => ({}),
-        onSome: (s) => ({ cookie: `better-auth.session_token=${s.token}` }),
+        onSome: (s) => {
+          const cookieName = s.isSecure ? '__Secure-better-auth.session_token' : 'better-auth.session_token'
+          return { cookie: `${cookieName}=${s.token}` }
+        },
       })
 
       // Create RPC client with protocol

@@ -1,12 +1,14 @@
 import { Args, Command, Options } from '@effect/cli'
-import { Console, DateTime, Effect } from 'effect'
-import { output, type OutputFormat } from '../../lib/output.js'
+import { Console, Effect } from 'effect'
+
+import { WeightLogDisplay } from '../../lib/display-schemas.js'
+import { type OutputFormat, output } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
-const formatOption = Options.choice('format', ['json', 'table']).pipe(
+const formatOption = Options.choice('format', ['table', 'json']).pipe(
   Options.withAlias('f'),
-  Options.withDefault('json' as const),
-  Options.withDescription('Output format'),
+  Options.withDefault('table' as const),
+  Options.withDescription('Output format (table for humans, json for scripts)'),
 )
 
 const idArg = Args.text({ name: 'id' }).pipe(Args.withDescription('Weight log ID'))
@@ -22,20 +24,6 @@ export const weightGetCommand = Command.make('get', { format: formatOption, id: 
       return
     }
 
-    if (format === 'table') {
-      // RPC returns Effect DateTime.Utc objects, use DateTime.formatIso to convert
-      const datetime = DateTime.formatIso(weight.datetime)
-      const createdAt = DateTime.formatIso(weight.createdAt)
-      const updatedAt = DateTime.formatIso(weight.updatedAt)
-
-      yield* Console.log(`ID:       ${weight.id}`)
-      yield* Console.log(`Date:     ${datetime.split('T')[0]}`)
-      yield* Console.log(`Weight:   ${weight.weight} lbs`)
-      yield* Console.log(`Notes:    ${weight.notes ?? '-'}`)
-      yield* Console.log(`Created:  ${createdAt}`)
-      yield* Console.log(`Updated:  ${updatedAt}`)
-    } else {
-      yield* output(weight, format as OutputFormat)
-    }
+    yield* output(weight, format as OutputFormat, WeightLogDisplay)
   }),
 ).pipe(Command.withDescription('Get a single weight log by ID'))

@@ -92,13 +92,16 @@ export const loginCommand = Command.make(
       }
 
       // Parse the session token from the cookie
-      const tokenMatch = setCookie.match(/better-auth\.session_token=([^;]+)/)
+      // Production uses __Secure- prefix, local dev doesn't
+      const tokenMatch = setCookie.match(/(?:__Secure-)?better-auth\.session_token=([^;]+)/)
       if (!tokenMatch || !tokenMatch[1]) {
         yield* error('Could not parse session token')
         return
       }
 
       const token = tokenMatch[1]
+      // Check if using secure prefix (HTTPS)
+      const isSecure = setCookie.includes('__Secure-better-auth.session_token=')
 
       // Get user info from response
       const data = yield* Effect.tryPromise({
@@ -123,6 +126,7 @@ export const loginCommand = Command.make(
           userId: user.id,
           email: user.email,
           expiresAt,
+          isSecure,
         }),
       )
 

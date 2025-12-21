@@ -15,7 +15,8 @@
     "@effect/platform-node": "0.87.0",
     "@effect/rpc": "0.71.0",
     "@subq/shared": "workspace:*",
-    "effect": "3.18.4"
+    "effect": "3.18.4",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "better-auth": "^1.4.2",

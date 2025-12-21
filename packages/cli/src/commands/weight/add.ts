@@ -1,13 +1,15 @@
 import { Command, Options, Prompt } from '@effect/cli'
 import { type Weight, WeightLogCreate } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { output, success, type OutputFormat } from '../../lib/output.js'
+
+import { WeightLogDisplay } from '../../lib/display-schemas.js'
+import { type OutputFormat, output, success } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
-const formatOption = Options.choice('format', ['json', 'table']).pipe(
+const formatOption = Options.choice('format', ['table', 'json']).pipe(
   Options.withAlias('f'),
-  Options.withDefault('json' as const),
-  Options.withDescription('Output format'),
+  Options.withDefault('table' as const),
+  Options.withDescription('Output format (table for humans, json for scripts)'),
 )
 
 const weightOption = Options.float('weight').pipe(
@@ -102,11 +104,8 @@ export const weightAddCommand = Command.make(
       const created = yield* api.call((client) => client.WeightLogCreate(payload))
 
       if (format === 'table') {
-        yield* success(
-          `Created weight log: ${created.weight} lbs on ${DateTime.formatIso(created.datetime).split('T')[0]}`,
-        )
-      } else {
-        yield* output(created, format as OutputFormat)
+        yield* success('Added weight log')
       }
+      yield* output(created, format as OutputFormat, WeightLogDisplay)
     }),
 ).pipe(Command.withDescription('Add a new weight log entry'))

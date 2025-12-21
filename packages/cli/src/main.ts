@@ -1,5 +1,15 @@
 import { NodeContext, NodeRuntime } from '@effect/platform-node'
-import { Effect } from 'effect'
+import { Console, Effect } from 'effect'
+
 import { cli } from './cli.js'
 
-Effect.suspend(() => cli(process.argv)).pipe(Effect.provide(NodeContext.layer), NodeRuntime.runMain)
+const program = Effect.suspend(() => cli(process.argv)).pipe(
+  Effect.catchTag('Unauthorized', (err) =>
+    Console.error(`Not authenticated: ${err.details}\nRun 'subq login' to authenticate.`).pipe(
+      Effect.andThen(Effect.sync(() => process.exit(1))),
+    ),
+  ),
+  Effect.provide(NodeContext.layer),
+)
+
+NodeRuntime.runMain(program)

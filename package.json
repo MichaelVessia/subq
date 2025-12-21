@@ -29,7 +29,8 @@
     "seed": "bun run --filter @subq/api seed",
     "seed:prod": "bun run scripts/seed-prod.ts",
     "migrate": "bun run --filter @subq/api migrate",
-    "deploy": "flyctl deploy --remote-only"
+    "deploy": "flyctl deploy --remote-only",
+    "cli": "bun run packages/cli/src/main.ts"
   },
   "devDependencies": {
     "@babel/cli": "^7.24.8",

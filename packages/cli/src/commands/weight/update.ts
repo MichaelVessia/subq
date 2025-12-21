@@ -1,13 +1,15 @@
 import { Args, Command, Options } from '@effect/cli'
 import { type Weight, type WeightLogId, WeightLogUpdate } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { output, success, type OutputFormat } from '../../lib/output.js'
+
+import { WeightLogDisplay } from '../../lib/display-schemas.js'
+import { type OutputFormat, output, success } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
-const formatOption = Options.choice('format', ['json', 'table']).pipe(
+const formatOption = Options.choice('format', ['table', 'json']).pipe(
   Options.withAlias('f'),
-  Options.withDefault('json' as const),
-  Options.withDescription('Output format'),
+  Options.withDefault('table' as const),
+  Options.withDescription('Output format (table for humans, json for scripts)'),
 )
 
 const idArg = Args.text({ name: 'id' }).pipe(Args.withDescription('Weight log ID'))
@@ -47,11 +49,8 @@ export const weightUpdateCommand = Command.make(
       const updated = yield* api.call((client) => client.WeightLogUpdate(payload))
 
       if (format === 'table') {
-        yield* success(
-          `Updated weight log: ${updated.weight} lbs on ${DateTime.formatIso(updated.datetime).split('T')[0]}`,
-        )
-      } else {
-        yield* output(updated, format as OutputFormat)
+        yield* success('Updated weight log')
       }
+      yield* output(updated, format as OutputFormat, WeightLogDisplay)
     }),
 ).pipe(Command.withDescription('Update an existing weight log'))

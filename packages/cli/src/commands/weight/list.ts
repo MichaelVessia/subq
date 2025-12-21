@@ -1,13 +1,15 @@
 import { Command, Options } from '@effect/cli'
-import { type Limit, type WeightLog, WeightLogListParams } from '@subq/shared'
-import { Console, DateTime, Effect, Option } from 'effect'
-import { output, type OutputFormat } from '../../lib/output.js'
+import { type Limit, WeightLogListParams } from '@subq/shared'
+import { DateTime, Effect, Option } from 'effect'
+
+import { WeightLogDisplay } from '../../lib/display-schemas.js'
+import { type OutputFormat, output } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
 
-const formatOption = Options.choice('format', ['json', 'table']).pipe(
+const formatOption = Options.choice('format', ['table', 'json']).pipe(
   Options.withAlias('f'),
-  Options.withDefault('json' as const),
-  Options.withDescription('Output format'),
+  Options.withDefault('table' as const),
+  Options.withDescription('Output format (table for humans, json for scripts)'),
 )
 
 const limitOption = Options.integer('limit').pipe(
@@ -26,24 +28,6 @@ const endDateOption = Options.date('end-date').pipe(
   Options.withDescription('Filter by end date (YYYY-MM-DD)'),
 )
 
-// Format weight logs for table display
-const formatWeightTableFromLogs = (weights: readonly WeightLog[]): string => {
-  if (weights.length === 0) {
-    return 'No weight logs found.'
-  }
-
-  const header = 'ID                                    | Date       | Weight  | Notes'
-  const separator = '-'.repeat(header.length)
-  const rows = weights.map((w) => {
-    const date = DateTime.formatIso(w.datetime).split('T')[0]
-    const weight = w.weight.toFixed(1).padStart(6)
-    const notes = w.notes ?? ''
-    return `${w.id} | ${date} | ${weight} | ${notes}`
-  })
-
-  return [header, separator, ...rows].join('\n')
-}
-
 export const weightListCommand = Command.make(
   'list',
   { format: formatOption, limit: limitOption, startDate: startDateOption, endDate: endDateOption },
@@ -59,10 +43,6 @@ export const weightListCommand = Command.make(
 
       const weights = yield* api.call((client) => client.WeightLogList(params))
 
-      if (format === 'table') {
-        yield* Console.log(formatWeightTableFromLogs(weights))
-      } else {
-        yield* output(weights, format as OutputFormat)
-      }
+      yield* output(weights, format as OutputFormat, WeightLogDisplay)
     }),
 ).pipe(Command.withDescription('List weight logs'))
