@@ -1,15 +1,8 @@
-import { NodeContext, NodeRuntime } from '@effect/platform-node'
-import { Console, Effect } from 'effect'
+import { BunContext, BunRuntime } from '@effect/platform-bun'
+import { Effect } from 'effect'
 
 import { cli } from './cli.js'
 
-const program = Effect.suspend(() => cli(process.argv)).pipe(
-  Effect.catchTag('Unauthorized', (err) =>
-    Console.error(`Not authenticated: ${err.details}\nRun 'subq login' to authenticate.`).pipe(
-      Effect.andThen(Effect.sync(() => process.exit(1))),
-    ),
-  ),
-  Effect.provide(NodeContext.layer),
-)
+const program = cli(process.argv).pipe(Effect.provide(BunContext.layer))
 
-NodeRuntime.runMain(program)
+BunRuntime.runMain(program)

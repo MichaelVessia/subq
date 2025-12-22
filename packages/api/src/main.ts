@@ -1,6 +1,5 @@
-import { createServer } from 'node:http'
 import { HttpMiddleware, HttpRouter } from '@effect/platform'
-import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
+import { BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
@@ -126,7 +125,7 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(RpcLiveWithDeps),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(NodeHttpServer.layer(createServer, { port })),
+  Layer.provide(BunHttpServer.layer({ port })),
   // Provide auth service
   Layer.provide(AuthLive),
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
@@ -135,7 +134,7 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
 // HttpServerRequest is provided by the HTTP router at request time, not layer time.
 // The type system doesn't see this, so we use a type cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-NodeRuntime.runMain(
+BunRuntime.runMain(
   Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
     Logger.withMinimumLogLevel(LogLevel.Info),
     Effect.tap(() => Effect.logInfo('Application startup complete')),

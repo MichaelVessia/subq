@@ -12,7 +12,7 @@
   "dependencies": {
     "@effect/cli": "0.68.0",
     "@effect/platform": "0.92.1",
-    "@effect/platform-node": "0.87.0",
+    "@effect/platform-bun": "0.72.0",
     "@effect/rpc": "0.71.0",
     "@subq/shared": "workspace:*",
     "effect": "3.18.4",

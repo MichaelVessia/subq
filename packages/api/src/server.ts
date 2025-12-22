@@ -7,10 +7,9 @@
 
 import { Database } from 'bun:sqlite'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { createServer } from 'node:http'
 import { dirname, extname, join } from 'node:path'
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
-import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
+import { BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
@@ -253,14 +252,14 @@ const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.provide(RpcLive),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(NodeHttpServer.layer(createServer, { port, host: '0.0.0.0' })),
+  Layer.provide(BunHttpServer.layer({ port, hostname: '0.0.0.0' })),
   // Provide auth service
   Layer.provide(AuthLive),
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-NodeRuntime.runMain(
+BunRuntime.runMain(
   Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
     Logger.withMinimumLogLevel(LogLevel.Info),
     Effect.tap(() => Effect.logInfo('Application startup complete')),
