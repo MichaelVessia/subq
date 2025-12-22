@@ -137,7 +137,7 @@ export function output<T>(
 // ============================================
 
 /** Success message with checkmark */
-export const success = (msg: string): Effect.Effect<void> => Console.log(pc.green('✓') + ' ' + msg)
+export const success = (msg: string): Effect.Effect<void> => Console.log(`${pc.green('✓')} ${msg}`)
 
 /** Error message with X */
-export const error = (msg: string): Effect.Effect<void> => Console.error(pc.red('✗') + ' ' + msg)
+export const error = (msg: string): Effect.Effect<void> => Console.error(`${pc.red('✗')} ${msg}`)
