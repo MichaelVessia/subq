@@ -26,10 +26,14 @@ export class ApiClient extends Context.Tag('@subq/cli/ApiClient')<ApiClient, Api
       // Get session token if available
       const maybeSession = yield* session.get()
       const authHeaders = Option.match(maybeSession, {
-        onNone: () => ({}),
+        onNone: () => {
+          console.error('[API Client] No session found')
+          return {}
+        },
         onSome: (s) => {
-          const cookieName = s.isSecure ? '__Secure-better-auth.session_token' : 'better-auth.session_token'
-          return { cookie: `${cookieName}=${s.token}` }
+          // Use Authorization header with Bearer token - works with better-auth's bearer plugin
+          console.error(`[API Client] Using Bearer token auth`)
+          return { authorization: `Bearer ${s.sessionToken}` }
         },
       })
 

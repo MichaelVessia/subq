@@ -4,7 +4,10 @@ import { Context, Effect, Layer, Option, Schema } from 'effect'
 
 // Session data stored locally
 export class StoredSession extends Schema.Class<StoredSession>('StoredSession')({
-  token: Schema.String,
+  // The session_token cookie value (required for auth)
+  sessionToken: Schema.String,
+  // The session_data cookie value (optional, for session caching)
+  sessionData: Schema.optionalWith(Schema.String, { default: () => '' }),
   userId: Schema.String,
   email: Schema.String,
   expiresAt: Schema.Date,

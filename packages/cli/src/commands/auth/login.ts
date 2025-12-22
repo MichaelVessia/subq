@@ -84,24 +84,55 @@ export const loginCommand = Command.make(
         return
       }
 
-      // Extract session token from set-cookie header
-      const setCookie = response.headers.get('set-cookie')
-      if (!setCookie) {
+      // Extract cookies from set-cookie headers
+      // Use getSetCookie() to get all Set-Cookie headers (there may be multiple)
+      const cookies = response.headers.getSetCookie()
+
+      // Also try the raw header approach as fallback
+      const rawSetCookie = response.headers.get('set-cookie')
+
+      if ((!cookies || cookies.length === 0) && !rawSetCookie) {
         yield* error('No session cookie received')
         return
       }
 
-      // Parse the session token from the cookie
-      // Production uses __Secure- prefix, local dev doesn't
-      const tokenMatch = setCookie.match(/(?:__Secure-)?better-auth\.session_token=([^;]+)/)
-      if (!tokenMatch || !tokenMatch[1]) {
-        yield* error('Could not parse session token')
+      // Combine all cookies - from getSetCookie array and raw header (may have comma-separated cookies)
+      const allCookies = cookies?.length ? cookies.join('; ') : (rawSetCookie ?? '')
+
+      // Parse the session_token cookie (signed cookie from better-auth)
+      const tokenMatch = allCookies.match(/(?:__Secure-)?better-auth\.session_token=([^;,]+)/)
+      // Parse the session_data cookie (for session caching)
+      const dataMatch = allCookies.match(/(?:__Secure-)?better-auth\.session_data=([^;,]+)/)
+
+      // If we have session_data but no session_token, extract token from session_data
+      // The session_data contains the full session including the token
+      let sessionToken: string
+      let sessionData: string | undefined
+
+      if (tokenMatch?.[1]) {
+        sessionToken = tokenMatch[1]
+        sessionData = dataMatch?.[1]
+      } else if (dataMatch?.[1]) {
+        // Fallback: extract token from session_data JSON
+        try {
+          const decoded = JSON.parse(atob(dataMatch[1]))
+          sessionToken = decoded.session?.session?.token
+          sessionData = dataMatch[1]
+          if (!sessionToken) {
+            yield* error('Could not extract session token from session_data')
+            return
+          }
+        } catch {
+          yield* error('Could not parse session_data cookie')
+          return
+        }
+      } else {
+        yield* error('Could not parse session cookies')
         return
       }
 
-      const token = tokenMatch[1]
       // Check if using secure prefix (HTTPS)
-      const isSecure = setCookie.includes('__Secure-better-auth.session_token=')
+      const isSecure = allCookies.includes('__Secure-better-auth.')
 
       // Get user info from response
       const data = yield* Effect.tryPromise({
@@ -122,7 +153,8 @@ export const loginCommand = Command.make(
       // Save session
       yield* session.save(
         new StoredSession({
-          token,
+          sessionToken,
+          sessionData: sessionData ?? '',
           userId: user.id,
           email: user.email,
           expiresAt,

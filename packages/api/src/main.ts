@@ -4,6 +4,7 @@ import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
+import { bearer } from 'better-auth/plugins'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
@@ -50,6 +51,7 @@ const AuthLive = Layer.unwrapEffect(
           maxAge: 60 * 5, // 5 minutes
         },
       },
+      plugins: [bearer()],
     })
   }).pipe(Effect.tap(() => Effect.logInfo('Auth service initialized successfully'))),
 )

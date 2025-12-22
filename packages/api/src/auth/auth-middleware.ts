@@ -6,7 +6,8 @@ import { AuthService } from './auth-service.js'
 
 /**
  * Layer that provides the auth middleware implementation.
- * Extracts session from cookies via better-auth using RPC headers.
+ * Extracts session from cookies or Authorization header via better-auth.
+ * The bearer plugin converts Authorization: Bearer <token> to session cookie.
  */
 export const AuthRpcMiddlewareLive = Layer.effect(
   AuthRpcMiddleware,
@@ -23,17 +24,10 @@ export const AuthRpcMiddlewareLive = Layer.effect(
           }
         }
 
-        // Get session from better-auth using the request headers
-        const session = yield* Effect.tryPromise({
-          try: () => auth.api.getSession({ headers: headerObj }),
-          catch: (err) => {
-            Effect.logWarning('Auth session verification failed').pipe(
-              Effect.annotateLogs({ error: String(err) }),
-              Effect.runSync,
-            )
-            return new Unauthorized({ details: 'Failed to verify session' })
-          },
-        })
+        // better-auth's getSession handles both cookies and Bearer tokens (via bearer plugin)
+        const session = yield* Effect.promise(() => auth.api.getSession({ headers: headerObj })).pipe(
+          Effect.catchAll(() => Effect.succeed(null)),
+        )
 
         if (!session?.user) {
           yield* Effect.logDebug('Auth: no session found')
