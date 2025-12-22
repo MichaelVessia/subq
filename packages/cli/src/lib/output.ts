@@ -29,8 +29,8 @@ export const formatters = {
   /** Format DateTime or ISO string as YYYY-MM-DD */
   date: (v: unknown): string => {
     if (v === null || v === undefined) return '-'
-    if (typeof v === 'string') return v.split('T')[0]
-    if (DateTime.isDateTime(v)) return DateTime.formatIso(v).split('T')[0]
+    if (typeof v === 'string') return v.split('T')[0] ?? v
+    if (DateTime.isDateTime(v)) return DateTime.formatIso(v).split('T')[0] ?? '-'
     return String(v)
   },
 
@@ -124,7 +124,7 @@ export function output<T>(
 
   // Table format
   if (schema) {
-    const items = Array.isArray(data) ? data : [data]
+    const items = (Array.isArray(data) ? data : [data]) as readonly T[]
     return Console.log(renderTable(items, schema))
   }
 

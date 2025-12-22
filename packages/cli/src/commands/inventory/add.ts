@@ -69,8 +69,8 @@ const sourcePrompt = Prompt.text({
 const formPrompt = Prompt.select({
   message: 'Form:',
   choices: [
-    { title: 'Vial (compounded)', value: 'vial' },
-    { title: 'Pen (branded)', value: 'pen' },
+    { title: 'Vial (compounded)', value: 'vial' as const },
+    { title: 'Pen (branded)', value: 'pen' as const },
   ],
 })
 
@@ -82,9 +82,9 @@ const amountPrompt = Prompt.text({
 const statusPrompt = Prompt.select({
   message: 'Status:',
   choices: [
-    { title: 'New', value: 'new' },
-    { title: 'Opened', value: 'opened' },
-    { title: 'Finished', value: 'finished' },
+    { title: 'New', value: 'new' as const },
+    { title: 'Opened', value: 'opened' as const },
+    { title: 'Finished', value: 'finished' as const },
   ],
 })
 
