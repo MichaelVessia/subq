@@ -47,19 +47,8 @@ jobs:
       - name: CLI tests
         run: bun run test:cli
 
-  test-e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Install Playwright browsers
-        working-directory: packages/web
-        run: bunx playwright install chromium
-      - name: Run e2e tests
-        run: bun run test:e2e
-
   deploy:
-    needs: [typecheck, lint, format, test, test-cli, test-e2e]
+    needs: [typecheck, lint, format, test, test-cli]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,8 +62,22 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+  smoke-test:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Install Playwright browsers
+        working-directory: packages/web
+        run: bunx playwright install chromium
+      - name: Run e2e smoke tests
+        run: bun run test:e2e
+        env:
+          BASE_URL: https://subq.vessia.net
+
   build-cli:
-    needs: [typecheck, lint, format, test, test-cli, test-e2e]
+    needs: [typecheck, lint, format, test, test-cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
