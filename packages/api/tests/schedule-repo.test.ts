@@ -3,172 +3,34 @@ import {
   DrugName,
   DrugSource,
   type Frequency,
-  InjectionSchedule,
-  type InjectionScheduleCreate,
   InjectionScheduleId,
-  type InjectionScheduleUpdate,
   Notes,
   type PhaseDurationDays,
   type PhaseOrder,
   ScheduleName,
-  ScheduleNotFoundError,
-  SchedulePhase,
-  type SchedulePhaseCreate,
-  SchedulePhaseId,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
-import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
+import { ScheduleRepo, ScheduleRepoLive } from '../src/schedule/schedule-repo.js'
+import {
+  clearTables,
+  insertInjectionLog,
+  insertSchedule,
+  insertSchedulePhase,
+  makeTestLayer,
+  setupTables,
+} from './helpers/test-db.js'
 
-// ============================================
-// Test Layer for ScheduleRepo
-// ============================================
-
-const ScheduleRepoTest = Layer.sync(ScheduleRepo, () => {
-  const scheduleStore = new Map<string, InjectionSchedule>()
-  const injectionDateStore = new Map<string, DateTime.Utc>() // key: `${userId}-${drug}`
-  let scheduleCounter = 0
-  let phaseCounter = 0
-
-  const createPhases = (scheduleId: string, phases: readonly SchedulePhaseCreate[]): SchedulePhase[] => {
-    const now = DateTime.unsafeNow()
-    return phases.map(
-      (p) =>
-        new SchedulePhase({
-          id: SchedulePhaseId.make(`phase-${phaseCounter++}`),
-          scheduleId: InjectionScheduleId.make(scheduleId),
-          order: p.order,
-          durationDays: p.durationDays,
-          dosage: p.dosage,
-          createdAt: now,
-          updatedAt: now,
-        }),
-    )
-  }
-
-  return {
-    list: (_userId: string) =>
-      Effect.sync(() => {
-        const schedules = Array.from(scheduleStore.values())
-        return schedules.sort((a, b) => DateTime.toEpochMillis(b.startDate) - DateTime.toEpochMillis(a.startDate))
-      }),
-
-    getActive: (_userId: string) =>
-      Effect.sync(() => {
-        const active = Array.from(scheduleStore.values()).find((s) => s.isActive)
-        return active ? Option.some(active) : Option.none()
-      }),
-
-    findById: (id: string) =>
-      Effect.sync(() => {
-        const schedule = scheduleStore.get(id)
-        return schedule ? Option.some(schedule) : Option.none()
-      }),
-
-    create: (data: InjectionScheduleCreate, _userId: string) =>
-      Effect.sync(() => {
-        const id = `schedule-${scheduleCounter++}`
-
-        // Deactivate existing active schedules
-        for (const [key, schedule] of scheduleStore) {
-          if (schedule.isActive) {
-            scheduleStore.set(
-              key,
-              new InjectionSchedule({
-                ...schedule,
-                isActive: false,
-                updatedAt: DateTime.unsafeNow(),
-              }),
-            )
-          }
-        }
-
-        const now = DateTime.unsafeNow()
-        const schedule = new InjectionSchedule({
-          id: InjectionScheduleId.make(id),
-          name: data.name,
-          drug: data.drug,
-          source: Option.isSome(data.source) ? data.source.value : null,
-          frequency: data.frequency,
-          startDate: data.startDate,
-          isActive: true,
-          notes: Option.isSome(data.notes) ? data.notes.value : null,
-          phases: createPhases(id, data.phases),
-          createdAt: now,
-          updatedAt: now,
-        })
-        scheduleStore.set(id, schedule)
-        return schedule
-      }),
-
-    update: (data: InjectionScheduleUpdate) =>
-      Effect.gen(function* () {
-        const current = scheduleStore.get(data.id)
-        if (!current) {
-          return yield* ScheduleNotFoundError.make({ id: data.id })
-        }
-
-        // If activating this schedule, deactivate others
-        if (data.isActive === true && !current.isActive) {
-          for (const [key, schedule] of scheduleStore) {
-            if (schedule.isActive && key !== data.id) {
-              scheduleStore.set(
-                key,
-                new InjectionSchedule({
-                  ...schedule,
-                  isActive: false,
-                  updatedAt: DateTime.unsafeNow(),
-                }),
-              )
-            }
-          }
-        }
-
-        const now = DateTime.unsafeNow()
-        const phases = data.phases ? createPhases(data.id, data.phases) : current.phases
-
-        const updated = new InjectionSchedule({
-          ...current,
-          name: data.name ?? current.name,
-          drug: data.drug ?? current.drug,
-          source: data.source !== undefined ? data.source : current.source,
-          frequency: data.frequency ?? current.frequency,
-          startDate: data.startDate ?? current.startDate,
-          isActive: data.isActive ?? current.isActive,
-          notes: data.notes !== undefined ? data.notes : current.notes,
-          phases,
-          updatedAt: now,
-        })
-        scheduleStore.set(data.id, updated)
-        return updated
-      }),
-
-    delete: (id: string) =>
-      Effect.sync(() => {
-        const had = scheduleStore.has(id)
-        scheduleStore.delete(id)
-        return had
-      }),
-
-    getLastInjectionDate: (_userId: string, drug: string) =>
-      Effect.sync(() => {
-        const key = `test-${drug}`
-        const date = injectionDateStore.get(key)
-        return date ? Option.some(date) : Option.none()
-      }),
-  }
-})
-
-// ============================================
-// Tests
-// ============================================
+const TestLayer = makeTestLayer(ScheduleRepoLive)
 
 describe('ScheduleRepo', () => {
   describe('create', () => {
     it.effect('creates a schedule with phases', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('TRT Schedule'),
@@ -178,9 +40,21 @@ describe('ScheduleRepo', () => {
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.some(Notes.make('Start low')),
             phases: [
-              { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') },
-              { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('150mg') },
-              { order: 3 as PhaseOrder, durationDays: null, dosage: Dosage.make('200mg') }, // Maintenance
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('100mg'),
+              },
+              {
+                order: 2 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('150mg'),
+              },
+              {
+                order: 3 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('200mg'),
+              },
             ],
           },
           'user-123',
@@ -193,14 +67,16 @@ describe('ScheduleRepo', () => {
         expect(created.isActive).toBe(true)
         expect(created.phases.length).toBe(3)
         expect(created.phases[0]!.dosage).toBe('100mg')
-        expect(created.phases[2]!.durationDays).toBeNull() // Indefinite
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+        expect(created.phases[2]!.durationDays).toBeNull()
+      }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('deactivates existing schedules when creating new one', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const first = yield* repo.create(
           {
             name: ScheduleName.make('First Schedule'),
@@ -209,7 +85,13 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
@@ -224,36 +106,46 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('200mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('200mg'),
+              },
+            ],
           },
           'user-123',
         )
 
         expect(second.isActive).toBe(true)
 
-        // First should now be inactive
-        const firstAfter = yield* repo.findById(first.id)
+        const firstAfter = yield* repo.findById(first.id, 'user-123')
         expect(Option.isSome(firstAfter)).toBe(true)
         if (Option.isSome(firstAfter)) {
           expect(firstAfter.value.isActive).toBe(false)
         }
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('getActive', () => {
     it.effect('returns none when no active schedule', () =>
       Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+
         const repo = yield* ScheduleRepo
         const active = yield* repo.getActive('user-123')
         expect(Option.isNone(active)).toBe(true)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('returns the active schedule', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('Active Schedule'),
@@ -262,7 +154,13 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
@@ -272,23 +170,42 @@ describe('ScheduleRepo', () => {
         if (Option.isSome(active)) {
           expect(active.value.id).toBe(created.id)
         }
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('only returns active schedule for the specified user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'Other User Schedule', 'Drug', 'weekly', new Date('2024-01-01'), 'user-456', {
+          isActive: true,
+        })
+
+        const repo = yield* ScheduleRepo
+        const active = yield* repo.getActive('user-123')
+        expect(Option.isNone(active)).toBe(true)
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('findById', () => {
     it.effect('returns none for non-existent id', () =>
       Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+
         const repo = yield* ScheduleRepo
-        const found = yield* repo.findById('non-existent')
+        const found = yield* repo.findById('non-existent', 'user-123')
         expect(Option.isNone(found)).toBe(true)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
     )
 
-    it.effect('finds schedule by id', () =>
+    it.effect('finds schedule by id with phases', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('Find Me'),
@@ -297,25 +214,51 @@ describe('ScheduleRepo', () => {
             frequency: 'daily' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: 7 as PhaseDurationDays, dosage: Dosage.make('50mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 7 as PhaseDurationDays,
+                dosage: Dosage.make('50mg'),
+              },
+              {
+                order: 2 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
 
-        const found = yield* repo.findById(created.id)
+        const found = yield* repo.findById(created.id, 'user-123')
         expect(Option.isSome(found)).toBe(true)
         if (Option.isSome(found)) {
           expect(found.value.name).toBe('Find Me')
+          expect(found.value.phases.length).toBe(2)
         }
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('does not find schedule belonging to different user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'Other User', 'Drug', 'weekly', new Date('2024-01-01'), 'user-456')
+
+        const repo = yield* ScheduleRepo
+        const found = yield* repo.findById('sched-1', 'user-123')
+        expect(Option.isNone(found)).toBe(true)
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('update', () => {
     it.effect('updates schedule fields', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('Original'),
@@ -324,27 +267,38 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
 
-        const updated = yield* repo.update({
-          id: created.id,
-          name: ScheduleName.make('Updated'),
-          frequency: 'every_3_days' as Frequency,
-        })
+        const updated = yield* repo.update(
+          {
+            id: created.id,
+            name: ScheduleName.make('Updated'),
+            frequency: 'every_3_days' as Frequency,
+          },
+          'user-123',
+        )
 
         expect(updated.name).toBe('Updated')
         expect(updated.frequency).toBe('every_3_days')
-        expect(updated.drug).toBe('Drug') // Unchanged
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+        expect(updated.drug).toBe('Drug')
+      }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('updates phases when provided', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('Phases Test'),
@@ -353,31 +307,50 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 28 as PhaseDurationDays,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
 
         expect(created.phases.length).toBe(1)
 
-        const updated = yield* repo.update({
-          id: created.id,
-          phases: [
-            { order: 1 as PhaseOrder, durationDays: 14 as PhaseDurationDays, dosage: Dosage.make('50mg') },
-            { order: 2 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') },
-          ],
-        })
+        const updated = yield* repo.update(
+          {
+            id: created.id,
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: 14 as PhaseDurationDays,
+                dosage: Dosage.make('50mg'),
+              },
+              {
+                order: 2 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
+          },
+          'user-123',
+        )
 
         expect(updated.phases.length).toBe(2)
         expect(updated.phases[0]!.dosage).toBe('50mg')
         expect(updated.phases[1]!.durationDays).toBeNull()
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('activating schedule deactivates others', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const first = yield* repo.create(
           {
             name: ScheduleName.make('First'),
@@ -386,12 +359,17 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
 
-        // Create second (deactivates first)
         const second = yield* repo.create(
           {
             name: ScheduleName.make('Second'),
@@ -400,31 +378,82 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('200mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('200mg'),
+              },
+            ],
           },
           'user-123',
         )
 
-        // Reactivate first
-        yield* repo.update({
-          id: first.id,
-          isActive: true,
-        })
+        yield* repo.update({ id: first.id, isActive: true }, 'user-123')
 
-        const firstAfter = yield* repo.findById(first.id)
-        const secondAfter = yield* repo.findById(second.id)
+        const firstAfter = yield* repo.findById(first.id, 'user-123')
+        const secondAfter = yield* repo.findById(second.id, 'user-123')
 
         expect(Option.isSome(firstAfter) && firstAfter.value.isActive).toBe(true)
         expect(Option.isSome(secondAfter) && secondAfter.value.isActive).toBe(false)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('fails for non-existent schedule', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+
+        const repo = yield* ScheduleRepo
+        const result = yield* repo
+          .update(
+            {
+              id: InjectionScheduleId.make('non-existent'),
+              name: ScheduleName.make('Updated'),
+            },
+            'user-123',
+          )
+          .pipe(Effect.either)
+
+        expect(result._tag).toBe('Left')
+        if (result._tag === 'Left') {
+          expect(result.left._tag).toBe('ScheduleNotFoundError')
+        }
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('cannot update schedule belonging to different user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'Other User', 'Drug', 'weekly', new Date('2024-01-01'), 'user-456')
+
+        const repo = yield* ScheduleRepo
+        const result = yield* repo
+          .update(
+            {
+              id: InjectionScheduleId.make('sched-1'),
+              name: ScheduleName.make('Hacked'),
+            },
+            'user-123',
+          )
+          .pipe(Effect.either)
+
+        expect(result._tag).toBe('Left')
+        if (result._tag === 'Left') {
+          expect(result.left._tag).toBe('ScheduleNotFoundError')
+        }
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('delete', () => {
     it.effect('deletes existing schedule', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         const created = yield* repo.create(
           {
             name: ScheduleName.make('To Delete'),
@@ -433,43 +462,104 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
 
-        const deleted = yield* repo.delete(created.id)
+        const deleted = yield* repo.delete(created.id, 'user-123')
         expect(deleted).toBe(true)
 
-        const found = yield* repo.findById(created.id)
+        const found = yield* repo.findById(created.id, 'user-123')
         expect(Option.isNone(found)).toBe(true)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('returns false for non-existent schedule', () =>
       Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+
         const repo = yield* ScheduleRepo
-        const deleted = yield* repo.delete('non-existent')
+        const deleted = yield* repo.delete('non-existent', 'user-123')
         expect(deleted).toBe(false)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('cannot delete schedule belonging to different user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'Other User', 'Drug', 'weekly', new Date('2024-01-01'), 'user-456')
+
+        const repo = yield* ScheduleRepo
+        const deleted = yield* repo.delete('sched-1', 'user-123')
+        expect(deleted).toBe(false)
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('getLastInjectionDate', () => {
     it.effect('returns none when no injections exist', () =>
       Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+
         const repo = yield* ScheduleRepo
         const lastDate = yield* repo.getLastInjectionDate('user-123', 'Test Drug')
         expect(Option.isNone(lastDate)).toBe(true)
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('returns most recent injection date for drug', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertInjectionLog('inj-1', new Date('2024-01-15T10:00:00Z'), 'Testosterone', '100mg', 'user-123')
+        yield* insertInjectionLog('inj-2', new Date('2024-01-22T10:00:00Z'), 'Testosterone', '100mg', 'user-123')
+        yield* insertInjectionLog('inj-3', new Date('2024-01-20T10:00:00Z'), 'BPC-157', '250mcg', 'user-123')
+
+        const repo = yield* ScheduleRepo
+        const lastDate = yield* repo.getLastInjectionDate('user-123', 'Testosterone')
+
+        expect(Option.isSome(lastDate)).toBe(true)
+        if (Option.isSome(lastDate)) {
+          expect(DateTime.formatIso(lastDate.value)).toContain('2024-01-22')
+        }
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('only considers injections for the specified user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertInjectionLog('inj-1', new Date('2024-01-15T10:00:00Z'), 'Testosterone', '100mg', 'user-123')
+        yield* insertInjectionLog('inj-2', new Date('2024-01-22T10:00:00Z'), 'Testosterone', '100mg', 'user-456')
+
+        const repo = yield* ScheduleRepo
+        const lastDate = yield* repo.getLastInjectionDate('user-123', 'Testosterone')
+
+        expect(Option.isSome(lastDate)).toBe(true)
+        if (Option.isSome(lastDate)) {
+          expect(DateTime.formatIso(lastDate.value)).toContain('2024-01-15')
+        }
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 
   describe('list', () => {
     it.effect('returns schedules sorted by start date descending', () =>
       Effect.gen(function* () {
-        const repo = yield* ScheduleRepo
+        yield* setupTables
+        yield* clearTables
 
+        const repo = yield* ScheduleRepo
         yield* repo.create(
           {
             name: ScheduleName.make('January'),
@@ -478,7 +568,13 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-01-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('100mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('100mg'),
+              },
+            ],
           },
           'user-123',
         )
@@ -491,7 +587,13 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-03-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('200mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('200mg'),
+              },
+            ],
           },
           'user-123',
         )
@@ -504,19 +606,57 @@ describe('ScheduleRepo', () => {
             frequency: 'weekly' as Frequency,
             startDate: DateTime.unsafeMake('2024-02-01'),
             notes: Option.none(),
-            phases: [{ order: 1 as PhaseOrder, durationDays: null, dosage: Dosage.make('150mg') }],
+            phases: [
+              {
+                order: 1 as PhaseOrder,
+                durationDays: null,
+                dosage: Dosage.make('150mg'),
+              },
+            ],
           },
           'user-123',
         )
 
         const schedules = yield* repo.list('user-123')
 
-        // Should be sorted by start date descending: March, February, January
         expect(schedules.length).toBe(3)
         expect(schedules[0]!.name).toBe('March')
         expect(schedules[1]!.name).toBe('February')
         expect(schedules[2]!.name).toBe('January')
-      }).pipe(Effect.provide(ScheduleRepoTest)),
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('only returns schedules for the specified user', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'User 123 Schedule', 'Drug', 'weekly', new Date('2024-01-01'), 'user-123')
+        yield* insertSchedule('sched-2', 'User 456 Schedule', 'Drug', 'weekly', new Date('2024-01-01'), 'user-456')
+
+        const repo = yield* ScheduleRepo
+        const schedules = yield* repo.list('user-123')
+
+        expect(schedules.length).toBe(1)
+        expect(schedules[0]!.id).toBe('sched-1')
+      }).pipe(Effect.provide(TestLayer)),
+    )
+
+    it.effect('includes phases with schedules', () =>
+      Effect.gen(function* () {
+        yield* setupTables
+        yield* clearTables
+        yield* insertSchedule('sched-1', 'With Phases', 'Drug', 'weekly', new Date('2024-01-01'), 'user-123')
+        yield* insertSchedulePhase('phase-1', 'sched-1', 1, '100mg', 28)
+        yield* insertSchedulePhase('phase-2', 'sched-1', 2, '200mg', null)
+
+        const repo = yield* ScheduleRepo
+        const schedules = yield* repo.list('user-123')
+
+        expect(schedules.length).toBe(1)
+        expect(schedules[0]!.phases.length).toBe(2)
+        expect(schedules[0]!.phases[0]!.dosage).toBe('100mg')
+        expect(schedules[0]!.phases[1]!.durationDays).toBeNull()
+      }).pipe(Effect.provide(TestLayer)),
     )
   })
 })

@@ -272,8 +272,8 @@ export const InjectionLogRepoLive = Layer.effect(
                 updated_at = ${now}
             WHERE id = ${id} AND user_id = ${userId}
           `
-          // SQLite returns changes count
-          count += (result as unknown as { changes?: number }).changes ?? 1
+          // SQLite returns rowsAffected for UPDATE statements
+          count += (result as unknown as { rowsAffected?: number }).rowsAffected ?? 0
         }
         return count
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
