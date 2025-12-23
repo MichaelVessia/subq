@@ -8,13 +8,13 @@ pre-commit:
         fi
       priority: 1
     format-fix:
-      glob: "*.{ts,mjs}"
-      run: bun run format-fix {staged_files}
+      glob: "*.{ts,tsx,mjs,js,jsx}"
+      run: bunx oxfmt {staged_files}
       stage_fixed: true
       priority: 2
     lint-fix:
-      glob: "*.{ts,mjs}"
-      run: bun run lint-fix {staged_files}
+      glob: "*.{ts,tsx,mjs,js,jsx}"
+      run: bunx oxlint --fix {staged_files}
       stage_fixed: true
       priority: 3
     typecheck:

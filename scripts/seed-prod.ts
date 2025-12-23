@@ -14,7 +14,7 @@ try {
   const machineId = execSync('fly machines list -q --json', { encoding: 'utf-8' })
   const machines = JSON.parse(machineId)
   const machine = machines.find((m: { state: string }) => m.state === 'started') || machines[0]
-  
+
   if (!machine) {
     throw new Error('No machines found for app')
   }

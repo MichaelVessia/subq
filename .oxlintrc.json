@@ -1,0 +1,45 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["react", "typescript", "unicorn"],
+	"env": {
+		"browser": true,
+		"node": true,
+		"es2022": true
+	},
+	"ignorePatterns": ["resources/**/*", "dist/**/*", "node_modules/**/*"],
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"no-unused-vars": "warn",
+		"no-unused-labels": "warn",
+		"@typescript-eslint/no-explicit-any": "off",
+		"no-shadow-restricted-names": "off",
+		"no-else-return": "off",
+		"@typescript-eslint/no-non-null-assertion": "off",
+		"no-useless-template-literals": "off",
+		"no-param-reassign": "error",
+		"prefer-as-const": "error",
+		"default-param-last": "error",
+		"@typescript-eslint/prefer-enum-initializers": "error",
+		"react/self-closing-comp": "error",
+		"one-var": ["error", "never"],
+		"@typescript-eslint/no-inferrable-types": "error",
+		"prefer-arrow-callback": "error",
+		"no-useless-ternary": "off",
+		"require-yield": "off",
+		"jsx-a11y/label-has-associated-control": "off",
+		"react-hooks/exhaustive-deps": "error",
+		"react-hooks/rules-of-hooks": "error",
+		"no-control-regex": "off",
+		"unicorn/no-useless-spread": "off"
+	},
+	"overrides": [
+		{
+			"files": ["**/e2e/**/*.ts", "**/e2e/**/*.spec.ts"],
+			"rules": {
+				"react-hooks/rules-of-hooks": "off"
+			}
+		}
+	]
+}
