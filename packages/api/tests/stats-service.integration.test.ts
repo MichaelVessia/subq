@@ -1,11 +1,11 @@
 import { SqlClient } from '@effect/sql'
-import { SqliteClient } from '@effect/sql-sqlite-node'
+import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { Effect, Layer } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { StatsService, StatsServiceLive } from '../src/stats/stats-service.js'
 
 // ============================================
-// In-memory SQLite test layer (using node driver for vitest compatibility)
+// In-memory SQLite test layer (using bun driver)
 // ============================================
 
 const SqliteTestLayer = SqliteClient.layer({ filename: ':memory:' })

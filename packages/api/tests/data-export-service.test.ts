@@ -1,5 +1,5 @@
 import { SqlClient } from '@effect/sql'
-import { SqliteClient } from '@effect/sql-sqlite-node'
+import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { describe, expect, it } from '@effect/vitest'
 import { DataExport, ExportedSettings, Notes, Weight, WeightLog, WeightLogId } from '@subq/shared'
 import { DateTime, Effect, Layer } from 'effect'
