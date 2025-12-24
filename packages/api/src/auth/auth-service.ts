@@ -1,8 +1,8 @@
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'
+import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import * as Context from 'effect/Context'
 
 export type AuthInstance = ReturnType<typeof betterAuth>
 

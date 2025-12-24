@@ -81,8 +81,7 @@ const seedData = Effect.gen(function* () {
   yield* seedConsistentUser(sql, userId)
 
   console.log('\nSeed data complete!')
-  console.log(`\nTest user credentials:`)
-  console.log(`  ${TEST_USER.name}: ${TEST_USER.email} / ${TEST_USER.password}`)
+  console.log(`\nTest user: ${TEST_USER.email}`)
 
   // Clean up the sqlite connection
   sqlite.close()

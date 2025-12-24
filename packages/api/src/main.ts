@@ -2,9 +2,9 @@ import { HttpMiddleware, HttpRouter } from '@effect/platform'
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
+import { bearer } from 'better-auth/plugins'
 import { Database } from 'bun:sqlite'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
-import { bearer } from 'better-auth/plugins'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
@@ -135,7 +135,6 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
 
 // HttpServerRequest is provided by the HTTP router at request time, not layer time.
 // The type system doesn't see this, so we use a type cast.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 BunRuntime.runMain(
   Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
     Logger.withMinimumLogLevel(LogLevel.Info),
@@ -147,5 +146,5 @@ BunRuntime.runMain(
         return yield* Effect.fail(error)
       }),
     ),
-  ) as any,
+  ) as Effect.Effect<never>,
 )

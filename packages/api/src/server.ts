@@ -5,17 +5,17 @@
  * Uses SQLite for persistence with Fly volume.
  */
 
-import { Database } from 'bun:sqlite'
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { dirname, extname, join } from 'node:path'
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from '@effect/platform'
 import { BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
+import { bearer } from 'better-auth/plugins'
+import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
-import { bearer } from 'better-auth/plugins'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
@@ -260,7 +260,6 @@ const HttpLive = HttpRouter.Default.serve().pipe(
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 BunRuntime.runMain(
   Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
     Logger.withMinimumLogLevel(LogLevel.Info),
@@ -272,5 +271,5 @@ BunRuntime.runMain(
         return yield* Effect.fail(error)
       }),
     ),
-  ) as any,
+  ) as Effect.Effect<never>,
 )
