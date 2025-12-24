@@ -2,6 +2,48 @@
 
 Health tracking application for subcutaneous injection management.
 
+## CLI
+
+A command-line interface is available for managing injections, weight logs, and schedules.
+
+### Installation
+
+Download the latest binary for your platform from [Releases](https://github.com/MichaelVessia/subq/releases/tag/cli-latest):
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-darwin-arm64 -o subq
+chmod +x subq
+sudo mv subq /usr/local/bin/
+
+# macOS Intel
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-darwin-x64 -o subq
+chmod +x subq
+sudo mv subq /usr/local/bin/
+
+# Linux x64
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-linux-x64 -o subq
+chmod +x subq
+sudo mv subq /usr/local/bin/
+
+# Linux ARM64
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-linux-arm64 -o subq
+chmod +x subq
+sudo mv subq /usr/local/bin/
+```
+
+### Usage
+
+```bash
+# Login first
+subq auth login
+
+# See all commands
+subq --help
+```
+
+The CLI supports JSON output (`--json`) for easy integration with scripts and AI agents.
+
 ## Links
 
 - **Production**: https://subq.vessia.net
