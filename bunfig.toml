@@ -1,0 +1,5 @@
+[test]
+# Default test pattern - only unit tests
+# CLI integration tests run via: bun run test:cli
+# E2E tests run via: bun run test:e2e
+root = "packages/api/tests"

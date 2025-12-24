@@ -10,7 +10,7 @@ import {
   Offset,
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { InjectionLogRepo, InjectionLogRepoLive } from '../src/injection/injection-log-repo.js'
 import { clearTables, insertInjectionLog, insertSchedule, makeTestLayer, setupTables } from './helpers/test-db.js'
 

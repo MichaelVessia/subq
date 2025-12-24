@@ -21,7 +21,7 @@ import {
   SchedulePhaseId,
 } from '@subq/shared'
 import { DateTime, Effect, Layer, Option } from 'effect'
-import { describe, expect, it, vi } from '@effect/vitest'
+import { describe, expect, it, setSystemTime } from '@codeforbreakfast/bun-test-effect'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
@@ -338,8 +338,8 @@ describe('ScheduleGetNextDose', () => {
     it.effect('calculates next dose based on every_3_days frequency', () =>
       Effect.gen(function* () {
         resetTestState()
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
         const startDate = DateTime.unsafeMake('2024-01-05T12:00:00Z') // 10 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'every_3_days', [
@@ -355,7 +355,7 @@ describe('ScheduleGetNextDose', () => {
         expect(result!.daysUntilDue).toBe(1)
         expect(result!.isOverdue).toBe(false)
 
-        vi.useRealTimers()
+        setSystemTime()
       }).pipe(Effect.provide(TestLayer)),
     )
 
@@ -363,8 +363,8 @@ describe('ScheduleGetNextDose', () => {
       Effect.gen(function* () {
         resetTestState()
         // Use fixed reference date to avoid timezone/day boundary issues
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
         const startDate = DateTime.unsafeMake('2024-01-01T12:00:00Z') // 14 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
@@ -379,7 +379,7 @@ describe('ScheduleGetNextDose', () => {
         expect(result!.isOverdue).toBe(true)
         expect(result!.daysUntilDue).toBe(-3) // 3 days overdue
 
-        vi.useRealTimers()
+        setSystemTime()
       }).pipe(Effect.provide(TestLayer)),
     )
   })
@@ -484,8 +484,8 @@ describe('ScheduleGetNextDose', () => {
     it.effect('handles daily frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'))
+
+        setSystemTime(new Date('2024-01-15T12:00:00Z'))
 
         const startDate = DateTime.unsafeMake('2024-01-10T12:00:00Z') // 5 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'daily', [
@@ -499,15 +499,15 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(result!.daysUntilDue).toBe(1) // Due tomorrow
 
-        vi.useRealTimers()
+        setSystemTime()
       }).pipe(Effect.provide(TestLayer)),
     )
 
     it.effect('handles monthly frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        vi.useFakeTimers()
-        vi.setSystemTime(new Date('2024-03-15T12:00:00Z'))
+
+        setSystemTime(new Date('2024-03-15T12:00:00Z'))
 
         const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 60 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'monthly', [
@@ -522,7 +522,7 @@ describe('ScheduleGetNextDose', () => {
         expect(result!.daysUntilDue).toBe(10) // 30 - 20 = 10
         expect(result!.isOverdue).toBe(false)
 
-        vi.useRealTimers()
+        setSystemTime()
       }).pipe(Effect.provide(TestLayer)),
     )
   })

@@ -1,6 +1,6 @@
 import { Limit, Notes, Offset, Weight, WeightLogId } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { WeightLogRepo, WeightLogRepoLive } from '../src/weight/weight-log-repo.js'
 import { clearTables, insertWeightLog, makeTestLayer, setupTables } from './helpers/test-db.js'
 

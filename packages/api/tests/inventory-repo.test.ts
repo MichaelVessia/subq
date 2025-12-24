@@ -1,6 +1,6 @@
 import { DrugName, DrugSource, InventoryId, TotalAmount } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { InventoryRepo, InventoryRepoLive } from '../src/inventory/inventory-repo.js'
 import { clearTables, insertInventory, makeTestLayer, setupTables } from './helpers/test-db.js'
 

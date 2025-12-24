@@ -2,7 +2,7 @@ import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { loginTestUser, logout, runCli, runCliJson } from './helpers/cli-runner.js'
 
 // Test configuration

@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { DataExport, ExportedSettings, Notes, Weight, WeightLog, WeightLogId } from '@subq/shared'
 import { DateTime, Effect, Layer } from 'effect'
 import { DataExportService, DataExportServiceLive } from '../src/data-export/data-export-service.js'

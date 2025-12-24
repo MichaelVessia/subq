@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { StatsService, StatsServiceLive } from '../src/stats/stats-service.js'
 import { clearTables, insertInjectionLog, insertWeightLog, setupTables, SqliteTestLayer } from './helpers/test-db.js'
 

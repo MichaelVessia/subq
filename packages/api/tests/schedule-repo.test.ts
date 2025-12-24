@@ -10,7 +10,7 @@ import {
   ScheduleName,
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { ScheduleRepo, ScheduleRepoLive } from '../src/schedule/schedule-repo.js'
 import {
   clearTables,
