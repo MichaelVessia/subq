@@ -8,8 +8,8 @@
     "db:push": "drizzle-kit push",
     "migrate": "bun run scripts/migrate.ts",
     "seed": "bun run scripts/seed.ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
+"test": "bun vitest run",
+    "test:watch": "bun vitest"
   },
   "dependencies": {
     "@effect/opentelemetry": "0.59.1",
