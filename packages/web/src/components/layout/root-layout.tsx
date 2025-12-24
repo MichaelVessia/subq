@@ -27,7 +27,10 @@ export function RootLayout() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
       <header className="flex flex-col gap-3 mb-6 pb-4 border-b sm:mb-8 sm:pb-5">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold tracking-tight">SubQ</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <img src="/logo.svg" alt="" className="h-6 w-6" />
+            SubQ
+          </h1>
 
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline text-xs text-muted-foreground">{session.user.email}</span>
