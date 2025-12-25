@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { ListSkeleton } from '../ui/skeleton.js'
 import { InventoryForm } from './inventory-form.js'
 
 const formatDate = (dt: DateTime.Utc | null) => {
@@ -157,161 +159,65 @@ export function InventoryList() {
     [deleteItem],
   )
 
-  if (Result.isWaiting(inventoryResult)) {
-    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
-  }
+  const renderContent = (items: readonly Inventory[]) => {
+    // Group by status, then stack duplicates
+    const activeItems = items.filter((i) => i.status !== 'finished')
+    const finishedItems = items.filter((i) => i.status === 'finished')
+    const activeStacks = groupIntoStacks([...activeItems])
+    const finishedStacks = groupIntoStacks([...finishedItems])
 
-  const items = Result.getOrElse(inventoryResult, () => [])
-
-  // Group by status, then stack duplicates
-  const activeItems = items.filter((i) => i.status !== 'finished')
-  const finishedItems = items.filter((i) => i.status === 'finished')
-  const activeStacks = groupIntoStacks(activeItems)
-  const finishedStacks = groupIntoStacks(finishedItems)
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold tracking-tight">GLP-1 Inventory</h2>
-        <Button onClick={() => setShowForm(true)}>Add Item</Button>
-      </div>
-
-      {showForm && (
-        <Card className="mb-6 p-6">
-          <InventoryForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
-        </Card>
-      )}
-
-      {editingItem && (
-        <Card className="mb-6 p-6">
-          <InventoryForm
-            onSubmit={handleCreate}
-            onUpdate={handleUpdate}
-            onCancel={handleCancelEdit}
-            initialData={{
-              id: editingItem.id,
-              drug: editingItem.drug,
-              source: editingItem.source,
-              form: editingItem.form,
-              totalAmount: editingItem.totalAmount,
-              status: editingItem.status,
-              beyondUseDate: editingItem.beyondUseDate ? toDate(editingItem.beyondUseDate) : null,
-            }}
-          />
-        </Card>
-      )}
-
-      {duplicatingItem && (
-        <Card className="mb-6 p-6">
-          <InventoryForm
-            onSubmit={handleCreate}
-            onCancel={() => setDuplicatingItem(null)}
-            initialData={{
-              drug: duplicatingItem.drug,
-              source: duplicatingItem.source,
-              form: duplicatingItem.form,
-              totalAmount: duplicatingItem.totalAmount,
-              status: 'new',
-              beyondUseDate: duplicatingItem.beyondUseDate ? toDate(duplicatingItem.beyondUseDate) : null,
-            }}
-          />
-        </Card>
-      )}
-
-      {activeStacks.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-          {activeStacks.map((stack) => {
-            const item = stack.items[0]!
-            const count = stack.items.length
-            const isStacked = count > 1
-
-            return (
-              <Card key={stack.key} className="p-4 relative">
-                {isStacked && (
-                  <div className="absolute top-2 right-12 bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded">
-                    ×{count}
-                  </div>
-                )}
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-medium">{item.drug}</h3>
-                    <p className="text-sm text-muted-foreground">{item.source}</p>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {item.status === 'new' && (
-                        <DropdownMenuItem onClick={() => handleMarkOpened(item.id)}>
-                          Mark Opened{isStacked ? ' (1)' : ''}
-                        </DropdownMenuItem>
-                      )}
-                      {item.status === 'new' && isStacked && (
-                        <DropdownMenuItem onClick={() => handleMarkAllOpened(stack.items)}>
-                          Mark All Opened ({count})
-                        </DropdownMenuItem>
-                      )}
-                      {item.status !== 'finished' && (
-                        <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>
-                          Mark Finished{isStacked ? ' (1)' : ''}
-                        </DropdownMenuItem>
-                      )}
-                      {item.status !== 'finished' && isStacked && (
-                        <DropdownMenuItem onClick={() => handleMarkAllFinished(stack.items)}>
-                          Mark All Finished ({count})
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => handleDuplicate(item)}>Duplicate</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEdit(item)}>
-                        Edit{isStacked ? ' (1)' : ''}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
-                        Delete{isStacked ? ' (1)' : ''}
-                      </DropdownMenuItem>
-                      {isStacked && (
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAll(stack.items)}>
-                          Delete All ({count})
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
-                    {item.status}
-                  </span>
-                  <span className="text-xs text-muted-foreground capitalize">{item.form}</span>
-                </div>
-
-                <div className="text-sm">
-                  <span className="font-mono font-medium">{item.totalAmount}</span>
-                  <span className="text-muted-foreground"> total</span>
-                </div>
-
-                {item.beyondUseDate && (
-                  <div className="text-xs text-muted-foreground mt-2">BUD: {formatDate(item.beyondUseDate)}</div>
-                )}
-              </Card>
-            )
-          })}
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold tracking-tight">GLP-1 Inventory</h2>
+          <Button onClick={() => setShowForm(true)}>Add Item</Button>
         </div>
-      ) : (
-        <div className="text-center py-12 text-muted-foreground mb-8">
-          No active inventory. Add your first vial or pen.
-        </div>
-      )}
 
-      {finishedStacks.length > 0 && (
-        <>
-          <h3 className="text-lg font-medium mb-4 text-muted-foreground">Finished</h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-60">
-            {finishedStacks.map((stack) => {
+        {showForm && (
+          <Card className="mb-6 p-6">
+            <InventoryForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
+          </Card>
+        )}
+
+        {editingItem && (
+          <Card className="mb-6 p-6">
+            <InventoryForm
+              onSubmit={handleCreate}
+              onUpdate={handleUpdate}
+              onCancel={handleCancelEdit}
+              initialData={{
+                id: editingItem.id,
+                drug: editingItem.drug,
+                source: editingItem.source,
+                form: editingItem.form,
+                totalAmount: editingItem.totalAmount,
+                status: editingItem.status,
+                beyondUseDate: editingItem.beyondUseDate ? toDate(editingItem.beyondUseDate) : null,
+              }}
+            />
+          </Card>
+        )}
+
+        {duplicatingItem && (
+          <Card className="mb-6 p-6">
+            <InventoryForm
+              onSubmit={handleCreate}
+              onCancel={() => setDuplicatingItem(null)}
+              initialData={{
+                drug: duplicatingItem.drug,
+                source: duplicatingItem.source,
+                form: duplicatingItem.form,
+                totalAmount: duplicatingItem.totalAmount,
+                status: 'new',
+                beyondUseDate: duplicatingItem.beyondUseDate ? toDate(duplicatingItem.beyondUseDate) : null,
+              }}
+            />
+          </Card>
+        )}
+
+        {activeStacks.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            {activeStacks.map((stack) => {
               const item = stack.items[0]!
               const count = stack.items.length
               const isStacked = count > 1
@@ -323,7 +229,7 @@ export function InventoryList() {
                       ×{count}
                     </div>
                   )}
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-medium">{item.drug}</h3>
                       <p className="text-sm text-muted-foreground">{item.source}</p>
@@ -337,6 +243,30 @@ export function InventoryList() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        {item.status === 'new' && (
+                          <DropdownMenuItem onClick={() => handleMarkOpened(item.id)}>
+                            Mark Opened{isStacked ? ' (1)' : ''}
+                          </DropdownMenuItem>
+                        )}
+                        {item.status === 'new' && isStacked && (
+                          <DropdownMenuItem onClick={() => handleMarkAllOpened(stack.items)}>
+                            Mark All Opened ({count})
+                          </DropdownMenuItem>
+                        )}
+                        {item.status !== 'finished' && (
+                          <DropdownMenuItem onClick={() => handleMarkFinished(item.id)}>
+                            Mark Finished{isStacked ? ' (1)' : ''}
+                          </DropdownMenuItem>
+                        )}
+                        {item.status !== 'finished' && isStacked && (
+                          <DropdownMenuItem onClick={() => handleMarkAllFinished(stack.items)}>
+                            Mark All Finished ({count})
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => handleDuplicate(item)}>Duplicate</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(item)}>
+                          Edit{isStacked ? ' (1)' : ''}
+                        </DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
                           Delete{isStacked ? ' (1)' : ''}
                         </DropdownMenuItem>
@@ -348,18 +278,93 @@ export function InventoryList() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  <div className="flex items-center gap-2 mb-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
                       {item.status}
                     </span>
-                    <span className="text-xs text-muted-foreground">{item.totalAmount}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{item.form}</span>
                   </div>
+
+                  <div className="text-sm">
+                    <span className="font-mono font-medium">{item.totalAmount}</span>
+                    <span className="text-muted-foreground"> total</span>
+                  </div>
+
+                  {item.beyondUseDate && (
+                    <div className="text-xs text-muted-foreground mt-2">BUD: {formatDate(item.beyondUseDate)}</div>
+                  )}
                 </Card>
               )
             })}
           </div>
-        </>
-      )}
-    </div>
-  )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground mb-8">
+            No active inventory. Add your first vial or pen.
+          </div>
+        )}
+
+        {finishedStacks.length > 0 && (
+          <>
+            <h3 className="text-lg font-medium mb-4 text-muted-foreground">Finished</h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-60">
+              {finishedStacks.map((stack) => {
+                const item = stack.items[0]!
+                const count = stack.items.length
+                const isStacked = count > 1
+
+                return (
+                  <Card key={stack.key} className="p-4 relative">
+                    {isStacked && (
+                      <div className="absolute top-2 right-12 bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded">
+                        ×{count}
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-medium">{item.drug}</h3>
+                        <p className="text-sm text-muted-foreground">{item.source}</p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(item.id)}>
+                            Delete{isStacked ? ' (1)' : ''}
+                          </DropdownMenuItem>
+                          {isStacked && (
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAll(stack.items)}>
+                              Delete All ({count})
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[item.status]}`}>
+                        {item.status}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{item.totalAmount}</span>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  return Result.builder(inventoryResult)
+    .onInitial(() => <ListSkeleton items={6} />)
+    .onSuccess((items) => renderContent(items))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }

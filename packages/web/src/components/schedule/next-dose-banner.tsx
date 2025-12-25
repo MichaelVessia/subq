@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { toDate } from '../../lib/utils.js'
 import { ApiClient, LastInjectionSiteAtom, NextDoseAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
+import { InlineError } from '../ui/error-states.js'
 
 // Standard injection site rotation order
 const SITE_ROTATION = [
@@ -51,16 +52,24 @@ export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerP
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const [quickLogging, setQuickLogging] = useState(false)
 
-  if (Result.isWaiting(nextDoseResult)) {
-    return null // Don't show loading state for banner
-  }
+  // Use builder to handle all states - return null for loading/empty, show error inline
+  const bannerContent = Result.builder(nextDoseResult)
+    .onInitial(() => null)
+    .onSuccess((nextDose) => {
+      if (!nextDose) return null // No active schedule
+      const lastSite = Result.getOrElse(lastSiteResult, () => null)
+      return { nextDose, lastSite }
+    })
+    .onError(() => <InlineError message="Failed to load next dose info" />)
+    .render()
 
-  const nextDose = Result.getOrElse(nextDoseResult, () => null)
-  if (!nextDose) {
-    return null // No active schedule
-  }
+  // If null (loading, empty, or no schedule), don't render anything
+  if (!bannerContent || bannerContent === null) return null
 
-  const lastSite = Result.getOrElse(lastSiteResult, () => null)
+  // If it's an error element, render it
+  if ('type' in bannerContent) return bannerContent
+
+  const { nextDose, lastSite } = bannerContent
   const nextSite = getNextSite(lastSite)
 
   const handleQuickLog = async () => {

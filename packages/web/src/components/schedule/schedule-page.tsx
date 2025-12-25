@@ -14,6 +14,8 @@ import { toDate } from '../../lib/utils.js'
 import { ApiClient, ReactivityKeys, ScheduleListAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card } from '../ui/card.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { ListSkeleton } from '../ui/skeleton.js'
 import { ScheduleForm } from './schedule-form.js'
 
 const formatDate = (dt: DateTime.Utc) =>
@@ -190,13 +192,7 @@ export function SchedulePage() {
     })
   }
 
-  if (Result.isWaiting(schedulesResult)) {
-    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
-  }
-
-  const schedules = Result.getOrElse(schedulesResult, () => [])
-
-  return (
+  const renderContent = (schedules: readonly InjectionSchedule[]) => (
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -253,4 +249,11 @@ export function SchedulePage() {
       )}
     </div>
   )
+
+  return Result.builder(schedulesResult)
+    .onInitial(() => <ListSkeleton items={3} />)
+    .onSuccess((schedules) => renderContent(schedules))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }

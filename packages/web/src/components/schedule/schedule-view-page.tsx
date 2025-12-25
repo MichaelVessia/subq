@@ -7,6 +7,8 @@ import { useMemo } from 'react'
 import { toDate } from '../../lib/utils.js'
 import { createScheduleViewAtom } from '../../rpc.js'
 import { Card } from '../ui/card.js'
+import { DatabaseError, NotFoundError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { CardSkeleton } from '../ui/skeleton.js'
 
 const formatDate = (dt: DateTime.Utc) =>
   new Intl.DateTimeFormat('en-US', {
@@ -239,22 +241,10 @@ export function ScheduleViewPage() {
   const viewAtom = useMemo(() => createScheduleViewAtom(scheduleId as InjectionScheduleId), [scheduleId])
   const viewResult = useAtomValue(viewAtom)
 
-  if (Result.isWaiting(viewResult)) {
-    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
-  }
-
-  const view = Result.getOrElse(viewResult, () => null)
-
-  if (!view) {
-    return (
-      <div className="p-6 text-center">
-        <p className="text-muted-foreground mb-4">Schedule not found</p>
-        <Link to="/schedule" className="text-primary hover:underline">
-          Back to schedules
-        </Link>
-      </div>
-    )
-  }
-
-  return <ScheduleViewContent view={view} />
+  return Result.builder(viewResult)
+    .onInitial(() => <CardSkeleton lines={5} />)
+    .onSuccess((view) => (view ? <ScheduleViewContent view={view} /> : <NotFoundError resource="Schedule" />))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }

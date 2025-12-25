@@ -2,13 +2,15 @@ import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import type { GoalProgress, UserGoalCreate, UserGoalUpdate } from '@subq/shared'
 import { UserGoalDelete } from '@subq/shared'
 import type { DateTime } from 'effect'
-import { Target, TrendingDown, TrendingUp, Calendar, Minus, Pencil, Trash2 } from 'lucide-react'
+import { Calendar, Minus, Pencil, Target, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { toDate } from '../../lib/utils.js'
 import { ApiClient, GoalProgressAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { CardSkeleton } from '../ui/skeleton.js'
 import { GoalForm } from './goal-form.js'
 
 const formatDate = (date: DateTime.Utc) =>
@@ -168,25 +170,7 @@ export function GoalProgressCard() {
     setShowDeleteConfirm(false)
   }
 
-  if (Result.isWaiting(progressResult)) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5" />
-            Goal Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6 text-muted-foreground">Loading...</div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const progress = Result.getOrElse(progressResult, () => null as GoalProgress | null)
-
-  return (
+  const renderContent = (progress: GoalProgress | null) => (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -250,4 +234,11 @@ export function GoalProgressCard() {
       </CardContent>
     </Card>
   )
+
+  return Result.builder(progressResult)
+    .onInitial(() => <CardSkeleton lines={4} />)
+    .onSuccess((progress) => renderContent(progress))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }

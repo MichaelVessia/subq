@@ -32,6 +32,8 @@ import {
 import { GoalProgressCard } from '../goals/goal-progress.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { type BarChartData, type PieChartData, SimpleHorizontalBarChart, SimplePieChart } from '../ui/chart.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { ChartSkeleton } from '../ui/skeleton.js'
 import { CHART_COLORS, getDosageColor } from './chart-colors.js'
 import type { DataPoint, InjectionPoint, WeightPointWithColor } from './chart-types.js'
 import { TimeRangeSelector } from './time-range-selector.js'
@@ -1252,9 +1254,58 @@ export function StatsPage() {
 
   const zoomRange = range.start && range.end && !activePreset ? { start: range.start, end: range.end } : null
 
+  // Combine key results to check for errors - use Result.all for type-safe combination
+  const combinedResult = Result.all([
+    weightStatsResult,
+    weightTrendResult,
+    injectionResult,
+    injectionSiteStatsResult,
+    dosageHistoryResult,
+    injectionFrequencyResult,
+    drugBreakdownResult,
+    injectionByDayOfWeekResult,
+  ])
+
+  // Check for auth errors first (handles unauthorized before other errors)
+  const authError = Result.builder(combinedResult)
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .orNull()
+
+  if (authError) return authError
+
+  // Show loading skeleton while data is being fetched
   if (isLoading) {
-    return <div className="p-6 text-center text-muted-foreground">Loading stats...</div>
+    return (
+      <div>
+        <div className="mb-6">
+          <TimeRangeSelector
+            range={range}
+            activePreset={activePreset}
+            onPresetChange={setPreset}
+            onRangeChange={setRange}
+          />
+        </div>
+        <div className="grid gap-5">
+          <ChartSkeleton height={150} />
+          <ChartSkeleton height={320} />
+          <ChartSkeleton height={150} />
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <ChartSkeleton height={200} />
+            <ChartSkeleton height={200} />
+            <ChartSkeleton height={200} />
+          </div>
+          <ChartSkeleton height={200} />
+        </div>
+      </div>
+    )
   }
+
+  // Check for database errors after loading
+  const dbError = Result.builder(combinedResult)
+    .onError(() => <DatabaseError />)
+    .orNull()
+
+  if (dbError) return dbError
 
   return (
     <div>

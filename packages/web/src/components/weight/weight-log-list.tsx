@@ -18,6 +18,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { PageSkeleton } from '../ui/skeleton.js'
 import { WeightLogForm } from './weight-log-form.js'
 
 const formatDate = (dt: DateTime.Utc) =>
@@ -125,13 +127,7 @@ export function WeightLogList() {
     [handleDelete, handleEdit, formatWeight, unitLabel],
   )
 
-  if (Result.isWaiting(logsResult)) {
-    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
-  }
-
-  const logs = Result.getOrElse(logsResult, () => [])
-
-  return (
+  const renderContent = (logs: readonly WeightLog[]) => (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold tracking-tight">Weight Log</h2>
@@ -167,4 +163,11 @@ export function WeightLogList() {
       )}
     </div>
   )
+
+  return Result.builder(logsResult)
+    .onInitial(() => <PageSkeleton />)
+    .onSuccess((logs) => renderContent(logs))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }

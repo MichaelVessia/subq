@@ -30,6 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
+import { PageSkeleton } from '../ui/skeleton.js'
 import { InjectionLogForm } from './injection-log-form.js'
 
 const formatDate = (dt: DateTime.Utc) =>
@@ -118,6 +120,7 @@ export function InjectionLogList() {
     [deleteLog],
   )
 
+  // For schedules, we use getOrElse since it's background data for the columns
   const schedules = Result.getOrElse(schedulesResult, () => [] as InjectionSchedule[])
 
   const columns: ColumnDef<InjectionLog>[] = useMemo(
@@ -224,13 +227,7 @@ export function InjectionLogList() {
     [handleDelete, handleEdit, schedules],
   )
 
-  if (Result.isWaiting(logsResult) || Result.isWaiting(schedulesResult)) {
-    return <div className="p-6 text-center text-muted-foreground">Loading...</div>
-  }
-
-  const logs = Result.getOrElse(logsResult, () => [] as InjectionLog[])
-
-  return (
+  const renderContent = (logs: readonly InjectionLog[]) => (
     <div>
       <NextDoseBanner onLogDose={handleLogScheduledDose} onQuickLogSuccess={() => setShowForm(false)} />
 
@@ -385,4 +382,11 @@ export function InjectionLogList() {
       )}
     </div>
   )
+
+  return Result.builder(logsResult)
+    .onInitial(() => <PageSkeleton />)
+    .onSuccess((logs) => renderContent(logs))
+    .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+    .onError(() => <DatabaseError />)
+    .render()
 }
