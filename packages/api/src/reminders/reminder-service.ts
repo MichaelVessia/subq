@@ -182,10 +182,11 @@ export const ReminderServiceLive = Layer.effect(
         return usersDue
       }).pipe(Effect.mapError((cause) => new ReminderServiceError({ message: 'Failed to get users due today', cause })))
 
-    // For testing: get all users with active schedules (ignores due date)
+    // For testing: get all users with active schedules (ignores due date filter)
     const getAllUsersWithActiveSchedule = (): Effect.Effect<UserDueForReminder[], ReminderServiceError> =>
       Effect.gen(function* () {
         // LEFT JOIN user_settings since users may not have settings yet (default to reminders enabled)
+        // Use same query structure as getUsersDueToday to get proper data
         const rows = yield* sql`
           SELECT 
             u.id as user_id,
@@ -195,29 +196,79 @@ export const ReminderServiceLive = Layer.effect(
             sp.dosage,
             s.frequency,
             s.start_date,
-            NULL as last_injection_date,
-            NULL as last_injection_site
+            (
+              SELECT il.datetime 
+              FROM injection_logs il 
+              WHERE il.user_id = u.id AND il.drug = s.drug 
+              ORDER BY il.datetime DESC 
+              LIMIT 1
+            ) as last_injection_date,
+            (
+              SELECT il.injection_site 
+              FROM injection_logs il 
+              WHERE il.user_id = u.id 
+              ORDER BY il.datetime DESC 
+              LIMIT 1
+            ) as last_injection_site
           FROM "user" u
           LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
           JOIN schedule_phases sp ON sp.schedule_id = s.id
           WHERE (us.reminders_enabled = 1 OR us.reminders_enabled IS NULL)
-          AND sp."order" = 1
+          AND sp."order" = (
+            SELECT MIN(sp2."order") 
+            FROM schedule_phases sp2 
+            WHERE sp2.schedule_id = s.id
+            AND (
+              sp2.duration_days IS NULL 
+              OR (
+                julianday('now') - julianday(s.start_date) < 
+                (SELECT SUM(COALESCE(sp3.duration_days, 0)) 
+                 FROM schedule_phases sp3 
+                 WHERE sp3.schedule_id = s.id AND sp3."order" <= sp2."order")
+              )
+            )
+          )
         `
 
+        const now = DateTime.unsafeNow()
+        const msPerDay = 1000 * 60 * 60 * 24
         const users: UserDueForReminder[] = []
+
         for (const row of rows) {
           const decoded = yield* decodeUserScheduleRow(row)
+          const intervalDays = frequencyToDays(decoded.frequency)
+
+          let daysSinceLastInjection: number | null = null
+          let suggestedDate: DateTime.Utc
+
+          if (!decoded.last_injection_date) {
+            const startDate = DateTime.unsafeMake(decoded.start_date)
+            suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
+          } else {
+            const lastInjection = DateTime.unsafeMake(decoded.last_injection_date)
+            suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+            daysSinceLastInjection = Math.round(
+              (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
+            )
+          }
+
+          const daysUntilDue = Math.round(
+            (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
+          )
+          const isOverdue = daysUntilDue < 0
+          const daysOverdue = isOverdue ? Math.abs(daysUntilDue) : 0
+
           users.push({
             userId: decoded.user_id,
             email: decoded.email,
             name: decoded.name,
             drug: decoded.drug,
             dosage: decoded.dosage,
-            daysSinceLastInjection: null, // Not computed for test endpoint
-            lastInjectionSite: null,
-            isOverdue: false,
-            daysOverdue: 0,
+            daysSinceLastInjection,
+            lastInjectionSite: decoded.last_injection_site,
+            isOverdue,
+            daysOverdue,
           })
         }
 
