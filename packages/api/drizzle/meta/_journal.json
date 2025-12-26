@@ -71,6 +71,13 @@
       "when": 1765000000000,
       "tag": "0009_weight_lbs_only",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1765100000000,
+      "tag": "0010_reminders_enabled",
+      "breakpoints": true
     }
   ]
 }

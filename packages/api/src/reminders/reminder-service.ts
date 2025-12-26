@@ -97,7 +97,7 @@ export const ReminderServiceLive = Layer.effect(
               ORDER BY il.datetime DESC 
               LIMIT 1
             ) as last_injection_date
-          FROM user u
+          FROM "user" u
           LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
           JOIN schedule_phases sp ON sp.schedule_id = s.id
@@ -171,7 +171,7 @@ export const ReminderServiceLive = Layer.effect(
             s.frequency,
             s.start_date,
             NULL as last_injection_date
-          FROM user u
+          FROM "user" u
           LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
           JOIN schedule_phases sp ON sp.schedule_id = s.id
