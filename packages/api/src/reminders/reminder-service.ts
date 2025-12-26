@@ -78,7 +78,7 @@ export const ReminderServiceLive = Layer.effect(
       Effect.gen(function* () {
         // Query users with:
         // - Active schedule
-        // - Reminders enabled
+        // - Reminders enabled (or no settings yet, default to enabled)
         // - At least one phase
         // Join with their last injection date for the drug
         const rows = yield* sql`
@@ -98,10 +98,10 @@ export const ReminderServiceLive = Layer.effect(
               LIMIT 1
             ) as last_injection_date
           FROM user u
-          JOIN user_settings us ON us.user_id = u.id
+          LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
           JOIN schedule_phases sp ON sp.schedule_id = s.id
-          WHERE us.reminders_enabled = 1
+          WHERE (us.reminders_enabled = 1 OR us.reminders_enabled IS NULL)
           AND sp."order" = (
             SELECT MIN(sp2."order") 
             FROM schedule_phases sp2 
@@ -160,6 +160,7 @@ export const ReminderServiceLive = Layer.effect(
     // For testing: get all users with active schedules (ignores due date)
     const getAllUsersWithActiveSchedule = (): Effect.Effect<UserDueForReminder[], ReminderServiceError> =>
       Effect.gen(function* () {
+        // LEFT JOIN user_settings since users may not have settings yet (default to reminders enabled)
         const rows = yield* sql`
           SELECT 
             u.id as user_id,
@@ -171,10 +172,10 @@ export const ReminderServiceLive = Layer.effect(
             s.start_date,
             NULL as last_injection_date
           FROM user u
-          JOIN user_settings us ON us.user_id = u.id
+          LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
           JOIN schedule_phases sp ON sp.schedule_id = s.id
-          WHERE us.reminders_enabled = 1
+          WHERE (us.reminders_enabled = 1 OR us.reminders_enabled IS NULL)
           AND sp."order" = 1
         `
 
