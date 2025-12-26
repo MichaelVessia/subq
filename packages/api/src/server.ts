@@ -212,8 +212,18 @@ const ReminderServicesLive = Layer.mergeAll(ReminderServiceLive, EmailServiceLiv
 const handleReminders = Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
   Effect.gen(function* () {
     // Verify bearer token
-    const authHeader = request.headers.authorization
+    // Headers may be a Headers object - get authorization header properly
+    const headers = request.headers as Record<string, string | undefined>
+    const authHeader = headers.authorization || headers.Authorization
     const reminderSecret = yield* Config.redacted('REMINDER_SECRET')
+
+    yield* Effect.logInfo('Reminder auth check').pipe(
+      Effect.annotateLogs({
+        hasAuthHeader: !!authHeader,
+        authHeaderStart: authHeader?.substring(0, 20),
+        headerKeys: Object.keys(headers).join(','),
+      }),
+    )
 
     if (!authHeader || authHeader !== `Bearer ${reminderSecret.toString()}`) {
       yield* Effect.logWarning('Unauthorized reminder request')
