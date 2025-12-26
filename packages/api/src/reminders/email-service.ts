@@ -1,3 +1,4 @@
+import { getNextSite } from '@subq/shared'
 import { Config, Data, Effect, Layer, Redacted, Schedule } from 'effect'
 import { Resend } from 'resend'
 import type { UserDueForReminder } from './reminder-service.js'
@@ -15,24 +16,49 @@ export class EmailServiceError extends Data.TaggedError('EmailServiceError')<{
 // Email Content
 // ============================================
 
-const createReminderEmail = (user: UserDueForReminder) => ({
-  from: 'SubQ <noreply@notifications.subq.vessia.net>',
-  to: user.email,
-  subject: "It's shot day! 💉",
-  text: `Hi ${user.name},
+const createReminderEmail = (user: UserDueForReminder) => {
+  const suggestedSite = getNextSite(user.lastInjectionSite)
 
-Time for your ${user.dosage} ${user.drug} injection.
+  // Build the timing message
+  let timingMessage: string
+  if (user.daysSinceLastInjection === null) {
+    timingMessage = "It's time for your first injection!"
+  } else if (user.isOverdue) {
+    timingMessage = `It's been ${user.daysSinceLastInjection} days since your last injection (${user.daysOverdue} day${user.daysOverdue === 1 ? '' : 's'} overdue).`
+  } else {
+    timingMessage = `It's been ${user.daysSinceLastInjection} days since your last injection.`
+  }
+
+  // Subject varies based on overdue status
+  const subject = user.isOverdue ? 'Reminder: Injection overdue 💉' : "It's shot day! 💉"
+
+  return {
+    from: 'SubQ <noreply@notifications.subq.vessia.net>',
+    to: user.email,
+    subject,
+    text: `Hi ${user.name},
+
+${timingMessage}
+
+Your ${user.daysSinceLastInjection === null ? '' : 'next '}dose: ${user.dosage} ${user.drug}
+Suggested site: ${suggestedSite}
 
 Log it here: https://subq.vessia.net
 
-—SubQ`,
-  html: `
+—SubQ
+
+Manage notifications: https://subq.vessia.net/settings`,
+    html: `
     <p>Hi ${user.name},</p>
-    <p>Time for your <strong>${user.dosage} ${user.drug}</strong> injection.</p>
+    <p>${timingMessage}</p>
+    <p>Your ${user.daysSinceLastInjection === null ? '' : 'next '}dose: <strong>${user.dosage} ${user.drug}</strong><br/>
+    Suggested site: <strong>${suggestedSite}</strong></p>
     <p><a href="https://subq.vessia.net">Log it here</a></p>
     <p>—SubQ</p>
+    <p style="font-size: 12px; color: #666;"><a href="https://subq.vessia.net/settings">Manage notifications</a></p>
   `,
-})
+  }
+}
 
 // ============================================
 // Service Definition

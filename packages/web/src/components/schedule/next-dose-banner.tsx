@@ -2,6 +2,7 @@ import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
 import {
   Dosage,
   DrugName,
+  getNextSite,
   InjectionLogCreate,
   type InjectionScheduleId,
   InjectionSite,
@@ -14,24 +15,6 @@ import { toDate } from '../../lib/utils.js'
 import { ApiClient, LastInjectionSiteAtom, NextDoseAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { InlineError } from '../ui/error-states.js'
-
-// Standard injection site rotation order
-const SITE_ROTATION = [
-  'Left abdomen',
-  'Right abdomen',
-  'Left thigh',
-  'Right thigh',
-  'Left upper arm',
-  'Right upper arm',
-]
-
-function getNextSite(lastSite: string | null): string {
-  const defaultSite = SITE_ROTATION[0] ?? 'Left abdomen'
-  if (!lastSite) return defaultSite
-  const currentIndex = SITE_ROTATION.indexOf(lastSite)
-  if (currentIndex === -1) return defaultSite
-  return SITE_ROTATION[(currentIndex + 1) % SITE_ROTATION.length] ?? defaultSite
-}
 
 interface NextDoseBannerProps {
   onLogDose: (nextDose: NextScheduledDose) => void

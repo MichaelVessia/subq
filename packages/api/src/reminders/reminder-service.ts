@@ -11,6 +11,10 @@ export interface UserDueForReminder {
   name: string
   drug: string
   dosage: string
+  daysSinceLastInjection: number | null // null = first injection
+  lastInjectionSite: string | null
+  isOverdue: boolean
+  daysOverdue: number // 0 if not overdue
 }
 
 export class ReminderServiceError extends Data.TaggedError('ReminderServiceError')<{
@@ -31,6 +35,7 @@ const UserScheduleRow = Schema.Struct({
   frequency: Schema.String,
   start_date: Schema.String,
   last_injection_date: Schema.NullOr(Schema.String),
+  last_injection_site: Schema.NullOr(Schema.String),
 })
 
 const decodeUserScheduleRow = Schema.decodeUnknown(UserScheduleRow)
@@ -96,7 +101,14 @@ export const ReminderServiceLive = Layer.effect(
               WHERE il.user_id = u.id AND il.drug = s.drug 
               ORDER BY il.datetime DESC 
               LIMIT 1
-            ) as last_injection_date
+            ) as last_injection_date,
+            (
+              SELECT il.injection_site 
+              FROM injection_logs il 
+              WHERE il.user_id = u.id 
+              ORDER BY il.datetime DESC 
+              LIMIT 1
+            ) as last_injection_site
           FROM "user" u
           LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
@@ -127,6 +139,8 @@ export const ReminderServiceLive = Layer.effect(
           const intervalDays = frequencyToDays(decoded.frequency)
 
           let suggestedDate: DateTime.Utc
+          let daysSinceLastInjection: number | null = null
+
           if (!decoded.last_injection_date) {
             // No injections yet - due on start date or today (whichever is later)
             const startDate = DateTime.unsafeMake(decoded.start_date)
@@ -134,20 +148,31 @@ export const ReminderServiceLive = Layer.effect(
           } else {
             const lastInjection = DateTime.unsafeMake(decoded.last_injection_date)
             suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+            daysSinceLastInjection = Math.round(
+              (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
+            )
           }
 
           const daysUntilDue = Math.round(
             (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
           )
 
-          // Due today means daysUntilDue is 0 (or slightly negative for early morning edge case)
-          if (daysUntilDue <= 0 && daysUntilDue >= -1) {
+          const isOverdue = daysUntilDue < 0
+          const daysOverdue = isOverdue ? Math.abs(daysUntilDue) : 0
+
+          // Due today (daysUntilDue <= 0) through 7 days overdue (daysUntilDue >= -7)
+          // Stop emailing after 7 days overdue to avoid spamming inactive users
+          if (daysUntilDue <= 0 && daysUntilDue >= -7) {
             usersDue.push({
               userId: decoded.user_id,
               email: decoded.email,
               name: decoded.name,
               drug: decoded.drug,
               dosage: decoded.dosage,
+              daysSinceLastInjection,
+              lastInjectionSite: decoded.last_injection_site,
+              isOverdue,
+              daysOverdue,
             })
           }
         }
@@ -170,7 +195,8 @@ export const ReminderServiceLive = Layer.effect(
             sp.dosage,
             s.frequency,
             s.start_date,
-            NULL as last_injection_date
+            NULL as last_injection_date,
+            NULL as last_injection_site
           FROM "user" u
           LEFT JOIN user_settings us ON us.user_id = u.id
           JOIN injection_schedules s ON s.user_id = u.id AND s.is_active = 1
@@ -188,6 +214,10 @@ export const ReminderServiceLive = Layer.effect(
             name: decoded.name,
             drug: decoded.drug,
             dosage: decoded.dosage,
+            daysSinceLastInjection: null, // Not computed for test endpoint
+            lastInjectionSite: null,
+            isOverdue: false,
+            daysOverdue: 0,
           })
         }
 
