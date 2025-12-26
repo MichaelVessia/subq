@@ -5,6 +5,13 @@ Never disable tests, always fix them.
 Never commit code that doesn't compile unless explicitly instructed otherwise.
 Never use --no-verify to bypass commit hooks unless explicitly instructed otherwise.
 
+## Database Migrations
+
+When creating a new migration file in `packages/api/drizzle/`:
+1. Create the SQL file (e.g., `0010_my_migration.sql`)
+2. **Add an entry to `packages/api/drizzle/meta/_journal.json`** - migrations won't run without this!
+3. Test locally with `cd packages/api && bun run scripts/migrate.ts`
+
 <!-- effect-solutions:start -->
 ## Effect Solutions Usage
 
