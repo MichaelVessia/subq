@@ -65,6 +65,7 @@ jobs:
   smoke-test:
     needs: [deploy]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -73,6 +74,7 @@ jobs:
         run: bunx playwright install chromium
       - name: Run e2e smoke tests
         run: bun run test:e2e
+        timeout-minutes: 3
         env:
           BASE_URL: https://subq.vessia.net
 
