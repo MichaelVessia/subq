@@ -197,6 +197,11 @@ export const ReminderServiceLive = Layer.effect(
 
         return users
       }).pipe(
+        Effect.tapError((cause) =>
+          Effect.logError('getAllUsersWithActiveSchedule failed').pipe(
+            Effect.annotateLogs({ cause: String(cause), causeJson: JSON.stringify(cause) }),
+          ),
+        ),
         Effect.mapError(
           (cause) => new ReminderServiceError({ message: 'Failed to get users with active schedule', cause }),
         ),
