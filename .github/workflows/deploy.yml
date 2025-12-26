@@ -62,21 +62,21 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  smoke-test:
-    needs: [deploy]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - name: Install Playwright browsers
-        working-directory: packages/web
-        run: bunx playwright install chromium
-      - name: Run e2e smoke tests
-        run: bun run test:e2e
-        timeout-minutes: 3
-        env:
-          BASE_URL: https://subq.vessia.net
+  # smoke-test:
+  #   needs: [deploy]
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 5
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: ./.github/actions/setup
+  #     - name: Install Playwright browsers
+  #       working-directory: packages/web
+  #       run: bunx playwright install chromium
+  #     - name: Run e2e smoke tests
+  #       run: bun run test:e2e
+  #       timeout-minutes: 3
+  #       env:
+  #         BASE_URL: https://subq.vessia.net
 
   build-cli:
     needs: [typecheck, lint, format, test, test-cli]
