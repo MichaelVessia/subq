@@ -16,6 +16,7 @@ export function useUserSettings() {
   const isLoading = Result.isWaiting(settingsResult)
   const settings = Result.getOrElse(settingsResult, () => null)
   const weightUnit: WeightUnit = settings?.weightUnit ?? DEFAULT_WEIGHT_UNIT
+  const remindersEnabled: boolean = settings?.remindersEnabled ?? true
 
   /**
    * Convert a weight from internal storage (lbs) to display unit.
@@ -75,8 +76,19 @@ export function useUserSettings() {
     })
   }
 
+  /**
+   * Update the reminders enabled preference.
+   */
+  const setRemindersEnabled = async (enabled: boolean) => {
+    await updateSettings({
+      payload: new UserSettingsUpdate({ remindersEnabled: enabled }),
+      reactivityKeys: [ReactivityKeys.settings],
+    })
+  }
+
   return {
     weightUnit,
+    remindersEnabled,
     isLoading,
     displayWeight,
     toStorageLbs,
@@ -84,5 +96,6 @@ export function useUserSettings() {
     unitLabel,
     rateLabel,
     setWeightUnit,
+    setRemindersEnabled,
   }
 }

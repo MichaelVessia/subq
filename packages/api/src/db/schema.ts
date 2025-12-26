@@ -180,6 +180,7 @@ export const userSettings = sqliteTable(
     weightUnit: text('weight_unit', { enum: ['lbs', 'kg'] })
       .notNull()
       .default('lbs'),
+    remindersEnabled: integer('reminders_enabled', { mode: 'boolean' }).notNull().default(true),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

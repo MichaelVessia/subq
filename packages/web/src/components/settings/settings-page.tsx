@@ -3,11 +3,12 @@ import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
 import { Label } from '../ui/label.js'
+import { Switch } from '../ui/switch.js'
 import { ChangePasswordForm } from './change-password-form.js'
 import { DataManagement } from './data-management.js'
 
 export function SettingsPage() {
-  const { weightUnit, setWeightUnit } = useUserSettings()
+  const { weightUnit, setWeightUnit, remindersEnabled, setRemindersEnabled } = useUserSettings()
 
   const handleUnitChange = (unit: WeightUnit) => {
     setWeightUnit(unit)
@@ -34,6 +35,23 @@ export function SettingsPage() {
                   Kilograms (kg)
                 </Button>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="block">Email Reminders</Label>
+                <p className="text-sm text-muted-foreground">Receive an email reminder on shot days.</p>
+              </div>
+              <Switch checked={remindersEnabled} onCheckedChange={setRemindersEnabled} />
             </div>
           </div>
         </CardContent>

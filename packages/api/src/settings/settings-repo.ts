@@ -10,6 +10,7 @@ const SettingsRow = Schema.Struct({
   id: Schema.String,
   user_id: Schema.String,
   weight_unit: Schema.Literal('lbs', 'kg'),
+  reminders_enabled: Schema.Number, // SQLite boolean as 0/1
   created_at: Schema.String,
   updated_at: Schema.String,
 })
@@ -20,6 +21,7 @@ const settingsRowToDomain = (row: typeof SettingsRow.Type): UserSettings =>
   new UserSettings({
     id: row.id,
     weightUnit: row.weight_unit,
+    remindersEnabled: row.reminders_enabled === 1,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   })
@@ -50,7 +52,7 @@ export const SettingsRepoLive = Layer.effect(
     const get = (userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
-          SELECT id, user_id, weight_unit, created_at, updated_at
+          SELECT id, user_id, weight_unit, reminders_enabled, created_at, updated_at
           FROM user_settings
           WHERE user_id = ${userId}
         `
@@ -66,25 +68,28 @@ export const SettingsRepoLive = Layer.effect(
         const now = new Date().toISOString()
 
         // Check if settings exist
-        const existing = yield* sql`SELECT id FROM user_settings WHERE user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id, weight_unit, reminders_enabled FROM user_settings WHERE user_id = ${userId}`
 
         if (existing.length === 0) {
           // Insert new settings
           const id = generateUuid()
           const weightUnit = data.weightUnit ?? 'lbs'
+          const remindersEnabled = data.remindersEnabled ?? true
           yield* sql`
-            INSERT INTO user_settings (id, user_id, weight_unit, created_at, updated_at)
-            VALUES (${id}, ${userId}, ${weightUnit}, ${now}, ${now})
+            INSERT INTO user_settings (id, user_id, weight_unit, reminders_enabled, created_at, updated_at)
+            VALUES (${id}, ${userId}, ${weightUnit}, ${remindersEnabled ? 1 : 0}, ${now}, ${now})
           `
         } else {
-          // Update existing
-          if (data.weightUnit !== undefined) {
-            yield* sql`
-              UPDATE user_settings
-              SET weight_unit = ${data.weightUnit}, updated_at = ${now}
-              WHERE user_id = ${userId}
-            `
-          }
+          // Update existing - build update dynamically
+          const current = existing[0] as { weight_unit: string; reminders_enabled: number }
+          const weightUnit = data.weightUnit ?? current.weight_unit
+          const remindersEnabled = data.remindersEnabled ?? current.reminders_enabled === 1
+          yield* sql`
+            UPDATE user_settings
+            SET weight_unit = ${weightUnit}, reminders_enabled = ${remindersEnabled ? 1 : 0}, updated_at = ${now}
+            WHERE user_id = ${userId}
+          `
         }
 
         // Fetch and return

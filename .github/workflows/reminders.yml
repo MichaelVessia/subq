@@ -1,0 +1,37 @@
+name: Send Reminders
+
+on:
+  schedule:
+    # Run daily at 12:00 UTC (7am EST / 4am PST)
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Manual trigger - always uses force=true
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send reminder emails
+        run: |
+          # Use force=true for manual triggers, normal for scheduled runs
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            URL="https://subq.vessia.net/api/reminders/send?force=true"
+            echo "Manual trigger - using force=true"
+          else
+            URL="https://subq.vessia.net/api/reminders/send"
+            echo "Scheduled trigger - checking due dates"
+          fi
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST "$URL" \
+            -H "Authorization: Bearer ${{ secrets.REMINDER_SECRET }}" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response: $body"
+          echo "HTTP Status: $http_code"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Reminder request failed with status $http_code"
+            exit 1
+          fi

@@ -21,6 +21,7 @@ import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
+import { EmailService, EmailServiceLive, ReminderService, ReminderServiceLive } from './reminders/index.js'
 import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
 import { SqlLive } from './sql.js'
@@ -202,6 +203,69 @@ const HealthRouteLive = HttpRouter.Default.use((router) =>
   router.get('/health', HttpServerResponse.json({ status: 'ok' })),
 )
 
+// Reminder services layer
+const ReminderServicesLive = Layer.mergeAll(ReminderServiceLive, EmailServiceLive).pipe(Layer.provide(SqlLive))
+
+// Reminder route handler - sends shot day reminder emails
+// Secured with REMINDER_SECRET bearer token
+// Add ?force=true to send to all users with active schedules (for testing)
+const handleReminders = Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
+  Effect.gen(function* () {
+    // Verify bearer token
+    const authHeader = request.headers.authorization
+    const reminderSecret = yield* Config.redacted('REMINDER_SECRET')
+
+    if (!authHeader || authHeader !== `Bearer ${reminderSecret.toString()}`) {
+      yield* Effect.logWarning('Unauthorized reminder request')
+      return yield* HttpServerResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check for force parameter (for testing)
+    const url = new URL(request.url, 'http://localhost')
+    const force = url.searchParams.get('force') === 'true'
+
+    yield* Effect.logInfo('Processing reminder request').pipe(Effect.annotateLogs({ force }))
+
+    // Get services
+    const reminderService = yield* ReminderService
+    const emailService = yield* EmailService
+
+    // Get users - either due today or all with active schedules if force=true
+    const usersDue = force
+      ? yield* reminderService.getAllUsersWithActiveSchedule()
+      : yield* reminderService.getUsersDueToday()
+
+    yield* Effect.logInfo('Found users for reminders').pipe(Effect.annotateLogs({ count: usersDue.length, force }))
+
+    if (usersDue.length === 0) {
+      return yield* HttpServerResponse.json({
+        sent: 0,
+        failed: 0,
+        errors: [],
+        message: force ? 'No users with active schedules' : 'No users due today',
+      })
+    }
+
+    const result = yield* emailService.sendReminderEmails(usersDue)
+
+    yield* Effect.logInfo('Reminder emails sent').pipe(
+      Effect.annotateLogs({ sent: result.sent, failed: result.failed }),
+    )
+
+    return yield* HttpServerResponse.json(result)
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.logError('Reminder endpoint error').pipe(
+        Effect.annotateLogs({ error: String(error) }),
+        Effect.flatMap(() => HttpServerResponse.json({ error: 'Internal server error' }, { status: 500 })),
+      ),
+    ),
+    Effect.provide(ReminderServicesLive),
+  ),
+)
+
+const ReminderRouteLive = HttpRouter.Default.use((router) => router.post('/api/reminders/send', handleReminders))
+
 // Static file serving route (catch-all for SPA)
 const StaticRoutesLive = HttpRouter.Default.use((router) =>
   router.get(
@@ -244,7 +308,13 @@ const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer
 
 // Merge all route layers so they share the same Default router
 // Order matters: specific routes before catch-all
-const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, HealthRouteLive, RpcProtocolLive, StaticRoutesLive)
+const AllRoutesLive = Layer.mergeAll(
+  AuthRoutesLive,
+  HealthRouteLive,
+  ReminderRouteLive,
+  RpcProtocolLive,
+  StaticRoutesLive,
+)
 
 // Get port from environment
 const port = Number(process.env.PORT) || 3001
