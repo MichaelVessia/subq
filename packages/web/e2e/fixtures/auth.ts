@@ -14,7 +14,7 @@ export const DEMO_USER = {
 }
 
 export async function login(page: Page, email: string, password: string) {
-  await page.goto('/stats')
+  await page.goto('/login')
   await page.waitForSelector('text=Sign In')
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -24,7 +24,7 @@ export async function login(page: Page, email: string, password: string) {
 
 // Try login, sign up if user doesn't exist (for fresh preview envs)
 export async function loginOrSignUp(page: Page, email: string, password: string, name: string) {
-  await page.goto('/stats')
+  await page.goto('/login')
   await page.waitForSelector('text=Sign In')
   await page.fill('input[type="email"]', email)
   await page.fill('input[type="password"]', password)
@@ -60,11 +60,12 @@ export async function loginAsDemoUser(page: Page) {
 
 export async function logout(page: Page) {
   await page.click('button:has-text("Sign Out")')
-  await expect(page.locator('h1:has-text("Sign In")')).toBeVisible({ timeout: 10000 })
+  await expect(page).toHaveURL('/login', { timeout: 10000 })
+  await expect(page.locator('h1:has-text("Sign In")')).toBeVisible()
 }
 
 export async function signUp(page: Page, email: string, password: string, name: string) {
-  await page.goto('/stats')
+  await page.goto('/login')
   await page.waitForSelector('text=Sign In')
   await page.click('text=Sign up')
   await page.fill('input[placeholder="Name"]', name)

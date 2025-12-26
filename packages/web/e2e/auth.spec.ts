@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test'
 import { DEMO_USER, login, loginAsDemoUser, logout } from './fixtures/auth.js'
 
 test.describe('Authentication', () => {
-  test('shows login form when not authenticated', async ({ page }) => {
+  test('redirects to login when not authenticated', async ({ page }) => {
     await page.goto('/stats')
+    await expect(page).toHaveURL('/login')
     await expect(page.locator('h1:has-text("Sign In")')).toBeVisible()
     await expect(page.locator('input[type="email"]')).toBeVisible()
     await expect(page.locator('input[type="password"]')).toBeVisible()
@@ -16,7 +17,7 @@ test.describe('Authentication', () => {
   })
 
   test('shows error for invalid credentials', async ({ page }) => {
-    await page.goto('/stats')
+    await page.goto('/login')
     await page.waitForSelector('text=Sign In')
     await page.fill('input[type="email"]', 'invalid@example.com')
     await page.fill('input[type="password"]', 'wrongpassword')
@@ -26,7 +27,7 @@ test.describe('Authentication', () => {
   })
 
   test('can toggle between sign in and sign up modes', async ({ page }) => {
-    await page.goto('/stats')
+    await page.goto('/login')
     await page.waitForSelector('text=Sign In')
     await expect(page.locator('h1:has-text("Sign In")')).toBeVisible()
     await expect(page.locator('input[placeholder="Name"]')).not.toBeVisible()
