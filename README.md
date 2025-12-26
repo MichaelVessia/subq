@@ -44,6 +44,28 @@ subq --help
 
 The CLI supports JSON output (`--json`) for easy integration with scripts and AI agents.
 
+## Email Reminders
+
+Users receive email reminders on shot days (when an injection is due). Reminders are sent daily at 12:00 UTC via a GitHub Actions workflow that calls the API.
+
+- **Opt-out**: Users can disable reminders in Settings → Notifications
+- **Email provider**: [Resend](https://resend.com)
+
+### Setup (Self-hosting)
+
+1. Create a [Resend](https://resend.com) account and verify your domain
+2. Generate a random secret: `openssl rand -hex 32`
+3. Add secrets to Fly.io:
+   ```bash
+   fly secrets set RESEND_API_KEY=re_your_api_key
+   fly secrets set REMINDER_SECRET=<generated_secret>
+   ```
+4. Add `REMINDER_SECRET` to GitHub repo secrets (Settings → Secrets → Actions)
+
+### Testing
+
+Manually trigger the workflow from GitHub Actions → "Send Reminders" → "Run workflow". Manual triggers use `force=true` to send to all users with active schedules, regardless of due date.
+
 ## Links
 
 - **Production**: https://subq.vessia.net
