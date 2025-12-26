@@ -1,4 +1,4 @@
-import { Config, Data, Effect, Layer, Schedule } from 'effect'
+import { Config, Data, Effect, Layer, Redacted, Schedule } from 'effect'
 import { Resend } from 'resend'
 import type { UserDueForReminder } from './reminder-service.js'
 
@@ -56,7 +56,7 @@ export const EmailServiceLive = Layer.effect(
   EmailService,
   Effect.gen(function* () {
     const apiKey = yield* Config.redacted('RESEND_API_KEY')
-    const resend = new Resend(apiKey.toString())
+    const resend = new Resend(Redacted.value(apiKey))
 
     // Retry policy: 3 attempts with exponential backoff
     const retryPolicy = Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
