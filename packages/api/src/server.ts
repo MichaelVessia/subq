@@ -216,16 +216,18 @@ const handleReminders = Effect.flatMap(HttpServerRequest.HttpServerRequest, (req
     const headers = request.headers as Record<string, string | undefined>
     const authHeader = headers.authorization || headers.Authorization
     const reminderSecret = yield* Config.redacted('REMINDER_SECRET')
+    const secretValue = Redacted.value(reminderSecret)
 
     yield* Effect.logInfo('Reminder auth check').pipe(
       Effect.annotateLogs({
         hasAuthHeader: !!authHeader,
         authHeaderStart: authHeader?.substring(0, 20),
         headerKeys: Object.keys(headers).join(','),
+        expectedStart: `Bearer ${secretValue.substring(0, 8)}...`,
       }),
     )
 
-    if (!authHeader || authHeader !== `Bearer ${reminderSecret.toString()}`) {
+    if (!authHeader || authHeader !== `Bearer ${secretValue}`) {
       yield* Effect.logWarning('Unauthorized reminder request')
       return yield* HttpServerResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
