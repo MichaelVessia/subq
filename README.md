@@ -93,8 +93,7 @@ sudo mv subq-tui /usr/local/bin/
 ### Usage
 
 ```bash
-# Set API URL and run
-SUBQ_API_URL=https://subq.vessia.net subq-tui
+subq-tui
 ```
 
 For other platforms, run from source: `cd packages/tui && bun run dev`
