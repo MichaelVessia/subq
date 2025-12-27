@@ -15,6 +15,7 @@
           biome
           flyctl
           sqlite
+          zig # Required for @opentui/core native module
           # E2E testing browsers
           playwright-driver.browsers
         ];

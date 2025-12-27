@@ -123,3 +123,49 @@ jobs:
             dist/subq-darwin-arm64
           prerelease: false
           make_latest: true
+
+  build-tui:
+    needs: [typecheck, lint, format, test, test-cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Build TUI binaries
+        run: |
+          mkdir -p dist
+          bun build --compile --target=bun-linux-x64 --outfile=dist/subq-tui-linux-x64 packages/tui/src/main.tsx
+          bun build --compile --target=bun-linux-arm64 --outfile=dist/subq-tui-linux-arm64 packages/tui/src/main.tsx
+          bun build --compile --target=bun-darwin-x64 --outfile=dist/subq-tui-darwin-x64 packages/tui/src/main.tsx
+          bun build --compile --target=bun-darwin-arm64 --outfile=dist/subq-tui-darwin-arm64 packages/tui/src/main.tsx
+
+      - name: Create or update TUI release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tui-latest
+          name: TUI Latest
+          body: |
+            Latest TUI binaries built from commit ${{ github.sha }}
+
+            ## Download
+
+            - **Linux x64**: `subq-tui-linux-x64`
+            - **Linux ARM64**: `subq-tui-linux-arm64`
+            - **macOS Intel**: `subq-tui-darwin-x64`
+            - **macOS Apple Silicon**: `subq-tui-darwin-arm64`
+
+            ## Usage
+
+            ```bash
+            chmod +x subq-tui-*
+            SUBQ_API_URL=https://subq.vessia.net ./subq-tui-darwin-arm64
+            ```
+          files: |
+            dist/subq-tui-linux-x64
+            dist/subq-tui-linux-arm64
+            dist/subq-tui-darwin-x64
+            dist/subq-tui-darwin-arm64
+          prerelease: false
+          make_latest: false

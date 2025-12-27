@@ -9,7 +9,7 @@
 		"packages/*"
 	],
 	"scripts": {
-		"dev": "docker compose -f packages/api/docker-compose.yml up -d && bun run --filter '@subq/*' dev",
+		"dev": "docker compose -f packages/api/docker-compose.yml up -d && bun run --filter @subq/api --filter @subq/web dev",
 		"dev:jaeger:stop": "docker compose -f packages/api/docker-compose.yml down",
 		"dev:api": "bun run --filter @subq/api dev",
 		"dev:web": "bun run --filter @subq/web dev",
@@ -31,7 +31,8 @@
 		"seed:prod": "bun run scripts/seed-prod.ts",
 		"migrate": "bun run --filter @subq/api migrate",
 		"deploy": "flyctl deploy --remote-only",
-		"cli": "bun run packages/cli/src/main.ts"
+		"cli": "SUBQ_API_URL=http://localhost:3001 bun run packages/cli/src/main.ts",
+		"tui": "SUBQ_API_URL=http://localhost:3001 bun run packages/tui/src/main.tsx"
 	},
 	"devDependencies": {
 		"@babel/cli": "^7.24.8",
