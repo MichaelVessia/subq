@@ -2,6 +2,39 @@
 
 Health tracking application for subcutaneous injection management.
 
+## Architecture
+
+SubQ uses a client/server architecture with multiple clients sharing a single API server:
+
+```mermaid
+graph TB
+    subgraph Clients
+        Web[Web App<br/>React + Vite]
+        CLI[CLI<br/>Command-line]
+        TUI[TUI<br/>Terminal UI]
+    end
+
+    subgraph Server
+        API[API Server<br/>Effect + Hono]
+        DB[(SQLite)]
+    end
+
+    Web -->|RPC| API
+    CLI -->|RPC| API
+    TUI -->|RPC| API
+    API --> DB
+```
+
+All clients communicate with the server using type-safe RPC (Effect RPC). The shared package (`@subq/shared`) defines domain types and RPC contracts used by both clients and server.
+
+| Package | Description |
+|---------|-------------|
+| `packages/api` | API server with RPC handlers, database, auth |
+| `packages/web` | Web client (React, Vite) |
+| `packages/cli` | Command-line client |
+| `packages/tui` | Terminal UI client (React, OpenTUI) |
+| `packages/shared` | Shared types, RPC definitions |
+
 ## CLI
 
 A command-line interface is available for managing injections, weight logs, and schedules.
