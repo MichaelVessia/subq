@@ -10,12 +10,12 @@ SubQ uses a client/server architecture with multiple clients sharing a single AP
 graph TB
     subgraph Clients
         Web[Web App<br/>React + Vite]
-        CLI[CLI<br/>Command-line]
-        TUI[TUI<br/>Terminal UI]
+        CLI[CLI<br/>Effect CLI]
+        TUI[TUI<br/>OpenTUI + React]
     end
 
     subgraph Server
-        API[API Server<br/>Effect + Hono]
+        API[API Server<br/>Bun + Effect]
         DB[(SQLite)]
     end
 
