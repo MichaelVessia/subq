@@ -35,9 +35,32 @@ All clients communicate with the server using type-safe RPC (Effect RPC). The sh
 | `packages/tui` | Terminal UI client (React, OpenTUI) |
 | `packages/shared` | Shared types, RPC definitions |
 
+## TUI
+
+An interactive terminal UI for managing injections, weight logs, and schedules.
+
+### Installation
+
+Currently only Linux x64 binaries are available due to native dependencies.
+
+```bash
+# Linux x64
+curl -L https://github.com/MichaelVessia/subq/releases/download/tui-latest/subq-linux-x64 -o subq
+chmod +x subq
+sudo mv subq /usr/local/bin/
+```
+
+For other platforms, run from source: `cd packages/tui && bun run dev`
+
+### Usage
+
+```bash
+subq
+```
+
 ## CLI
 
-A command-line interface is available for managing injections, weight logs, and schedules.
+A command-line interface for scripting and automation.
 
 ### Installation
 
@@ -45,58 +68,37 @@ Download the latest binary for your platform from [Releases](https://github.com/
 
 ```bash
 # macOS Apple Silicon
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-darwin-arm64 -o subq
-chmod +x subq
-sudo mv subq /usr/local/bin/
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-arm64 -o subq-cli
+chmod +x subq-cli
+sudo mv subq-cli /usr/local/bin/
 
 # macOS Intel
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-darwin-x64 -o subq
-chmod +x subq
-sudo mv subq /usr/local/bin/
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-x64 -o subq-cli
+chmod +x subq-cli
+sudo mv subq-cli /usr/local/bin/
 
 # Linux x64
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-linux-x64 -o subq
-chmod +x subq
-sudo mv subq /usr/local/bin/
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-x64 -o subq-cli
+chmod +x subq-cli
+sudo mv subq-cli /usr/local/bin/
 
 # Linux ARM64
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-linux-arm64 -o subq
-chmod +x subq
-sudo mv subq /usr/local/bin/
+curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-arm64 -o subq-cli
+chmod +x subq-cli
+sudo mv subq-cli /usr/local/bin/
 ```
 
 ### Usage
 
 ```bash
 # Login first
-subq auth login
+subq-cli auth login
 
 # See all commands
-subq --help
+subq-cli --help
 ```
 
 The CLI supports JSON output (`--json`) for easy integration with scripts and AI agents.
-
-## TUI
-
-A terminal UI is available for interactive management. Currently only Linux x64 binaries are available due to native dependencies.
-
-### Installation
-
-```bash
-# Linux x64
-curl -L https://github.com/MichaelVessia/subq/releases/download/tui-latest/subq-tui-linux-x64 -o subq-tui
-chmod +x subq-tui
-sudo mv subq-tui /usr/local/bin/
-```
-
-### Usage
-
-```bash
-subq-tui
-```
-
-For other platforms, run from source: `cd packages/tui && bun run dev`
 
 ## Email Reminders
 
