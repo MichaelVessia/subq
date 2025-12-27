@@ -9,6 +9,7 @@ import { theme } from './theme'
 import { InjectionsView } from './views/injections'
 import { InventoryView } from './views/inventory'
 import { LoginView } from './views/login'
+import { ScheduleView } from './views/schedule'
 import { StatsView } from './views/stats'
 import { WeightView } from './views/weight'
 
@@ -23,7 +24,7 @@ export function App() {
   useEffect(() => {
     const session = getSession()
     if (session) {
-      setState({ view: 'dashboard', tab: 'injections', session })
+      setState({ view: 'dashboard', tab: 'stats', session })
     }
   }, [])
 
@@ -41,18 +42,20 @@ export function App() {
 
     // Tab switching
     if (key.name === '1') {
-      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'injections' } : s))
-    } else if (key.name === '2') {
-      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'inventory' } : s))
-    } else if (key.name === '3') {
-      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'weight' } : s))
-    } else if (key.name === '4') {
       setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'stats' } : s))
+    } else if (key.name === '2') {
+      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'weight' } : s))
+    } else if (key.name === '3') {
+      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'injections' } : s))
+    } else if (key.name === '4') {
+      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'inventory' } : s))
+    } else if (key.name === '5') {
+      setState((s) => (s.view === 'dashboard' ? { ...s, tab: 'schedule' } : s))
     } else if (key.shift && key.name === 'h') {
       // Previous tab
       setState((s) => {
         if (s.view !== 'dashboard') return s
-        const tabs: Tab[] = ['injections', 'inventory', 'weight', 'stats']
+        const tabs: Tab[] = ['stats', 'weight', 'injections', 'inventory', 'schedule']
         const idx = tabs.indexOf(s.tab)
         return { ...s, tab: tabs[(idx - 1 + tabs.length) % tabs.length] as Tab }
       })
@@ -60,7 +63,7 @@ export function App() {
       // Next tab
       setState((s) => {
         if (s.view !== 'dashboard') return s
-        const tabs: Tab[] = ['injections', 'inventory', 'weight', 'stats']
+        const tabs: Tab[] = ['stats', 'weight', 'injections', 'inventory', 'schedule']
         const idx = tabs.indexOf(s.tab)
         return { ...s, tab: tabs[(idx + 1) % tabs.length] as Tab }
       })
@@ -72,7 +75,7 @@ export function App() {
   })
 
   const handleLogin = (session: StoredSession) => {
-    setState({ view: 'dashboard', tab: 'injections', session })
+    setState({ view: 'dashboard', tab: 'stats', session })
     setMessage({ text: `Logged in as ${session.email}`, type: 'success' })
   }
 
@@ -93,10 +96,11 @@ export function App() {
 
       {/* Main content area */}
       <box style={{ flexGrow: 1, padding: 1 }}>
+        {state.tab === 'stats' && <StatsView onMessage={(text, type) => setMessage({ text, type })} />}
+        {state.tab === 'weight' && <WeightView onMessage={(text, type) => setMessage({ text, type })} />}
         {state.tab === 'injections' && <InjectionsView onMessage={(text, type) => setMessage({ text, type })} />}
         {state.tab === 'inventory' && <InventoryView onMessage={(text, type) => setMessage({ text, type })} />}
-        {state.tab === 'weight' && <WeightView onMessage={(text, type) => setMessage({ text, type })} />}
-        {state.tab === 'stats' && <StatsView onMessage={(text, type) => setMessage({ text, type })} />}
+        {state.tab === 'schedule' && <ScheduleView onMessage={(text, type) => setMessage({ text, type })} />}
       </box>
 
       {/* Status bar */}

@@ -2,7 +2,7 @@
 
 import { theme } from '../theme'
 
-export type Tab = 'injections' | 'inventory' | 'weight' | 'stats'
+export type Tab = 'stats' | 'weight' | 'injections' | 'inventory' | 'schedule'
 
 interface HeaderProps {
   activeTab: Tab
@@ -11,10 +11,11 @@ interface HeaderProps {
 
 export function Header({ activeTab, email }: HeaderProps) {
   const tabs: { key: Tab; label: string; color: string; shortcut: string }[] = [
-    { key: 'injections', label: 'Injections', color: theme.tab1, shortcut: '1' },
-    { key: 'inventory', label: 'Inventory', color: theme.tab2, shortcut: '2' },
-    { key: 'weight', label: 'Weight', color: theme.tab3, shortcut: '3' },
-    { key: 'stats', label: 'Stats', color: theme.tab4, shortcut: '4' },
+    { key: 'stats', label: 'Stats', color: theme.tab4, shortcut: '1' },
+    { key: 'weight', label: 'Weight', color: theme.tab3, shortcut: '2' },
+    { key: 'injections', label: 'Injections', color: theme.tab1, shortcut: '3' },
+    { key: 'inventory', label: 'Inventory', color: theme.tab2, shortcut: '4' },
+    { key: 'schedule', label: 'Schedule', color: theme.accent, shortcut: '5' },
   ]
 
   return (

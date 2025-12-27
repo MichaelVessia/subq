@@ -94,7 +94,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
       {/* Two column layout: Chart left, Stats right */}
       <box style={{ flexDirection: 'row', flexGrow: 1, marginTop: 1 }}>
         {/* Left: Weight Trend Chart */}
-        <box style={{ flexDirection: 'column', width: '60%' }}>
+        <box style={{ flexDirection: 'column', width: '55%' }}>
           {stats.weightTrend && stats.weightTrend.points.length > 0 ? (
             <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} />
           ) : (
@@ -108,7 +108,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
         </box>
 
         {/* Right: Stats panels */}
-        <box style={{ flexDirection: 'column', width: '40%', paddingLeft: 1 }}>
+        <box style={{ flexDirection: 'column', width: '45%', paddingLeft: 1 }}>
           {/* Weight Stats */}
           <Section title="WEIGHT STATISTICS" color={theme.tab3}>
             {stats.weight ? (
@@ -243,7 +243,7 @@ function WeightTrendChart({ trend, weight }: { trend: WeightTrendStats; weight: 
   if (points.length < 2) return null
 
   const chartHeight = 15
-  const chartWidth = 80
+  const chartWidth = 70
 
   // Sample points evenly across the full range to fit chart width
   const sampled: (typeof points)[number][] = []
@@ -428,8 +428,8 @@ function SitesList({ siteStats }: { siteStats: InjectionSiteStats }) {
     <box style={{ flexDirection: 'column' }}>
       {siteStats.sites.slice(0, 5).map((site) => (
         <box key={site.site} style={{ flexDirection: 'row' }}>
-          <text fg={theme.textMuted}>{padRight(site.site, 16)}</text>
-          <text fg={theme.accent}>{'█'.repeat(Math.round((site.count / siteStats.totalInjections) * 20))}</text>
+          <text fg={theme.textMuted}>{padRight(site.site, 18)}</text>
+          <text fg={theme.accent}>{'█'.repeat(Math.round((site.count / siteStats.totalInjections) * 15))}</text>
           <text fg={theme.text}> {pct(site.count, siteStats.totalInjections)}%</text>
         </box>
       ))}
@@ -443,8 +443,8 @@ function DrugsList({ drugBreakdown }: { drugBreakdown: DrugBreakdownStats }) {
     <box style={{ flexDirection: 'column' }}>
       {drugBreakdown.drugs.slice(0, 5).map((drug) => (
         <box key={drug.drug} style={{ flexDirection: 'row' }}>
-          <text fg={theme.textMuted}>{padRight(drug.drug, 16)}</text>
-          <text fg={theme.accent}>{'█'.repeat(Math.round((drug.count / drugBreakdown.totalInjections) * 20))}</text>
+          <text fg={theme.textMuted}>{padRight(drug.drug, 22)}</text>
+          <text fg={theme.accent}>{'█'.repeat(Math.round((drug.count / drugBreakdown.totalInjections) * 15))}</text>
           <text fg={theme.text}> {pct(drug.count, drugBreakdown.totalInjections)}%</text>
         </box>
       ))}
