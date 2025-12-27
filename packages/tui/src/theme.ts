@@ -72,4 +72,5 @@ export const theme = {
   tab1: mocha.blue, // Injections
   tab2: mocha.green, // Inventory
   tab3: mocha.peach, // Weight
+  tab4: mocha.mauve, // Stats
 } as const

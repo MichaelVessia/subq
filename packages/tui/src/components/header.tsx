@@ -2,7 +2,7 @@
 
 import { theme } from '../theme'
 
-export type Tab = 'injections' | 'inventory' | 'weight'
+export type Tab = 'injections' | 'inventory' | 'weight' | 'stats'
 
 interface HeaderProps {
   activeTab: Tab
@@ -14,6 +14,7 @@ export function Header({ activeTab, email }: HeaderProps) {
     { key: 'injections', label: 'Injections', color: theme.tab1, shortcut: '1' },
     { key: 'inventory', label: 'Inventory', color: theme.tab2, shortcut: '2' },
     { key: 'weight', label: 'Weight', color: theme.tab3, shortcut: '3' },
+    { key: 'stats', label: 'Stats', color: theme.tab4, shortcut: '4' },
   ]
 
   return (

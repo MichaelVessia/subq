@@ -13,6 +13,7 @@
     "@opentui/core": "^0.1.63",
     "@opentui/react": "^0.1.63",
     "@subq/shared": "workspace:*",
+    "asciichart": "^1.5.25",
     "effect": "3.18.4",
     "react": "^19.0.0"
   },
