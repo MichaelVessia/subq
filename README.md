@@ -77,6 +77,28 @@ subq --help
 
 The CLI supports JSON output (`--json`) for easy integration with scripts and AI agents.
 
+## TUI
+
+A terminal UI is available for interactive management. Currently only Linux x64 binaries are available due to native dependencies.
+
+### Installation
+
+```bash
+# Linux x64
+curl -L https://github.com/MichaelVessia/subq/releases/download/tui-latest/subq-tui-linux-x64 -o subq-tui
+chmod +x subq-tui
+sudo mv subq-tui /usr/local/bin/
+```
+
+### Usage
+
+```bash
+# Set API URL and run
+SUBQ_API_URL=https://subq.vessia.net subq-tui
+```
+
+For other platforms, run from source: `cd packages/tui && bun run dev`
+
 ## Email Reminders
 
 Users receive email reminders on shot days (when an injection is due). Reminders are sent daily at 12:00 UTC via a GitHub Actions workflow that calls the API.
