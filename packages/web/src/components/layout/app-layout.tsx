@@ -1,23 +1,46 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { Settings } from 'lucide-react'
-import { type ReactNode, useEffect } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import { signOut, useSession } from '../../auth.js'
 import { cn } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const { data: session, isPending } = useSession()
+  const { data: session, isPending, refetch } = useSession()
   const location = useLocation()
   const navigate = useNavigate()
   const pathname = location.pathname
+  // Track if user was ever authenticated this session to avoid
+  // premature redirect during session revalidation (e.g., after idle)
+  const wasAuthenticated = useRef(false)
+  const isRevalidating = useRef(false)
 
   useEffect(() => {
-    if (!session && !isPending) {
+    if (session) {
+      wasAuthenticated.current = true
+      isRevalidating.current = false
+    }
+  }, [session])
+
+  useEffect(() => {
+    // If we had a session but now don't (and not pending), try to revalidate once
+    // This handles the case where cookie cache expired during idle
+    if (!session && !isPending && wasAuthenticated.current && !isRevalidating.current) {
+      isRevalidating.current = true
+      refetch()
+      return
+    }
+
+    // Only redirect if:
+    // 1. Not pending (finished checking)
+    // 2. No session
+    // 3. Either never authenticated OR already tried revalidation
+    if (!session && !isPending && (!wasAuthenticated.current || isRevalidating.current)) {
       navigate({ to: '/login' })
     }
-  }, [session, isPending, navigate])
+  }, [session, isPending, navigate, refetch])
 
-  if (isPending) {
+  if (isPending || (!session && wasAuthenticated.current && !isRevalidating.current)) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-muted-foreground">Loading...</p>
