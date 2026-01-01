@@ -13,7 +13,7 @@ export function UnauthorizedRedirect() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate({ to: '/auth/login' as string })
+      navigate({ to: '/login' })
     }, 1500)
     return () => clearTimeout(timer)
   }, [navigate])
