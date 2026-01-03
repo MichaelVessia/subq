@@ -19,7 +19,8 @@
     "@subq/shared": "workspace:*",
     "better-auth": "^1.4.2",
     "drizzle-orm": "^0.44.7",
-    "effect": "3.18.4"
+    "effect": "3.18.4",
+    "resend": "^6.6.0"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.7"

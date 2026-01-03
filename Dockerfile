@@ -53,4 +53,4 @@ ENV STATIC_DIR=/app/packages/web/dist
 
 EXPOSE 8080
 
-CMD ["bun", "run", "packages/api/src/server.ts"]
+CMD ["bun", "run", "packages/api/src/main.ts"]

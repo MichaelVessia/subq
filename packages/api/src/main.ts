@@ -1,10 +1,21 @@
-import { HttpMiddleware, HttpRouter } from '@effect/platform'
-import { BunHttpServer, BunRuntime } from '@effect/platform-bun'
+import {
+  FileSystem,
+  HttpBody,
+  HttpMiddleware,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse,
+  Path,
+} from '@effect/platform'
+import { BunContext, BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
 import { bearer } from 'better-auth/plugins'
 import { Database } from 'bun:sqlite'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
+import { dirname, join } from 'node:path'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
@@ -16,6 +27,31 @@ import { SqlLive } from './sql.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
+import { EmailService, EmailServiceLive, ReminderService, ReminderServiceLive } from './reminders/index.js'
+
+// ============================================
+// Database Migrations (sync, before Effect)
+// ============================================
+const runMigrations = () => {
+  const databasePath = process.env.DATABASE_PATH || './data/subq.db'
+  console.log(`Running migrations on: ${databasePath}`)
+
+  const sqlite = new Database(databasePath)
+  const db = drizzle(sqlite)
+  const migrationsFolder = join(dirname(import.meta.path), '../drizzle')
+
+  try {
+    migrate(db, { migrationsFolder })
+    console.log('Migrations completed successfully!')
+  } catch (error) {
+    console.error('Migration failed:', error)
+    process.exit(1)
+  } finally {
+    sqlite.close()
+  }
+}
+
+runMigrations()
 
 // Auth configuration layer - creates better-auth instance with SQLite
 const AuthLive = Layer.unwrapEffect(
@@ -45,6 +81,8 @@ const AuthLive = Layer.unwrapEffect(
         enabled: true,
       },
       session: {
+        expiresIn: 60 * 60 * 24 * 30, // 30 days
+        updateAge: 60 * 60 * 24, // Refresh if session older than 1 day
         // Cache session in signed cookie to avoid DB lookup on every request
         cookieCache: {
           enabled: true,
@@ -101,8 +139,133 @@ const AuthRoutesLive = HttpRouter.Default.use((router) =>
 // Uses layerProtocolHttp but we'll merge it differently to share the router
 const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(RpcSerialization.layerNdjson))
 
+// Static directory for production (SPA serving)
+const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
+
+// MIME types for static files
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+}
+
+// Production routes: health check, reminders API, static files
+const ProductionRoutesLive = HttpRouter.Default.use((router) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const reminderService = yield* ReminderService
+    const emailService = yield* EmailService
+
+    // Health check endpoint
+    yield* router.get('/health', Effect.succeed(HttpServerResponse.text('ok')))
+
+    // Reminders endpoint (called by GitHub Actions)
+    yield* router.post(
+      '/api/reminders/send',
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest
+        const reminderSecret = yield* Config.redacted('REMINDER_SECRET')
+        const secretValue = Redacted.value(reminderSecret)
+
+        // Check bearer token - headers is a direct property, access authorization header
+        const authHeader = request.headers.authorization
+        if (!authHeader || authHeader !== `Bearer ${secretValue}`) {
+          return yield* HttpServerResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Check for force parameter
+        const url = new URL(request.url, 'http://localhost')
+        const force = url.searchParams.get('force') === 'true'
+
+        yield* Effect.logInfo('Reminder request received', { force })
+
+        // Get users to send reminders to
+        const users = force
+          ? yield* reminderService.getAllUsersWithActiveSchedule()
+          : yield* reminderService.getUsersDueToday()
+
+        yield* Effect.logInfo('Users found for reminders', { count: users.length, force })
+
+        if (users.length === 0) {
+          return yield* HttpServerResponse.json({
+            sent: 0,
+            failed: 0,
+            errors: [],
+            message: 'No users due for reminders',
+          })
+        }
+
+        // Send emails
+        const result = yield* emailService.sendReminderEmails(users)
+
+        yield* Effect.logInfo('Reminder emails sent', result)
+
+        return yield* HttpServerResponse.json(result)
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError('Reminder request failed', { error: String(error) })
+            return yield* HttpServerResponse.json({ error: 'Internal server error' }, { status: 500 })
+          }),
+        ),
+      ),
+    )
+
+    // Static file serving (catch-all, must be last)
+    yield* router.get(
+      '/*',
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest
+        const url = new URL(request.url, 'http://localhost')
+        const pathname = url.pathname
+
+        // Security: prevent directory traversal
+        const safePath = pathname.replace(/\.\./g, '')
+        const filePath = path.join(STATIC_DIR, safePath)
+
+        // Check if file exists
+        const exists = yield* fs.exists(filePath)
+        if (exists) {
+          const stat = yield* fs.stat(filePath)
+          if (stat.type === 'File') {
+            const ext = path.extname(filePath)
+            const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+            const body = yield* HttpBody.file(filePath, { contentType })
+            return HttpServerResponse.empty().pipe(HttpServerResponse.setBody(body))
+          }
+        }
+
+        // SPA fallback: serve index.html for non-file routes
+        const indexPath = path.join(STATIC_DIR, 'index.html')
+        const indexExists = yield* fs.exists(indexPath)
+        if (indexExists) {
+          const body = yield* HttpBody.file(indexPath, { contentType: 'text/html' })
+          return HttpServerResponse.empty().pipe(HttpServerResponse.setBody(body))
+        }
+
+        return HttpServerResponse.text('Not Found', { status: 404 })
+      }).pipe(Effect.catchAll(() => Effect.succeed(HttpServerResponse.text('Not Found', { status: 404 })))),
+    )
+  }),
+)
+
+// Reminder services layer
+const ReminderServicesLive = Layer.mergeAll(ReminderServiceLive.pipe(Layer.provide(SqlLive)), EmailServiceLive)
+
 // Merge all route layers so they share the same Default router
-const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive)
+const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive, ProductionRoutesLive)
 
 // Services that depend on SQL
 const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive, DataExportServiceLive).pipe(
@@ -130,6 +293,10 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(BunHttpServer.layer({ port })),
   // Provide auth service
   Layer.provide(AuthLive),
+  // Provide reminder services
+  Layer.provide(ReminderServicesLive),
+  // Provide Bun context for FileSystem and Path (used by static file serving)
+  Layer.provide(BunContext.layer),
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
