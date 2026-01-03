@@ -258,9 +258,9 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
             const contentType = MIME_TYPES[ext] || 'application/octet-stream'
             const body = yield* HttpBody.file(filePath, { contentType })
             const cacheControl = getCacheControl(filePath, pathname)
-            return HttpServerResponse.empty().pipe(
+            return HttpServerResponse.raw(body, { status: 200 }).pipe(
               HttpServerResponse.setHeader('Cache-Control', cacheControl),
-              HttpServerResponse.setBody(body),
+              HttpServerResponse.setHeader('Content-Type', contentType),
             )
           }
         }
@@ -270,9 +270,9 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
         const indexExists = yield* fs.exists(indexPath)
         if (indexExists) {
           const body = yield* HttpBody.file(indexPath, { contentType: 'text/html' })
-          return HttpServerResponse.empty().pipe(
+          return HttpServerResponse.raw(body, { status: 200 }).pipe(
             HttpServerResponse.setHeader('Cache-Control', 'no-cache'),
-            HttpServerResponse.setBody(body),
+            HttpServerResponse.setHeader('Content-Type', 'text/html'),
           )
         }
 
