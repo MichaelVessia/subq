@@ -1,5 +1,5 @@
 // Color palette for dosages - muted tones
-export const DOSAGE_COLORS: Record<string, string> = {
+const DOSAGE_COLORS: Record<string, string> = {
   '2.5mg': '#64748b', // slate
   '5mg': '#0891b2', // cyan
   '7.5mg': '#0d9488', // teal

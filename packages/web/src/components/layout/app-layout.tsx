@@ -40,6 +40,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [session, isPending, navigate, refetch])
 
+  // Periodic session refresh to keep cookies alive
+  // This hits /api/auth/get-session which returns Set-Cookie headers
+  useEffect(() => {
+    if (!session) return
+    const interval = setInterval(() => refetch(), 5 * 60 * 1000) // 5 minutes
+    return () => clearInterval(interval)
+  }, [session, refetch])
+
   if (isPending || (!session && wasAuthenticated.current && !isRevalidating.current)) {
     return (
       <div className="flex items-center justify-center h-screen">

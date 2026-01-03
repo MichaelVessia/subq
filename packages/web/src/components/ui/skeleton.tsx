@@ -75,4 +75,4 @@ function PageSkeleton() {
   )
 }
 
-export { CardSkeleton, ChartSkeleton, ListSkeleton, PageSkeleton, Skeleton, TableSkeleton }
+export { CardSkeleton, ChartSkeleton, ListSkeleton, PageSkeleton }
