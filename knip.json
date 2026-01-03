@@ -1,0 +1,10 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema.json",
+	"ignore": [".context/**", ".alchemy/**", "docs/**"],
+	"workspaces": {
+		".": {
+			"entry": ["scripts/*.ts"]
+		},
+		"packages/*": {}
+	}
+}

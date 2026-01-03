@@ -31,6 +31,7 @@
 		"seed:prod": "bun run scripts/seed-prod.ts",
 		"migrate": "bun run --filter @subq/api migrate",
 		"deploy": "flyctl deploy --remote-only",
+		"knip": "knip",
 		"cli": "SUBQ_API_URL=http://localhost:3001 bun run packages/cli/src/main.ts",
 		"tui": "SUBQ_API_URL=http://localhost:3001 bun run packages/tui/src/main.tsx"
 	},
@@ -43,6 +44,7 @@
 		"@effect/language-service": "latest",
 		"@types/bun": "^1.2.20",
 		"babel-plugin-annotate-pure-calls": "^0.5.0",
+		"knip": "^5.79.0",
 		"lefthook": "^2.0.2",
 		"oxfmt": "^0.20.0",
 		"oxlint": "^1.35.0",
