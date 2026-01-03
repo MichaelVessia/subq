@@ -47,8 +47,42 @@ jobs:
       - name: CLI tests
         run: bun run test:cli
 
+  docker-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t subq-test .
+      - name: Start container
+        run: |
+          docker run -d -p 8080:8080 --name subq-test \
+            -e DATABASE_PATH=/app/data/test.db \
+            -e BETTER_AUTH_SECRET=test-secret-for-ci \
+            -e BETTER_AUTH_URL=http://localhost:8080 \
+            -e REMINDER_SECRET=test-reminder-secret \
+            -e RESEND_API_KEY=re_test_key \
+            subq-test
+      - name: Wait for health check
+        run: |
+          echo "Waiting for server to start..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health; then
+              echo ""
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting..."
+            sleep 1
+          done
+          echo "Health check failed after 30 seconds"
+          docker logs subq-test
+          exit 1
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs subq-test
+
   deploy:
-    needs: [typecheck, lint, format, test, test-cli]
+    needs: [typecheck, lint, format, test, test-cli, docker-smoke-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +113,7 @@ jobs:
   #         BASE_URL: https://subq.vessia.net
 
   build-cli:
-    needs: [typecheck, lint, format, test, test-cli]
+    needs: [typecheck, lint, format, test, test-cli, docker-smoke-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -125,7 +159,7 @@ jobs:
           make_latest: true
 
   build-tui:
-    needs: [typecheck, lint, format, test, test-cli]
+    needs: [typecheck, lint, format, test, test-cli, docker-smoke-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
