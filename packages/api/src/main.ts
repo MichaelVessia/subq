@@ -1,12 +1,4 @@
-import {
-  FileSystem,
-  HttpBody,
-  HttpMiddleware,
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-  Path,
-} from '@effect/platform'
+import { FileSystem, HttpMiddleware, HttpRouter, HttpServerRequest, HttpServerResponse, Path } from '@effect/platform'
 import { BunContext, BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
 import { AppRpcs } from '@subq/shared'
@@ -256,12 +248,9 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
           if (stat.type === 'File') {
             const ext = path.extname(filePath)
             const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-            const body = yield* HttpBody.file(filePath, { contentType })
             const cacheControl = getCacheControl(filePath, pathname)
-            return HttpServerResponse.raw(body, { status: 200 }).pipe(
-              HttpServerResponse.setHeader('Cache-Control', cacheControl),
-              HttpServerResponse.setHeader('Content-Type', contentType),
-            )
+            const response = yield* HttpServerResponse.file(filePath, { contentType })
+            return response.pipe(HttpServerResponse.setHeader('Cache-Control', cacheControl))
           }
         }
 
@@ -269,11 +258,8 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
         const indexPath = path.join(STATIC_DIR, 'index.html')
         const indexExists = yield* fs.exists(indexPath)
         if (indexExists) {
-          const body = yield* HttpBody.file(indexPath, { contentType: 'text/html' })
-          return HttpServerResponse.raw(body, { status: 200 }).pipe(
-            HttpServerResponse.setHeader('Cache-Control', 'no-cache'),
-            HttpServerResponse.setHeader('Content-Type', 'text/html'),
-          )
+          const response = yield* HttpServerResponse.file(indexPath, { contentType: 'text/html' })
+          return response.pipe(HttpServerResponse.setHeader('Cache-Control', 'no-cache'))
         }
 
         return HttpServerResponse.text('Not Found', { status: 404 })
