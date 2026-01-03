@@ -235,6 +235,20 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
         const safePath = pathname.replace(/\.\./g, '')
         const filePath = path.join(STATIC_DIR, safePath)
 
+        // Determine Cache-Control header based on path
+        const getCacheControl = (filePath: string, pathname: string): string => {
+          // Hashed assets (Vite build output) - cache forever
+          if (pathname.startsWith('/assets/')) {
+            return 'public, max-age=31536000, immutable'
+          }
+          // index.html - always revalidate (references hashed assets)
+          if (pathname === '/' || pathname.endsWith('.html')) {
+            return 'no-cache'
+          }
+          // Other static files (fonts, images) - cache for 1 hour
+          return 'public, max-age=3600'
+        }
+
         // Check if file exists
         const exists = yield* fs.exists(filePath)
         if (exists) {
@@ -243,7 +257,11 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
             const ext = path.extname(filePath)
             const contentType = MIME_TYPES[ext] || 'application/octet-stream'
             const body = yield* HttpBody.file(filePath, { contentType })
-            return HttpServerResponse.empty().pipe(HttpServerResponse.setBody(body))
+            const cacheControl = getCacheControl(filePath, pathname)
+            return HttpServerResponse.empty().pipe(
+              HttpServerResponse.setHeader('Cache-Control', cacheControl),
+              HttpServerResponse.setBody(body),
+            )
           }
         }
 
@@ -252,7 +270,10 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
         const indexExists = yield* fs.exists(indexPath)
         if (indexExists) {
           const body = yield* HttpBody.file(indexPath, { contentType: 'text/html' })
-          return HttpServerResponse.empty().pipe(HttpServerResponse.setBody(body))
+          return HttpServerResponse.empty().pipe(
+            HttpServerResponse.setHeader('Cache-Control', 'no-cache'),
+            HttpServerResponse.setBody(body),
+          )
         }
 
         return HttpServerResponse.text('Not Found', { status: 404 })
