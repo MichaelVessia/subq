@@ -1,5 +1,5 @@
 import { getNextSite } from '@subq/shared'
-import { Config, Data, Effect, Layer, Redacted, Schedule } from 'effect'
+import { Config, Data, Effect, Layer, Option, Redacted, Schedule } from 'effect'
 import { Resend } from 'resend'
 import type { UserDueForReminder } from './reminder-service.js'
 
@@ -78,69 +78,90 @@ export class EmailService extends Effect.Tag('EmailService')<
 // Service Implementation
 // ============================================
 
-export const EmailServiceLive = Layer.effect(
-  EmailService,
-  Effect.gen(function* () {
-    const apiKey = yield* Config.redacted('RESEND_API_KEY')
-    const resend = new Resend(Redacted.value(apiKey))
+// No-op implementation when RESEND_API_KEY is not configured
+const noOpEmailService: EmailService['Type'] = {
+  sendReminderEmail: (user) =>
+    Effect.logWarning('Email disabled - RESEND_API_KEY not configured').pipe(
+      Effect.annotateLogs({ email: user.email }),
+    ),
+  sendReminderEmails: (users) =>
+    Effect.logWarning('Email disabled - RESEND_API_KEY not configured').pipe(
+      Effect.annotateLogs({ userCount: users.length }),
+      Effect.map(() => ({ sent: 0, failed: users.length, errors: ['RESEND_API_KEY not configured'] })),
+    ),
+}
 
-    // Retry policy: 3 attempts with exponential backoff
-    const retryPolicy = Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
+// Real implementation with Resend
+const createRealEmailService = (apiKey: string): EmailService['Type'] => {
+  const resend = new Resend(apiKey)
+  const retryPolicy = Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
 
-    const sendReminderEmail = (user: UserDueForReminder): Effect.Effect<void, EmailServiceError> =>
-      Effect.tryPromise({
-        try: async () => {
-          const email = createReminderEmail(user)
-          const result = await resend.emails.send(email)
-          if (result.error) {
-            throw new Error(result.error.message)
-          }
-          return result
-        },
-        catch: (error) => new EmailServiceError({ message: `Failed to send email to ${user.email}`, cause: error }),
-      }).pipe(
-        Effect.retry(retryPolicy),
-        Effect.tap(() =>
-          Effect.logInfo('Reminder email sent').pipe(Effect.annotateLogs({ email: user.email, drug: user.drug })),
-        ),
-        Effect.asVoid,
-      )
+  const sendReminderEmail = (user: UserDueForReminder): Effect.Effect<void, EmailServiceError> =>
+    Effect.tryPromise({
+      try: async () => {
+        const email = createReminderEmail(user)
+        const result = await resend.emails.send(email)
+        if (result.error) {
+          throw new Error(result.error.message)
+        }
+        return result
+      },
+      catch: (error) => new EmailServiceError({ message: `Failed to send email to ${user.email}`, cause: error }),
+    }).pipe(
+      Effect.retry(retryPolicy),
+      Effect.tap(() =>
+        Effect.logInfo('Reminder email sent').pipe(Effect.annotateLogs({ email: user.email, drug: user.drug })),
+      ),
+      Effect.asVoid,
+    )
 
-    const sendReminderEmails = (users: UserDueForReminder[]) =>
-      Effect.gen(function* () {
-        let sent = 0
-        let failed = 0
-        const errors: string[] = []
+  const sendReminderEmails = (users: UserDueForReminder[]) =>
+    Effect.gen(function* () {
+      let sent = 0
+      let failed = 0
+      const errors: string[] = []
 
-        // Send emails in parallel with concurrency limit
-        const results = yield* Effect.all(
-          users.map((user) =>
-            sendReminderEmail(user).pipe(
-              Effect.map(() => ({ success: true as const, email: user.email })),
-              Effect.catchAll((error) =>
-                Effect.succeed({ success: false as const, email: user.email, error: error.message }),
-              ),
+      const results = yield* Effect.all(
+        users.map((user) =>
+          sendReminderEmail(user).pipe(
+            Effect.map(() => ({ success: true as const, email: user.email })),
+            Effect.catchAll((error) =>
+              Effect.succeed({ success: false as const, email: user.email, error: error.message }),
             ),
           ),
-          { concurrency: 5 },
-        )
+        ),
+        { concurrency: 5 },
+      )
 
-        for (const result of results) {
-          if (result.success) {
-            sent++
-          } else {
-            failed++
-            errors.push(`${result.email}: ${result.error}`)
-          }
+      for (const result of results) {
+        if (result.success) {
+          sent++
+        } else {
+          failed++
+          errors.push(`${result.email}: ${result.error}`)
         }
+      }
 
-        yield* Effect.logInfo('Reminder emails batch completed').pipe(
-          Effect.annotateLogs({ sent, failed, total: users.length }),
-        )
+      yield* Effect.logInfo('Reminder emails batch completed').pipe(
+        Effect.annotateLogs({ sent, failed, total: users.length }),
+      )
 
-        return { sent, failed, errors }
-      })
+      return { sent, failed, errors }
+    })
 
-    return { sendReminderEmail, sendReminderEmails }
+  return { sendReminderEmail, sendReminderEmails }
+}
+
+export const EmailServiceLive = Layer.unwrapEffect(
+  Effect.gen(function* () {
+    const apiKeyOption = yield* Config.option(Config.redacted('RESEND_API_KEY'))
+
+    if (Option.isNone(apiKeyOption)) {
+      yield* Effect.logWarning('RESEND_API_KEY not configured - email sending disabled')
+      return Layer.succeed(EmailService, noOpEmailService)
+    }
+
+    yield* Effect.logInfo('Email service initialized with Resend')
+    return Layer.succeed(EmailService, createRealEmailService(Redacted.value(apiKeyOption.value)))
   }),
 )
