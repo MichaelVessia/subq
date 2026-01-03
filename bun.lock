@@ -82,11 +82,8 @@
       "name": "@subq/web",
       "version": "0.0.0",
       "dependencies": {
-        "@effect-atom/atom": "0.3.4",
         "@effect-atom/atom-react": "0.3.4",
-        "@effect/experimental": "0.56.0",
         "@effect/platform": "0.92.1",
-        "@effect/platform-browser": "0.72.0",
         "@effect/rpc": "0.71.0",
         "@hookform/resolvers": "^5.2.2",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -187,8 +184,6 @@
     "@effect/opentelemetry": ["@effect/opentelemetry@0.59.1", "", { "peerDependencies": { "@effect/platform": "^0.93.1", "@opentelemetry/api": "^1.9", "@opentelemetry/resources": "^2.0.0", "@opentelemetry/sdk-logs": "^0.203.0", "@opentelemetry/sdk-metrics": "^2.0.0", "@opentelemetry/sdk-trace-base": "^2.0.0", "@opentelemetry/sdk-trace-node": "^2.0.0", "@opentelemetry/sdk-trace-web": "^2.0.0", "@opentelemetry/semantic-conventions": "^1.33.0", "effect": "^3.19.3" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-mG+duN2KLJR6lDwuxEyoZqe5/4aSVnK50MoY87AC/u3hQGiSHxP7tZIORUghKd6JEEODJb4zP8eo7wmW7EGTuw=="],
 
     "@effect/platform": ["@effect/platform@0.92.1", "", { "dependencies": { "find-my-way-ts": "^0.1.6", "msgpackr": "^1.11.4", "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^3.18.1" } }, "sha512-XXWCBVwyhaKZISN7aM1fv/3fWDGyxr84ObywnUrL8aHvJLoIeskWFAP/fqw3c5MFCrJ3ZV97RWLbv6JiBQugdg=="],
-
-    "@effect/platform-browser": ["@effect/platform-browser@0.72.0", "", { "dependencies": { "multipasta": "^0.2.7" }, "peerDependencies": { "@effect/platform": "^0.92.0", "effect": "^3.18.0" } }, "sha512-xLlhR2S5yGo7//i8rTOiu1wCyrmrotXk+lK7Y257odxmQ2+HhV4wA2E+xFa0bFbHnqFCE3Yza9r0BkA3y1tgag=="],
 
     "@effect/platform-bun": ["@effect/platform-bun@0.72.0", "", { "dependencies": { "@effect/platform-node-shared": "^0.42.0", "multipasta": "^0.2.5" }, "peerDependencies": { "@effect/cluster": "^0.41.0", "@effect/platform": "^0.87.0", "@effect/rpc": "^0.64.0", "@effect/sql": "^0.40.0", "effect": "^3.16.9" } }, "sha512-pKIn4jC4BVNdk8b+x5Gsr0VLBZy2TqGJxHjQy7V/UoG8PxWzO3EUIAV+UhBTcvLXvNOHjk6MfJpIu6/oqca45w=="],
 
