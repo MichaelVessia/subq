@@ -32,7 +32,7 @@ interface StatsData {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Width threshold below which we switch to single-column layout
+// Width threshold below which we switch to single-column paged layout
 const SINGLE_COLUMN_THRESHOLD = 100
 
 export function StatsDashboard({ onMessage }: StatsDashboardProps) {
@@ -296,11 +296,14 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
       </Section>,
     )
 
-    // Single column: stack everything vertically with scroll
+    // Single column paged view: show one section at a time
+    const currentSection = sections[selectedSection]
     return (
       <box style={{ flexDirection: 'column', flexGrow: 1 }}>
-        <box style={{ flexDirection: 'column', flexGrow: 1, overflow: 'scroll' }}>{sections}</box>
-        <text fg={theme.textSubtle}>[j/k] navigate [r] refresh</text>
+        <box style={{ flexDirection: 'column', flexGrow: 1 }}>{currentSection}</box>
+        <text fg={theme.textSubtle}>
+          [{selectedSection + 1}/{sections.length}] j/k:nav r:refresh
+        </text>
       </box>
     )
   }
