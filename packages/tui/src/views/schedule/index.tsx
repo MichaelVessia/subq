@@ -10,8 +10,8 @@ import { formatDate } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme, mocha } from '../../theme'
 
-// Width threshold below which we use compact layout
-const COMPACT_WIDTH_THRESHOLD = 80
+// Width threshold below which we show one schedule at a time (paged view)
+const PAGED_WIDTH_THRESHOLD = 100
 
 interface ScheduleViewProps {
   onMessage: (text: string, type: 'success' | 'error' | 'info') => void
@@ -65,9 +65,15 @@ function formatPhaseDuration(phase: SchedulePhaseView): string {
   return `for ${phase.durationDays} days`
 }
 
+// Truncate text to fit width
+function truncateText(text: string, maxWidth: number): string {
+  if (text.length <= maxWidth) return text
+  return text.slice(0, maxWidth - 1) + '…'
+}
+
 export function ScheduleView({ onMessage }: ScheduleViewProps) {
   const { width: termWidth } = useTerminalDimensions()
-  const compact = termWidth < COMPACT_WIDTH_THRESHOLD
+  const paged = termWidth < PAGED_WIDTH_THRESHOLD
 
   const [schedules, setSchedules] = useState<readonly InjectionSchedule[]>([])
   const [scheduleViews, setScheduleViews] = useState<Map<string, ScheduleViewType>>(new Map())
@@ -208,6 +214,136 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
     )
   }
 
+  // Render a single schedule card
+  const renderScheduleCard = (schedule: InjectionSchedule, idx: number, forceExpanded = false) => {
+    const isSelected = idx === selectedIndex
+    const isExpanded = forceExpanded || expandedId === schedule.id
+    const view = scheduleViews.get(schedule.id)
+
+    return (
+      <box
+        key={schedule.id}
+        style={{
+          flexDirection: 'column',
+          borderStyle: 'single',
+          borderColor: isSelected ? (schedule.isActive ? mocha.blue : theme.border) : theme.border,
+          marginBottom: 1,
+          padding: 1,
+        }}
+        backgroundColor={isSelected ? theme.bgSurface : theme.bg}
+      >
+        {/* Schedule header */}
+        <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <box style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <text fg={isSelected ? theme.text : theme.textMuted}>
+              {isSelected && !paged ? '▸ ' : ''}
+              <strong>{schedule.name}</strong>
+            </text>
+            {schedule.isActive && <text fg={mocha.green}> [Active]</text>}
+          </box>
+          {!paged && <text fg={theme.textSubtle}>{!schedule.isActive && '[a] Activate  '}[d] Delete</text>}
+        </box>
+
+        {/* Drug and metadata */}
+        <text fg={theme.textMuted}>
+          {schedule.drug}
+          {schedule.source ? ` (${schedule.source})` : ''}
+        </text>
+
+        <text fg={theme.textSubtle}>
+          {paged
+            ? `${formatFrequency(schedule.frequency)} · ${view ? formatDuration(view) : ''}`
+            : `Started ${formatDate(schedule.startDate)} · ${formatFrequency(schedule.frequency)}${view ? ` · ${formatDuration(view)}` : ''}`}
+        </text>
+
+        {/* Phases - always show summary, expand for details */}
+        {view && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            {view.phases.map((phase) => (
+              <box
+                key={phase.id}
+                style={{
+                  flexDirection: 'column',
+                  padding: 0,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  marginBottom: 0,
+                }}
+                backgroundColor={getPhaseBg(phase)}
+              >
+                {paged ? (
+                  // Narrow: all info on single line to avoid overlap bugs
+                  <box>
+                    <text fg={getPhaseColor(phase)}>
+                      {`${getPhaseSymbol(phase).padStart(2)}  ${phase.dosage}  ${formatPhaseDuration(phase)}`}
+                    </text>
+                  </box>
+                ) : (
+                  // Wide: all on one line
+                  <box style={{ flexDirection: 'row' }}>
+                    <text fg={getPhaseColor(phase)}>{getPhaseSymbol(phase).padStart(2)}</text>
+                    <text fg={theme.text}>
+                      {'  '}
+                      <strong>{phase.dosage}</strong>
+                    </text>
+                    <text fg={theme.textMuted}>
+                      {'  '}
+                      {formatPhaseDuration(phase)}
+                    </text>
+                  </box>
+                )}
+              </box>
+            ))}
+          </box>
+        )}
+
+        {/* Expanded details - hide in paged mode to avoid overflow */}
+        {isExpanded && view && !paged && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            <box>
+              <text fg={theme.border}>{'─'.repeat(Math.min(40, termWidth - 6))}</text>
+            </box>
+            <box>
+              <text fg={theme.textSubtle}>
+                Progress: {view.totalCompletedInjections}
+                {view.totalExpectedInjections !== null ? ` / ${view.totalExpectedInjections}` : ' (indefinite)'}
+              </text>
+            </box>
+            {schedule.notes && (
+              <box>
+                <text fg={theme.textMuted}>
+                  {truncateText(`Notes: ${schedule.notes.replace(/[\n\r]/g, ' ')}`, termWidth - 8)}
+                </text>
+              </box>
+            )}
+          </box>
+        )}
+      </box>
+    )
+  }
+
+  // Paged view: show one schedule at a time
+  if (paged) {
+    const currentSchedule = schedules[selectedIndex]
+    if (!currentSchedule) return null
+
+    return (
+      <box style={{ flexDirection: 'column', flexGrow: 1 }}>
+        <text fg={theme.accent}>
+          <strong>Schedule</strong>
+        </text>
+
+        <box style={{ flexDirection: 'column', flexGrow: 1, marginTop: 1 }}>
+          {renderScheduleCard(currentSchedule, selectedIndex)}
+        </box>
+
+        <text fg={theme.textSubtle}>
+          [{selectedIndex + 1}/{schedules.length}] j/k:nav r:refresh
+        </text>
+      </box>
+    )
+  }
+
   return (
     <box style={{ flexDirection: 'column', flexGrow: 1 }}>
       {/* Header */}
@@ -222,101 +358,7 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
 
       {/* Schedule list */}
       <box style={{ flexDirection: 'column', flexGrow: 1, overflow: 'scroll' }}>
-        {schedules.map((schedule, idx) => {
-          const isSelected = idx === selectedIndex
-          const isExpanded = expandedId === schedule.id
-          const view = scheduleViews.get(schedule.id)
-
-          return (
-            <box
-              key={schedule.id}
-              style={{
-                flexDirection: 'column',
-                borderStyle: 'single',
-                borderColor: isSelected ? (schedule.isActive ? mocha.blue : theme.border) : theme.border,
-                marginBottom: 1,
-                padding: 1,
-              }}
-              backgroundColor={isSelected ? theme.bgSurface : theme.bg}
-            >
-              {/* Schedule header */}
-              <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <text fg={isSelected ? theme.text : theme.textMuted}>
-                    {isSelected ? '▸ ' : '  '}
-                    <strong>{schedule.name}</strong>
-                  </text>
-                  {schedule.isActive && <text fg={mocha.green}> [Active]</text>}
-                </box>
-                {!compact && <text fg={theme.textSubtle}>{!schedule.isActive && '[a] Activate  '}[d] Delete</text>}
-              </box>
-
-              {/* Drug and metadata */}
-              <text fg={theme.textMuted}>
-                {schedule.drug}
-                {schedule.source ? ` (${schedule.source})` : ''}
-              </text>
-
-              {compact ? (
-                <box style={{ flexDirection: 'column' }}>
-                  <text fg={theme.textSubtle}>Started {formatDate(schedule.startDate)}</text>
-                  <text fg={theme.textSubtle}>
-                    {formatFrequency(schedule.frequency)}
-                    {view ? ` · ${formatDuration(view)}` : ''}
-                  </text>
-                </box>
-              ) : (
-                <text fg={theme.textSubtle}>
-                  Started {formatDate(schedule.startDate)} · {formatFrequency(schedule.frequency)}
-                  {view ? ` · ${formatDuration(view)}` : ''}
-                </text>
-              )}
-
-              {/* Phases - always show summary, expand for details */}
-              {view && (
-                <box style={{ flexDirection: 'column', marginTop: 1 }}>
-                  {view.phases.map((phase) => (
-                    <box
-                      key={phase.id}
-                      style={{
-                        flexDirection: 'row',
-                        padding: 0,
-                        paddingLeft: 1,
-                        paddingRight: 1,
-                        marginBottom: 0,
-                      }}
-                      backgroundColor={getPhaseBg(phase)}
-                    >
-                      <text fg={getPhaseColor(phase)}>{getPhaseSymbol(phase).padStart(2)}</text>
-                      <text fg={theme.text}>
-                        {'  '}
-                        <strong>{phase.dosage}</strong>
-                      </text>
-                      <text fg={theme.textMuted}>
-                        {'  '}
-                        {formatPhaseDuration(phase)}
-                      </text>
-                    </box>
-                  ))}
-                </box>
-              )}
-
-              {/* Expanded details */}
-              {isExpanded && view && (
-                <box style={{ flexDirection: 'column', marginTop: 1 }}>
-                  <text fg={theme.border}>{'─'.repeat(40)}</text>
-                  <text fg={theme.textSubtle}>
-                    Progress: {view.totalCompletedInjections}
-                    {view.totalExpectedInjections !== null
-                      ? ` / ${view.totalExpectedInjections} injections`
-                      : ' injections (indefinite)'}
-                  </text>
-                  {schedule.notes && <text fg={theme.textMuted}>Notes: {schedule.notes.replace(/[\n\r]/g, ' ')}</text>}
-                </box>
-              )}
-            </box>
-          )
-        })}
+        {schedules.map((schedule, idx) => renderScheduleCard(schedule, idx))}
       </box>
 
       {/* Keybind hints */}
