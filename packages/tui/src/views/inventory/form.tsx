@@ -96,14 +96,14 @@ export function InventoryForm({ item, onSave, onCancel, onMessage }: InventoryFo
       onCancel()
     } else if (key.ctrl && key.name === 's') {
       handleSave()
+    } else if ((key.shift && key.name === 'tab') || (key.ctrl && key.name === 'p')) {
+      // Previous field (check shift+tab before tab)
+      const idx = fields.indexOf(focusedField)
+      setFocusedField(fields[(idx - 1 + fields.length) % fields.length] as Field)
     } else if (key.name === 'tab' || (key.ctrl && key.name === 'n')) {
       // Next field
       const idx = fields.indexOf(focusedField)
       setFocusedField(fields[(idx + 1) % fields.length] as Field)
-    } else if ((key.shift && key.name === 'tab') || (key.ctrl && key.name === 'p')) {
-      // Previous field
-      const idx = fields.indexOf(focusedField)
-      setFocusedField(fields[(idx - 1 + fields.length) % fields.length] as Field)
     } else if (
       focusedField === 'form' &&
       (key.name === 'left' || key.name === 'right' || key.name === 'h' || key.name === 'l')
@@ -143,10 +143,8 @@ export function InventoryForm({ item, onSave, onCancel, onMessage }: InventoryFo
             height: 3,
           }}
         >
-          <input placeholder={placeholder} focused={isFocused} onInput={onChange} />
+          <input value={value} placeholder={placeholder} focused={isFocused} onInput={onChange} />
         </box>
-        {/* Show current value for editing since input doesn't display it */}
-        {value && <text fg={theme.textSubtle}>Current: {value}</text>}
       </box>
     )
   }
