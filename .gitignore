@@ -31,3 +31,4 @@ packages/web/playwright-report/
 packages/web/test-results/
 .tmp
 prod.db
+result
