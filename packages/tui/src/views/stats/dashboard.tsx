@@ -11,8 +11,6 @@ import {
   type WeightStats,
   type WeightTrendStats,
 } from '@subq/shared'
-// @ts-expect-error - no types available
-import asciichart from 'asciichart'
 import { DateTime } from 'effect'
 import { useCallback, useEffect, useState } from 'react'
 import { rpcCall } from '../../services/api-client'
@@ -395,7 +393,9 @@ function GoalProgressCard({ progress, isSelected = false }: { progress: GoalProg
   )
 }
 
-// ASCII Weight trend chart using asciichart
+// Sparkline weight trend using Unicode block characters
+const SPARKLINE_BLOCKS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+
 function WeightTrendChart({
   trend,
   weight,
@@ -411,19 +411,14 @@ function WeightTrendChart({
   const points = trend.points
   if (points.length < 2) return null
 
-  // Calculate available width for chart data
-  // Container is containerWidthPct of terminal, minus border (2) and padding (2)
+  // Calculate available width for sparkline
   const containerWidth = Math.floor(termWidth * containerWidthPct) - 4
-  // Y-axis labels take 7 chars (6 digits + space)
-  const yAxisWidth = 7
-  // Available width for data points
-  const chartWidth = Math.max(10, containerWidth - yAxisWidth)
-  const chartHeight = Math.max(5, Math.min(15, Math.floor(chartWidth / 5)))
+  const sparklineWidth = Math.max(10, containerWidth)
 
-  // Sample points evenly across the full range to fit chart width
+  // Sample points evenly across the full range to fit available width
   const sampled: (typeof points)[number][] = []
-  for (let i = 0; i < Math.min(chartWidth, points.length); i++) {
-    const idx = Math.floor((i / (chartWidth - 1)) * (points.length - 1))
+  for (let i = 0; i < Math.min(sparklineWidth, points.length); i++) {
+    const idx = Math.floor((i / (sparklineWidth - 1)) * (points.length - 1))
     const point = points[idx]
     if (point) sampled.push(point)
   }
@@ -432,45 +427,33 @@ function WeightTrendChart({
   const lastPoint = sampled[sampled.length - 1]
   if (!firstPoint || !lastPoint) return null
 
-  // Get weights for chart
+  // Get weight range for scaling
   const weights = sampled.map((p) => p.weight)
+  const minWeight = Math.min(...weights)
+  const maxWeight = Math.max(...weights)
+  const range = maxWeight - minWeight || 1
 
-  // Generate chart using asciichart
-  const chartStr: string = asciichart.plot(weights, {
-    height: chartHeight,
-    format: (x: number) => x.toFixed(0).padStart(6),
-  })
+  // Build sparkline string
+  const sparkline = weights
+    .map((w) => {
+      const normalized = (w - minWeight) / range
+      const blockIndex = Math.min(Math.floor(normalized * SPARKLINE_BLOCKS.length), SPARKLINE_BLOCKS.length - 1)
+      return SPARKLINE_BLOCKS[blockIndex]
+    })
+    .join('')
 
-  // Build date axis labels
-  const chartLines = chartStr.split('\n')
-  const dataWidth = sampled.length // one char per data point
-
+  // Date labels
   const firstDateLabel = formatDateWithYear(firstPoint.date)
   const lastDateLabel = formatDateWithYear(lastPoint.date)
-
-  // Build date axis - adapt to available width
-  let dateAxis: string
+  const dateWidth = sampled.length
   const minLabelWidth = firstDateLabel.length + lastDateLabel.length + 1
-  if (dataWidth >= 35) {
-    // Enough room for 3 labels
-    const midPoint = sampled[Math.floor(sampled.length / 2)]
-    const midDate = midPoint ? formatDateWithYear(midPoint.date) : ''
-    const midDateStart = Math.floor((dataWidth - midDate.length) / 2)
-    const spaceBetweenFirstAndMid = Math.max(1, midDateStart - firstDateLabel.length)
-    const spaceBetweenMidAndLast = Math.max(1, dataWidth - midDateStart - midDate.length - lastDateLabel.length)
-    dateAxis =
-      firstDateLabel +
-      ' '.repeat(spaceBetweenFirstAndMid) +
-      midDate +
-      ' '.repeat(spaceBetweenMidAndLast) +
-      lastDateLabel
-  } else if (dataWidth >= minLabelWidth) {
-    // Just first and last
-    const spaceBetween = dataWidth - firstDateLabel.length - lastDateLabel.length
-    dateAxis = firstDateLabel + ' '.repeat(spaceBetween) + lastDateLabel
+
+  let dateAxis: string
+  if (dateWidth >= minLabelWidth) {
+    const spaceBetween = dateWidth - firstDateLabel.length - lastDateLabel.length
+    dateAxis = firstDateLabel + ' '.repeat(Math.max(1, spaceBetween)) + lastDateLabel
   } else {
-    // Too narrow - just show last date right-aligned
-    dateAxis = lastDateLabel.padStart(dataWidth)
+    dateAxis = lastDateLabel.padStart(dateWidth)
   }
 
   return (
@@ -498,17 +481,8 @@ function WeightTrendChart({
       </box>
 
       <box style={{ flexDirection: 'column', marginTop: 1 }}>
-        {/* Chart lines */}
-        {chartLines.map((line, i) => (
-          <text key={i} fg={theme.info}>
-            {line}
-          </text>
-        ))}
-        {/* Date axis - padded to align with chart data area */}
-        <text fg={theme.textMuted}>
-          {' '.repeat(yAxisWidth)}
-          {dateAxis}
-        </text>
+        <text fg={theme.info}>{sparkline}</text>
+        <text fg={theme.textMuted}>{dateAxis}</text>
       </box>
     </box>
   )
