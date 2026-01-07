@@ -34,7 +34,13 @@ interface StatsData {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+// Width threshold below which we switch to single-column layout
+const SINGLE_COLUMN_THRESHOLD = 100
+
 export function StatsDashboard({ onMessage }: StatsDashboardProps) {
+  const { width: termWidth } = useTerminalDimensions()
+  const singleColumn = termWidth < SINGLE_COLUMN_THRESHOLD
+
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<StatsData>({
     weight: null,
@@ -86,89 +92,119 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     )
   }
 
+  // Reusable weight stats section
+  const weightStatsSection = (
+    <Section title="WEIGHT STATISTICS" color={theme.tab3}>
+      {stats.weight ? (
+        <box style={{ flexDirection: 'row', gap: 3, flexWrap: 'wrap' }}>
+          <Stat label="Min" value={`${stats.weight.minWeight}`} unit="lbs" />
+          <Stat label="Max" value={`${stats.weight.maxWeight}`} unit="lbs" />
+          <Stat label="Avg" value={stats.weight.avgWeight.toFixed(1)} unit="lbs" />
+          <Stat
+            label="Rate"
+            value={formatRate(stats.weight.rateOfChange)}
+            color={stats.weight.rateOfChange < 0 ? theme.success : theme.warning}
+          />
+        </box>
+      ) : (
+        <text fg={theme.textMuted}>No data</text>
+      )}
+    </Section>
+  )
+
+  const frequencySection = (
+    <Section title="INJECTION FREQUENCY" color={theme.tab1}>
+      {stats.frequency ? (
+        <box style={{ flexDirection: 'row', gap: 3, flexWrap: 'wrap' }}>
+          <Stat label="Total" value={`${stats.frequency.totalInjections}`} />
+          <Stat label="Per Week" value={stats.frequency.injectionsPerWeek.toFixed(1)} />
+          <Stat label="Avg Gap" value={stats.frequency.avgDaysBetween.toFixed(1)} unit="days" />
+          <Stat
+            label="Common"
+            value={
+              stats.frequency.mostFrequentDayOfWeek !== null
+                ? (DAY_NAMES[stats.frequency.mostFrequentDayOfWeek] ?? '-')
+                : '-'
+            }
+          />
+        </box>
+      ) : (
+        <text fg={theme.textMuted}>No data</text>
+      )}
+    </Section>
+  )
+
+  const sitesSection = (
+    <Section title="INJECTION SITES" color={theme.tab2}>
+      {stats.siteStats && stats.siteStats.sites.length > 0 ? (
+        <SitesList siteStats={stats.siteStats} />
+      ) : (
+        <text fg={theme.textMuted}>No data</text>
+      )}
+    </Section>
+  )
+
+  const drugsSection = (
+    <Section title="DRUGS USED" color={theme.tab4}>
+      {stats.drugBreakdown && stats.drugBreakdown.drugs.length > 0 ? (
+        <DrugsList drugBreakdown={stats.drugBreakdown} />
+      ) : (
+        <text fg={theme.textMuted}>No data</text>
+      )}
+    </Section>
+  )
+
+  const weightTrendSection =
+    stats.weightTrend && stats.weightTrend.points.length > 0 ? (
+      <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} containerWidthPct={singleColumn ? 1.0 : 0.55} />
+    ) : (
+      <Section title="WEIGHT TREND" color={theme.tab3}>
+        <text fg={theme.textMuted}>No weight data</text>
+      </Section>
+    )
+
+  const dayOfWeekSection =
+    stats.dayOfWeek && stats.dayOfWeek.days.length > 0 ? <DayOfWeekChart dayOfWeek={stats.dayOfWeek} /> : null
+
+  if (singleColumn) {
+    // Single column: stack everything vertically
+    return (
+      <box style={{ flexDirection: 'column', flexGrow: 1 }}>
+        {stats.goalProgress && <GoalProgressCard progress={stats.goalProgress} />}
+        <box style={{ flexDirection: 'column', flexGrow: 1, marginTop: 1 }}>
+          {weightTrendSection}
+          {weightStatsSection}
+          {frequencySection}
+          {dayOfWeekSection}
+          {sitesSection}
+          {drugsSection}
+        </box>
+        <text fg={theme.textSubtle}>[r] refresh</text>
+      </box>
+    )
+  }
+
+  // Two column layout
   return (
     <box style={{ flexDirection: 'column', flexGrow: 1 }}>
-      {/* Goal Progress */}
       {stats.goalProgress && <GoalProgressCard progress={stats.goalProgress} />}
 
-      {/* Two column layout: Chart left, Stats right */}
       <box style={{ flexDirection: 'row', flexGrow: 1, marginTop: 1 }}>
         {/* Left: Weight Trend Chart */}
         <box style={{ flexDirection: 'column', width: '55%' }}>
-          {stats.weightTrend && stats.weightTrend.points.length > 0 ? (
-            <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} containerWidthPct={0.55} />
-          ) : (
-            <Section title="WEIGHT TREND" color={theme.tab3}>
-              <text fg={theme.textMuted}>No weight data</text>
-            </Section>
-          )}
-
-          {/* Day of Week */}
-          {stats.dayOfWeek && stats.dayOfWeek.days.length > 0 && <DayOfWeekChart dayOfWeek={stats.dayOfWeek} />}
+          {weightTrendSection}
+          {dayOfWeekSection}
         </box>
 
         {/* Right: Stats panels */}
         <box style={{ flexDirection: 'column', width: '45%', paddingLeft: 1 }}>
-          {/* Weight Stats */}
-          <Section title="WEIGHT STATISTICS" color={theme.tab3}>
-            {stats.weight ? (
-              <box style={{ flexDirection: 'row', gap: 3 }}>
-                <Stat label="Min" value={`${stats.weight.minWeight}`} unit="lbs" />
-                <Stat label="Max" value={`${stats.weight.maxWeight}`} unit="lbs" />
-                <Stat label="Avg" value={stats.weight.avgWeight.toFixed(1)} unit="lbs" />
-                <Stat
-                  label="Rate"
-                  value={formatRate(stats.weight.rateOfChange)}
-                  color={stats.weight.rateOfChange < 0 ? theme.success : theme.warning}
-                />
-              </box>
-            ) : (
-              <text fg={theme.textMuted}>No data</text>
-            )}
-          </Section>
-
-          {/* Injection Frequency */}
-          <Section title="INJECTION FREQUENCY" color={theme.tab1}>
-            {stats.frequency ? (
-              <box style={{ flexDirection: 'row', gap: 3 }}>
-                <Stat label="Total" value={`${stats.frequency.totalInjections}`} />
-                <Stat label="Per Week" value={stats.frequency.injectionsPerWeek.toFixed(1)} />
-                <Stat label="Avg Gap" value={stats.frequency.avgDaysBetween.toFixed(1)} unit="days" />
-                <Stat
-                  label="Common"
-                  value={
-                    stats.frequency.mostFrequentDayOfWeek !== null
-                      ? (DAY_NAMES[stats.frequency.mostFrequentDayOfWeek] ?? '-')
-                      : '-'
-                  }
-                />
-              </box>
-            ) : (
-              <text fg={theme.textMuted}>No data</text>
-            )}
-          </Section>
-
-          {/* Injection Sites */}
-          <Section title="INJECTION SITES" color={theme.tab2}>
-            {stats.siteStats && stats.siteStats.sites.length > 0 ? (
-              <SitesList siteStats={stats.siteStats} />
-            ) : (
-              <text fg={theme.textMuted}>No data</text>
-            )}
-          </Section>
-
-          {/* Drugs Used */}
-          <Section title="DRUGS USED" color={theme.tab4}>
-            {stats.drugBreakdown && stats.drugBreakdown.drugs.length > 0 ? (
-              <DrugsList drugBreakdown={stats.drugBreakdown} />
-            ) : (
-              <text fg={theme.textMuted}>No data</text>
-            )}
-          </Section>
+          {weightStatsSection}
+          {frequencySection}
+          {sitesSection}
+          {drugsSection}
         </box>
       </box>
 
-      {/* Help */}
       <text fg={theme.textSubtle}>[r] refresh</text>
     </box>
   )
@@ -176,8 +212,10 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
 
 // Goal progress card
 function GoalProgressCard({ progress }: { progress: GoalProgress }) {
+  const { width: termWidth } = useTerminalDimensions()
   const pctComplete = Math.min(100, Math.max(0, progress.percentComplete))
-  const barWidth = 60
+  // Responsive bar width: full width minus border (2), padding (2), labels (~20), and percentage (~5)
+  const barWidth = Math.max(20, termWidth - 30)
   const filled = Math.round((pctComplete / 100) * barWidth)
 
   const paceColor =
@@ -225,7 +263,7 @@ function GoalProgressCard({ progress }: { progress: GoalProgress }) {
       </box>
 
       {/* Stats row */}
-      <box style={{ flexDirection: 'row', gap: 4, marginTop: 1 }}>
+      <box style={{ flexDirection: 'row', gap: 4, marginTop: 1, flexWrap: 'wrap' }}>
         <Stat label="Lost" value={progress.lbsLost.toFixed(1)} unit="lbs" color={theme.success} />
         <Stat label="To Go" value={progress.lbsRemaining.toFixed(1)} unit="lbs" />
         <Stat label="Rate" value={progress.avgLbsPerWeek.toFixed(2)} unit="lbs/wk" color={theme.info} />
@@ -353,8 +391,10 @@ function WeightTrendChart({
 
 // Day of week horizontal bar chart
 function DayOfWeekChart({ dayOfWeek }: { dayOfWeek: InjectionDayOfWeekStats }) {
+  const { width: termWidth } = useTerminalDimensions()
   const maxCount = Math.max(...dayOfWeek.days.map((d) => d.count), 1)
-  const barMaxWidth = 40
+  // Responsive bar width: account for border, padding, day name (4), count digits (~4)
+  const barMaxWidth = Math.max(10, Math.min(40, termWidth - 15))
 
   return (
     <box
