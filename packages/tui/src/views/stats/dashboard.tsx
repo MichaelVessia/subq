@@ -42,6 +42,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
   const singleColumn = termWidth < SINGLE_COLUMN_THRESHOLD
 
   const [loading, setLoading] = useState(true)
+  const [selectedSection, setSelectedSection] = useState(0)
   const [stats, setStats] = useState<StatsData>({
     weight: null,
     weightTrend: null,
@@ -78,9 +79,38 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     loadStats()
   }, [loadStats])
 
+  // Build section list for single-column navigation
+  const sectionCount = singleColumn
+    ? [
+        stats.goalProgress ? 1 : 0, // Goal Progress
+        1, // Weight Trend
+        1, // Weight Statistics
+        1, // Injection Frequency
+        stats.dayOfWeek && stats.dayOfWeek.days.length > 0 ? 1 : 0, // Day of Week
+        1, // Injection Sites
+        1, // Drugs Used
+      ].reduce((a, b) => a + b, 0)
+    : 0
+
   useKeyboard((key) => {
     if (key.name === 'r') {
       loadStats()
+    }
+    // Section navigation only in single-column mode
+    if (singleColumn && sectionCount > 0) {
+      if (key.name === 'j' || key.name === 'down') {
+        setSelectedSection((i) => Math.min(i + 1, sectionCount - 1))
+      } else if (key.name === 'k' || key.name === 'up') {
+        setSelectedSection((i) => Math.max(i - 1, 0))
+      } else if (key.name === 'g' && !key.shift) {
+        setSelectedSection(0)
+      } else if (key.shift && key.name === 'g') {
+        setSelectedSection(sectionCount - 1)
+      } else if (key.ctrl && key.name === 'd') {
+        setSelectedSection((i) => Math.min(i + 3, sectionCount - 1))
+      } else if (key.ctrl && key.name === 'u') {
+        setSelectedSection((i) => Math.max(i - 3, 0))
+      }
     }
   })
 
@@ -167,19 +197,106 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     stats.dayOfWeek && stats.dayOfWeek.days.length > 0 ? <DayOfWeekChart dayOfWeek={stats.dayOfWeek} /> : null
 
   if (singleColumn) {
-    // Single column: stack everything vertically
+    // Build sections array with proper index tracking for navigation
+    const sections: React.ReactNode[] = []
+    let idx = 0
+
+    if (stats.goalProgress) {
+      sections.push(<GoalProgressCard key="goal" progress={stats.goalProgress} isSelected={selectedSection === idx} />)
+      idx++
+    }
+
+    sections.push(
+      stats.weightTrend && stats.weightTrend.points.length > 0 ? (
+        <WeightTrendChart
+          key="trend"
+          trend={stats.weightTrend}
+          weight={stats.weight}
+          containerWidthPct={1.0}
+          isSelected={selectedSection === idx}
+        />
+      ) : (
+        <Section key="trend" title="WEIGHT TREND" color={theme.tab3} isSelected={selectedSection === idx}>
+          <text fg={theme.textMuted}>No weight data</text>
+        </Section>
+      ),
+    )
+    idx++
+
+    sections.push(
+      <Section key="weight" title="WEIGHT STATISTICS" color={theme.tab3} isSelected={selectedSection === idx}>
+        {stats.weight ? (
+          <box style={{ flexDirection: 'row', gap: 3, flexWrap: 'wrap' }}>
+            <Stat label="Min" value={`${stats.weight.minWeight}`} unit="lbs" />
+            <Stat label="Max" value={`${stats.weight.maxWeight}`} unit="lbs" />
+            <Stat label="Avg" value={stats.weight.avgWeight.toFixed(1)} unit="lbs" />
+            <Stat
+              label="Rate"
+              value={formatRate(stats.weight.rateOfChange)}
+              color={stats.weight.rateOfChange < 0 ? theme.success : theme.warning}
+            />
+          </box>
+        ) : (
+          <text fg={theme.textMuted}>No data</text>
+        )}
+      </Section>,
+    )
+    idx++
+
+    sections.push(
+      <Section key="freq" title="INJECTION FREQUENCY" color={theme.tab1} isSelected={selectedSection === idx}>
+        {stats.frequency ? (
+          <box style={{ flexDirection: 'row', gap: 3, flexWrap: 'wrap' }}>
+            <Stat label="Total" value={`${stats.frequency.totalInjections}`} />
+            <Stat label="Per Week" value={stats.frequency.injectionsPerWeek.toFixed(1)} />
+            <Stat label="Avg Gap" value={stats.frequency.avgDaysBetween.toFixed(1)} unit="days" />
+            <Stat
+              label="Common"
+              value={
+                stats.frequency.mostFrequentDayOfWeek !== null
+                  ? (DAY_NAMES[stats.frequency.mostFrequentDayOfWeek] ?? '-')
+                  : '-'
+              }
+            />
+          </box>
+        ) : (
+          <text fg={theme.textMuted}>No data</text>
+        )}
+      </Section>,
+    )
+    idx++
+
+    if (stats.dayOfWeek && stats.dayOfWeek.days.length > 0) {
+      sections.push(<DayOfWeekChart key="dow" dayOfWeek={stats.dayOfWeek} isSelected={selectedSection === idx} />)
+      idx++
+    }
+
+    sections.push(
+      <Section key="sites" title="INJECTION SITES" color={theme.tab2} isSelected={selectedSection === idx}>
+        {stats.siteStats && stats.siteStats.sites.length > 0 ? (
+          <SitesList siteStats={stats.siteStats} />
+        ) : (
+          <text fg={theme.textMuted}>No data</text>
+        )}
+      </Section>,
+    )
+    idx++
+
+    sections.push(
+      <Section key="drugs" title="DRUGS USED" color={theme.tab4} isSelected={selectedSection === idx}>
+        {stats.drugBreakdown && stats.drugBreakdown.drugs.length > 0 ? (
+          <DrugsList drugBreakdown={stats.drugBreakdown} />
+        ) : (
+          <text fg={theme.textMuted}>No data</text>
+        )}
+      </Section>,
+    )
+
+    // Single column: stack everything vertically with scroll
     return (
       <box style={{ flexDirection: 'column', flexGrow: 1 }}>
-        {stats.goalProgress && <GoalProgressCard progress={stats.goalProgress} />}
-        <box style={{ flexDirection: 'column', flexGrow: 1, marginTop: 1 }}>
-          {weightTrendSection}
-          {weightStatsSection}
-          {frequencySection}
-          {dayOfWeekSection}
-          {sitesSection}
-          {drugsSection}
-        </box>
-        <text fg={theme.textSubtle}>[r] refresh</text>
+        <box style={{ flexDirection: 'column', flexGrow: 1, overflow: 'scroll' }}>{sections}</box>
+        <text fg={theme.textSubtle}>[j/k] navigate [r] refresh</text>
       </box>
     )
   }
@@ -211,7 +328,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
 }
 
 // Goal progress card
-function GoalProgressCard({ progress }: { progress: GoalProgress }) {
+function GoalProgressCard({ progress, isSelected = false }: { progress: GoalProgress; isSelected?: boolean }) {
   const { width: termWidth } = useTerminalDimensions()
   const pctComplete = Math.min(100, Math.max(0, progress.percentComplete))
   // Responsive bar width: full width minus border (2), padding (2), labels (~20), and percentage (~5)
@@ -241,15 +358,18 @@ function GoalProgressCard({ progress }: { progress: GoalProgress }) {
       style={{
         flexDirection: 'column',
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: isSelected ? theme.accent : theme.border,
         paddingLeft: 1,
         paddingRight: 1,
       }}
     >
       <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <text fg={theme.accent}>
-          <strong>GOAL PROGRESS</strong>
-        </text>
+        <box style={{ flexDirection: 'row' }}>
+          {isSelected && <text fg={theme.accent}>▶ </text>}
+          <text fg={theme.accent}>
+            <strong>GOAL PROGRESS</strong>
+          </text>
+        </box>
         <text fg={paceColor}>[{paceLabel}]</text>
       </box>
 
@@ -280,10 +400,12 @@ function WeightTrendChart({
   trend,
   weight,
   containerWidthPct,
+  isSelected = false,
 }: {
   trend: WeightTrendStats
   weight: WeightStats | null
   containerWidthPct: number
+  isSelected?: boolean
 }) {
   const { width: termWidth } = useTerminalDimensions()
   const points = trend.points
@@ -356,15 +478,18 @@ function WeightTrendChart({
       style={{
         flexDirection: 'column',
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: isSelected ? theme.accent : theme.border,
         paddingLeft: 1,
         paddingRight: 1,
       }}
     >
       <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <text fg={theme.tab3}>
-          <strong>WEIGHT TREND</strong>
-        </text>
+        <box style={{ flexDirection: 'row' }}>
+          {isSelected && <text fg={theme.accent}>▶ </text>}
+          <text fg={theme.tab3}>
+            <strong>WEIGHT TREND</strong>
+          </text>
+        </box>
         {weight && (
           <text fg={theme.textMuted}>
             {weight.minWeight} - {weight.maxWeight} lbs
@@ -390,7 +515,13 @@ function WeightTrendChart({
 }
 
 // Day of week horizontal bar chart
-function DayOfWeekChart({ dayOfWeek }: { dayOfWeek: InjectionDayOfWeekStats }) {
+function DayOfWeekChart({
+  dayOfWeek,
+  isSelected = false,
+}: {
+  dayOfWeek: InjectionDayOfWeekStats
+  isSelected?: boolean
+}) {
   const { width: termWidth } = useTerminalDimensions()
   const maxCount = Math.max(...dayOfWeek.days.map((d) => d.count), 1)
   // Responsive bar width: account for border, padding, day name (4), count digits (~4)
@@ -401,15 +532,18 @@ function DayOfWeekChart({ dayOfWeek }: { dayOfWeek: InjectionDayOfWeekStats }) {
       style={{
         flexDirection: 'column',
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: isSelected ? theme.accent : theme.border,
         paddingLeft: 1,
         paddingRight: 1,
         marginTop: 1,
       }}
     >
-      <text fg={theme.accent}>
-        <strong>INJECTIONS BY DAY</strong>
-      </text>
+      <box style={{ flexDirection: 'row' }}>
+        {isSelected && <text fg={theme.accent}>▶ </text>}
+        <text fg={theme.accent}>
+          <strong>INJECTIONS BY DAY</strong>
+        </text>
+      </box>
       <box style={{ flexDirection: 'column', marginTop: 1 }}>
         {DAY_NAMES.map((name, idx) => {
           const dayData = dayOfWeek.days.find((d) => d.dayOfWeek === idx)
@@ -429,21 +563,34 @@ function DayOfWeekChart({ dayOfWeek }: { dayOfWeek: InjectionDayOfWeekStats }) {
 }
 
 // Section wrapper
-function Section({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
+function Section({
+  title,
+  color,
+  children,
+  isSelected = false,
+}: {
+  title: string
+  color: string
+  children: React.ReactNode
+  isSelected?: boolean
+}) {
   return (
     <box
       style={{
         flexDirection: 'column',
         borderStyle: 'single',
-        borderColor: theme.border,
+        borderColor: isSelected ? theme.accent : theme.border,
         paddingLeft: 1,
         paddingRight: 1,
         marginBottom: 1,
       }}
     >
-      <text fg={color}>
-        <strong>{title}</strong>
-      </text>
+      <box style={{ flexDirection: 'row' }}>
+        {isSelected && <text fg={theme.accent}>▶ </text>}
+        <text fg={color}>
+          <strong>{title}</strong>
+        </text>
+      </box>
       <box style={{ marginTop: 1 }}>{children}</box>
     </box>
   )
