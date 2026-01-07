@@ -1,6 +1,6 @@
 // Stats dashboard view showing key metrics
 
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import {
   type DrugBreakdownStats,
   type GoalProgress,
@@ -96,7 +96,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
         {/* Left: Weight Trend Chart */}
         <box style={{ flexDirection: 'column', width: '55%' }}>
           {stats.weightTrend && stats.weightTrend.points.length > 0 ? (
-            <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} />
+            <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} containerWidthPct={0.55} />
           ) : (
             <Section title="WEIGHT TREND" color={theme.tab3}>
               <text fg={theme.textMuted}>No weight data</text>
@@ -238,12 +238,27 @@ function GoalProgressCard({ progress }: { progress: GoalProgress }) {
 }
 
 // ASCII Weight trend chart using asciichart
-function WeightTrendChart({ trend, weight }: { trend: WeightTrendStats; weight: WeightStats | null }) {
+function WeightTrendChart({
+  trend,
+  weight,
+  containerWidthPct,
+}: {
+  trend: WeightTrendStats
+  weight: WeightStats | null
+  containerWidthPct: number
+}) {
+  const { width: termWidth } = useTerminalDimensions()
   const points = trend.points
   if (points.length < 2) return null
 
-  const chartHeight = 15
-  const chartWidth = 70
+  // Calculate available width for chart data
+  // Container is containerWidthPct of terminal, minus border (2) and padding (2)
+  const containerWidth = Math.floor(termWidth * containerWidthPct) - 4
+  // Y-axis labels take 7 chars (6 digits + space)
+  const yAxisWidth = 7
+  // Available width for data points
+  const chartWidth = Math.max(10, containerWidth - yAxisWidth)
+  const chartHeight = Math.max(5, Math.min(15, Math.floor(chartWidth / 5)))
 
   // Sample points evenly across the full range to fit chart width
   const sampled: (typeof points)[number][] = []
@@ -268,22 +283,35 @@ function WeightTrendChart({ trend, weight }: { trend: WeightTrendStats; weight: 
 
   // Build date axis labels
   const chartLines = chartStr.split('\n')
-  const midPoint = sampled[Math.floor(sampled.length / 2)]
-  const midDate = midPoint ? formatDateWithYear(midPoint.date) : ''
-
-  // Calculate chart dimensions - asciichart uses 7 chars for Y-axis label (6 digits + space)
-  const yAxisWidth = 7
   const dataWidth = sampled.length // one char per data point
+
   const firstDateLabel = formatDateWithYear(firstPoint.date)
   const lastDateLabel = formatDateWithYear(lastPoint.date)
 
-  // Build date axis string with proper spacing
-  const totalAxisWidth = dataWidth
-  const midDateStart = Math.floor((totalAxisWidth - midDate.length) / 2)
-  const spaceBetweenFirstAndMid = Math.max(1, midDateStart - firstDateLabel.length)
-  const spaceBetweenMidAndLast = Math.max(1, totalAxisWidth - midDateStart - midDate.length - lastDateLabel.length)
-  const dateAxis =
-    firstDateLabel + ' '.repeat(spaceBetweenFirstAndMid) + midDate + ' '.repeat(spaceBetweenMidAndLast) + lastDateLabel
+  // Build date axis - adapt to available width
+  let dateAxis: string
+  const minLabelWidth = firstDateLabel.length + lastDateLabel.length + 1
+  if (dataWidth >= 35) {
+    // Enough room for 3 labels
+    const midPoint = sampled[Math.floor(sampled.length / 2)]
+    const midDate = midPoint ? formatDateWithYear(midPoint.date) : ''
+    const midDateStart = Math.floor((dataWidth - midDate.length) / 2)
+    const spaceBetweenFirstAndMid = Math.max(1, midDateStart - firstDateLabel.length)
+    const spaceBetweenMidAndLast = Math.max(1, dataWidth - midDateStart - midDate.length - lastDateLabel.length)
+    dateAxis =
+      firstDateLabel +
+      ' '.repeat(spaceBetweenFirstAndMid) +
+      midDate +
+      ' '.repeat(spaceBetweenMidAndLast) +
+      lastDateLabel
+  } else if (dataWidth >= minLabelWidth) {
+    // Just first and last
+    const spaceBetween = dataWidth - firstDateLabel.length - lastDateLabel.length
+    dateAxis = firstDateLabel + ' '.repeat(spaceBetween) + lastDateLabel
+  } else {
+    // Too narrow - just show last date right-aligned
+    dateAxis = lastDateLabel.padStart(dataWidth)
+  }
 
   return (
     <box
