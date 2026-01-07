@@ -233,15 +233,10 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
         backgroundColor={isSelected ? theme.bgSurface : theme.bg}
       >
         {/* Schedule header */}
-        <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <text fg={isSelected ? theme.text : theme.textMuted}>
-              {isSelected && !paged ? '▸ ' : ''}
-              <strong>{schedule.name}</strong>
-            </text>
-            {schedule.isActive && <text fg={mocha.green}> [Active]</text>}
-          </box>
-          {!paged && <text fg={theme.textSubtle}>{!schedule.isActive && '[a] Activate  '}[d] Delete</text>}
+        <box>
+          <text fg={isSelected ? theme.text : theme.textMuted}>
+            {`${isSelected && !paged ? '▸ ' : ''}${schedule.name}${schedule.isActive ? ' [Active]' : ''}`}
+          </text>
         </box>
 
         {/* Drug and metadata */}
@@ -271,27 +266,12 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
                 }}
                 backgroundColor={getPhaseBg(phase)}
               >
-                {paged ? (
-                  // Narrow: all info on single line to avoid overlap bugs
-                  <box>
-                    <text fg={getPhaseColor(phase)}>
-                      {`${getPhaseSymbol(phase).padStart(2)}  ${phase.dosage}  ${formatPhaseDuration(phase)}`}
-                    </text>
-                  </box>
-                ) : (
-                  // Wide: all on one line
-                  <box style={{ flexDirection: 'row' }}>
-                    <text fg={getPhaseColor(phase)}>{getPhaseSymbol(phase).padStart(2)}</text>
-                    <text fg={theme.text}>
-                      {'  '}
-                      <strong>{phase.dosage}</strong>
-                    </text>
-                    <text fg={theme.textMuted}>
-                      {'  '}
-                      {formatPhaseDuration(phase)}
-                    </text>
-                  </box>
-                )}
+                {/* Single text element to avoid TUI overlap bugs */}
+                <box>
+                  <text fg={getPhaseColor(phase)}>
+                    {`${getPhaseSymbol(phase).padStart(2)}  ${phase.dosage}  ${formatPhaseDuration(phase)}`}
+                  </text>
+                </box>
               </box>
             ))}
           </box>
@@ -347,13 +327,13 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
   return (
     <box style={{ flexDirection: 'column', flexGrow: 1 }}>
       {/* Header */}
-      <box style={{ marginBottom: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
-        <box style={{ flexDirection: 'column' }}>
-          <text fg={theme.accent}>
-            <strong>Injection Schedule</strong>
-          </text>
-          <text fg={theme.textMuted}>Manage your injection schedule and titration phases</text>
-        </box>
+      <box style={{ marginBottom: 1 }}>
+        <text fg={theme.accent}>
+          <strong>Injection Schedule</strong>
+        </text>
+      </box>
+      <box style={{ marginBottom: 1 }}>
+        <text fg={theme.textMuted}>Manage your injection schedule and titration phases</text>
       </box>
 
       {/* Schedule list */}
