@@ -162,10 +162,17 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     </Section>
   )
 
+  // Calculate bar widths for charts
+  // Two-column: right side is 45%, minus border(2), padding(2), paddingLeft(1)
+  // Single-column: full width minus border(2), padding(2)
+  const twoColBarWidth = Math.max(10, Math.floor(termWidth * 0.45) - 10)
+  const singleColBarWidth = Math.max(10, termWidth - 10)
+  const barWidth = singleColumn ? singleColBarWidth : twoColBarWidth
+
   const sitesSection = (
     <Section title="INJECTION SITES" color={theme.tab2}>
       {stats.siteStats && stats.siteStats.sites.length > 0 ? (
-        <SitesList siteStats={stats.siteStats} />
+        <SitesList siteStats={stats.siteStats} barWidth={barWidth} />
       ) : (
         <text fg={theme.textMuted}>No data</text>
       )}
@@ -175,7 +182,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
   const drugsSection = (
     <Section title="DRUGS USED" color={theme.tab4}>
       {stats.drugBreakdown && stats.drugBreakdown.drugs.length > 0 ? (
-        <DrugsList drugBreakdown={stats.drugBreakdown} />
+        <DrugsList drugBreakdown={stats.drugBreakdown} barWidth={barWidth} />
       ) : (
         <text fg={theme.textMuted}>No data</text>
       )}
@@ -271,7 +278,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     sections.push(
       <Section key="sites" title="INJECTION SITES" color={theme.tab2} isSelected={selectedSection === idx}>
         {stats.siteStats && stats.siteStats.sites.length > 0 ? (
-          <SitesList siteStats={stats.siteStats} />
+          <SitesList siteStats={stats.siteStats} barWidth={singleColBarWidth} />
         ) : (
           <text fg={theme.textMuted}>No data</text>
         )}
@@ -282,7 +289,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
     sections.push(
       <Section key="drugs" title="DRUGS USED" color={theme.tab4} isSelected={selectedSection === idx}>
         {stats.drugBreakdown && stats.drugBreakdown.drugs.length > 0 ? (
-          <DrugsList drugBreakdown={stats.drugBreakdown} />
+          <DrugsList drugBreakdown={stats.drugBreakdown} barWidth={singleColBarWidth} />
         ) : (
           <text fg={theme.textMuted}>No data</text>
         )}
@@ -607,31 +614,45 @@ function pct(n: number, total: number): number {
 }
 
 // Sites list component
-function SitesList({ siteStats }: { siteStats: InjectionSiteStats }) {
+function SitesList({ siteStats, barWidth }: { siteStats: InjectionSiteStats; barWidth: number }) {
+  // Find max label length to align bars
+  const maxLabelLen = Math.max(...siteStats.sites.slice(0, 5).map((s) => s.site.length))
+  const labelWidth = Math.min(maxLabelLen + 1, 20) // cap label width
   return (
     <box style={{ flexDirection: 'column' }}>
-      {siteStats.sites.slice(0, 5).map((site) => (
-        <box key={site.site} style={{ flexDirection: 'row' }}>
-          <text fg={theme.textMuted}>{padRight(site.site, 18)}</text>
-          <text fg={theme.accent}>{'█'.repeat(Math.round((site.count / siteStats.totalInjections) * 15))}</text>
-          <text fg={theme.text}> {pct(site.count, siteStats.totalInjections)}%</text>
-        </box>
-      ))}
+      {siteStats.sites.slice(0, 5).map((site) => {
+        const pctVal = pct(site.count, siteStats.totalInjections)
+        const barLen = Math.round((pctVal / 100) * barWidth)
+        return (
+          <box key={site.site} style={{ flexDirection: 'row' }}>
+            <text fg={theme.textMuted}>{padRight(site.site, labelWidth)}</text>
+            <text fg={theme.accent}>{'█'.repeat(barLen) || '▏'}</text>
+            <text fg={theme.text}> {pctVal}%</text>
+          </box>
+        )
+      })}
     </box>
   )
 }
 
 // Drugs list component
-function DrugsList({ drugBreakdown }: { drugBreakdown: DrugBreakdownStats }) {
+function DrugsList({ drugBreakdown, barWidth }: { drugBreakdown: DrugBreakdownStats; barWidth: number }) {
+  // Find max label length to align bars
+  const maxLabelLen = Math.max(...drugBreakdown.drugs.slice(0, 5).map((d) => d.drug.length))
+  const labelWidth = Math.min(maxLabelLen + 1, 24) // cap label width
   return (
     <box style={{ flexDirection: 'column' }}>
-      {drugBreakdown.drugs.slice(0, 5).map((drug) => (
-        <box key={drug.drug} style={{ flexDirection: 'row' }}>
-          <text fg={theme.textMuted}>{padRight(drug.drug, 22)}</text>
-          <text fg={theme.accent}>{'█'.repeat(Math.round((drug.count / drugBreakdown.totalInjections) * 15))}</text>
-          <text fg={theme.text}> {pct(drug.count, drugBreakdown.totalInjections)}%</text>
-        </box>
-      ))}
+      {drugBreakdown.drugs.slice(0, 5).map((drug) => {
+        const pctVal = pct(drug.count, drugBreakdown.totalInjections)
+        const barLen = Math.round((pctVal / 100) * barWidth)
+        return (
+          <box key={drug.drug} style={{ flexDirection: 'row' }}>
+            <text fg={theme.textMuted}>{padRight(drug.drug, labelWidth)}</text>
+            <text fg={theme.accent}>{'█'.repeat(barLen) || '▏'}</text>
+            <text fg={theme.text}> {pctVal}%</text>
+          </box>
+        )
+      })}
     </box>
   )
 }
