@@ -1,6 +1,6 @@
 // Weight list view with vim keybinds
 
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { WeightLogListParams, type WeightLog, type WeightLogId } from '@subq/shared'
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
@@ -9,6 +9,9 @@ import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
 
+// Width threshold below which we hide the notes column
+const COMPACT_WIDTH_THRESHOLD = 60
+
 interface WeightListViewProps {
   onNew: () => void
   onEdit: (item: WeightLog) => void
@@ -16,6 +19,9 @@ interface WeightListViewProps {
 }
 
 export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps) {
+  const { width: termWidth } = useTerminalDimensions()
+  const showNotes = termWidth >= COMPACT_WIDTH_THRESHOLD
+
   const [items, setItems] = useState<readonly WeightLog[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -85,8 +91,10 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
     }
   })
 
-  // Column widths
-  const COL = { date: 14, weight: 12, notes: 40 }
+  // Column widths (responsive)
+  const COL = showNotes
+    ? { date: 14, weight: 12, notes: Math.max(10, termWidth - 30) }
+    : { date: 14, weight: 12, notes: 0 }
 
   if (loading) {
     return (
@@ -104,11 +112,11 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
           {'  '}
           {pad('Date', COL.date)}
           {pad('Weight', COL.weight)}
-          {pad('Notes', COL.notes)}
+          {showNotes && pad('Notes', COL.notes)}
         </text>
       </box>
       <box style={{ paddingLeft: 1, marginBottom: 1 }}>
-        <text fg={theme.border}>{'─'.repeat(COL.date + COL.weight + COL.notes + 2)}</text>
+        <text fg={theme.border}>{'─'.repeat(COL.date + COL.weight + (showNotes ? COL.notes : 0) + 2)}</text>
       </box>
 
       {/* List */}
@@ -121,12 +129,16 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
           {items.map((item, idx) => {
             const isSelected = idx === selectedIndex
             return (
-              <box key={item.id} style={{ paddingLeft: 1 }} backgroundColor={isSelected ? theme.bgSelected : theme.bg}>
+              <box
+                key={item.id}
+                style={{ paddingLeft: 1, height: 1 }}
+                backgroundColor={isSelected ? theme.bgSelected : theme.bg}
+              >
                 <text fg={isSelected ? theme.text : theme.textMuted}>
                   {isSelected ? '> ' : '  '}
                   {pad(formatDate(item.datetime), COL.date)}
                   {pad(`${item.weight} lbs`, COL.weight)}
-                  {pad(item.notes ?? '-', COL.notes)}
+                  {showNotes && pad((item.notes ?? '-').replace(/[\n\r]/g, ' '), COL.notes)}
                 </text>
               </box>
             )

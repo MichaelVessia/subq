@@ -1,6 +1,6 @@
 // Schedule view - displays injection schedules with titration phases
 
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import type { InjectionSchedule, SchedulePhaseView, ScheduleView as ScheduleViewType } from '@subq/shared'
 import { InjectionScheduleId } from '@subq/shared'
 import { DateTime } from 'effect'
@@ -9,6 +9,9 @@ import { ConfirmModal } from '../../components/confirm-modal'
 import { formatDate } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme, mocha } from '../../theme'
+
+// Width threshold below which we use compact layout
+const COMPACT_WIDTH_THRESHOLD = 80
 
 interface ScheduleViewProps {
   onMessage: (text: string, type: 'success' | 'error' | 'info') => void
@@ -63,6 +66,9 @@ function formatPhaseDuration(phase: SchedulePhaseView): string {
 }
 
 export function ScheduleView({ onMessage }: ScheduleViewProps) {
+  const { width: termWidth } = useTerminalDimensions()
+  const compact = termWidth < COMPACT_WIDTH_THRESHOLD
+
   const [schedules, setSchedules] = useState<readonly InjectionSchedule[]>([])
   const [scheduleViews, setScheduleViews] = useState<Map<string, ScheduleViewType>>(new Map())
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -235,36 +241,36 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
             >
               {/* Schedule header */}
               <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+                <box style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <text fg={isSelected ? theme.text : theme.textMuted}>
                     {isSelected ? '▸ ' : '  '}
                     <strong>{schedule.name}</strong>
                   </text>
-                  {schedule.isActive && (
-                    <box backgroundColor={mocha.surface0}>
-                      <text fg={mocha.green}>{' Active '}</text>
-                    </box>
-                  )}
+                  {schedule.isActive && <text fg={mocha.green}> [Active]</text>}
                 </box>
-                <box style={{ flexDirection: 'row', gap: 1 }}>
-                  {!schedule.isActive && <text fg={theme.textSubtle}>[a] Activate</text>}
-                  <text fg={theme.textSubtle}>[d] Delete</text>
-                </box>
+                {!compact && <text fg={theme.textSubtle}>{!schedule.isActive && '[a] Activate  '}[d] Delete</text>}
               </box>
 
               {/* Drug and metadata */}
-              <box style={{ marginTop: 0, flexDirection: 'row', gap: 2 }}>
-                <text fg={theme.textMuted}>
-                  {schedule.drug}
-                  {schedule.source ? ` (${schedule.source})` : ''}
-                </text>
-              </box>
+              <text fg={theme.textMuted}>
+                {schedule.drug}
+                {schedule.source ? ` (${schedule.source})` : ''}
+              </text>
 
-              <box style={{ flexDirection: 'row', gap: 2 }}>
-                <text fg={theme.textSubtle}>Started {formatDate(schedule.startDate)}</text>
-                <text fg={theme.textSubtle}>{formatFrequency(schedule.frequency)}</text>
-                {view && <text fg={theme.textSubtle}>{formatDuration(view)}</text>}
-              </box>
+              {compact ? (
+                <box style={{ flexDirection: 'column' }}>
+                  <text fg={theme.textSubtle}>Started {formatDate(schedule.startDate)}</text>
+                  <text fg={theme.textSubtle}>
+                    {formatFrequency(schedule.frequency)}
+                    {view ? ` · ${formatDuration(view)}` : ''}
+                  </text>
+                </box>
+              ) : (
+                <text fg={theme.textSubtle}>
+                  Started {formatDate(schedule.startDate)} · {formatFrequency(schedule.frequency)}
+                  {view ? ` · ${formatDuration(view)}` : ''}
+                </text>
+              )}
 
               {/* Phases - always show summary, expand for details */}
               {view && (
@@ -305,7 +311,7 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
                       ? ` / ${view.totalExpectedInjections} injections`
                       : ' injections (indefinite)'}
                   </text>
-                  {schedule.notes && <text fg={theme.textMuted}>Notes: {schedule.notes}</text>}
+                  {schedule.notes && <text fg={theme.textMuted}>Notes: {schedule.notes.replace(/[\n\r]/g, ' ')}</text>}
                 </box>
               )}
             </box>
@@ -314,11 +320,8 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
       </box>
 
       {/* Keybind hints */}
-      <box style={{ marginTop: 1, flexDirection: 'row', gap: 2 }}>
-        <text fg={theme.textSubtle}>[j/k] Navigate</text>
-        <text fg={theme.textSubtle}>[Enter/l] Expand</text>
-        <text fg={theme.textSubtle}>[h] Collapse</text>
-        <text fg={theme.textSubtle}>[r] Refresh</text>
+      <box style={{ marginTop: 1 }}>
+        <text fg={theme.textSubtle}>[j/k] Navigate [Enter/l] Expand [h] Collapse [r] Refresh</text>
       </box>
 
       {/* Delete confirmation modal */}

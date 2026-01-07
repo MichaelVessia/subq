@@ -1,6 +1,6 @@
 // Injections list view with vim keybinds
 
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { InjectionLogListParams, Limit, type InjectionLog, type InjectionLogId } from '@subq/shared'
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
@@ -9,6 +9,9 @@ import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
 
+// Width threshold below which we hide the site column
+const COMPACT_WIDTH_THRESHOLD = 70
+
 interface InjectionListViewProps {
   onNew: () => void
   onEdit: (injection: InjectionLog) => void
@@ -16,6 +19,9 @@ interface InjectionListViewProps {
 }
 
 export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListViewProps) {
+  const { width: termWidth } = useTerminalDimensions()
+  const showSite = termWidth >= COMPACT_WIDTH_THRESHOLD
+
   const [injections, setInjections] = useState<readonly InjectionLog[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -112,8 +118,10 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
     }
   })
 
-  // Column widths
-  const COL = { date: 14, drug: 28, dosage: 10, site: 16 }
+  // Column widths (responsive)
+  const COL = showSite
+    ? { date: 14, drug: Math.max(12, Math.floor((termWidth - 50) * 0.6)), dosage: 10, site: 16 }
+    : { date: 14, drug: Math.max(12, termWidth - 40), dosage: 10, site: 0 }
 
   if (loading) {
     return (
@@ -146,11 +154,11 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
           {pad('Date', COL.date)}
           {pad('Drug', COL.drug)}
           {pad('Dosage', COL.dosage)}
-          {pad('Site', COL.site)}
+          {showSite && pad('Site', COL.site)}
         </text>
       </box>
       <box style={{ paddingLeft: 1, marginBottom: 1 }}>
-        <text fg={theme.border}>{'─'.repeat(COL.date + COL.drug + COL.dosage + COL.site + 2)}</text>
+        <text fg={theme.border}>{'─'.repeat(COL.date + COL.drug + COL.dosage + (showSite ? COL.site : 0) + 2)}</text>
       </box>
 
       {/* List */}
@@ -165,13 +173,17 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
           {filteredInjections.map((inj, idx) => {
             const isSelected = idx === selectedIndex
             return (
-              <box key={inj.id} style={{ paddingLeft: 1 }} backgroundColor={isSelected ? theme.bgSelected : theme.bg}>
+              <box
+                key={inj.id}
+                style={{ paddingLeft: 1, height: 1 }}
+                backgroundColor={isSelected ? theme.bgSelected : theme.bg}
+              >
                 <text fg={isSelected ? theme.text : theme.textMuted}>
                   {isSelected ? '> ' : '  '}
                   {pad(formatDate(inj.datetime), COL.date)}
                   {pad(inj.drug, COL.drug)}
                   {pad(inj.dosage, COL.dosage)}
-                  {pad(inj.injectionSite ?? '-', COL.site)}
+                  {showSite && pad(inj.injectionSite ?? '-', COL.site)}
                 </text>
               </box>
             )

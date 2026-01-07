@@ -1,6 +1,6 @@
 // Inventory list view with vim keybinds
 
-import { useKeyboard } from '@opentui/react'
+import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { InventoryListParams, type Inventory, type InventoryId } from '@subq/shared'
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
@@ -9,6 +9,9 @@ import { formatDateOrDash, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
 
+// Width threshold below which we hide secondary columns (source, form, expiry)
+const COMPACT_WIDTH_THRESHOLD = 80
+
 interface InventoryListViewProps {
   onNew: () => void
   onEdit: (item: Inventory) => void
@@ -16,6 +19,9 @@ interface InventoryListViewProps {
 }
 
 export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListViewProps) {
+  const { width: termWidth } = useTerminalDimensions()
+  const showExtras = termWidth >= COMPACT_WIDTH_THRESHOLD
+
   const [items, setItems] = useState<readonly Inventory[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -153,8 +159,10 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
     }
   })
 
-  // Column widths
-  const COL = { drug: 20, amount: 10, status: 10, source: 18, form: 6, expiry: 14 }
+  // Column widths (responsive)
+  const COL = showExtras
+    ? { drug: 20, amount: 10, status: 10, source: 18, form: 6, expiry: 14 }
+    : { drug: Math.max(12, termWidth - 35), amount: 10, status: 10, source: 0, form: 0, expiry: 0 }
 
   if (loading) {
     return (
@@ -192,14 +200,14 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
           {pad('Drug', COL.drug)}
           {pad('Amount', COL.amount)}
           {pad('Status', COL.status)}
-          {pad('Source', COL.source)}
-          {pad('Form', COL.form)}
-          {pad('Expiry', COL.expiry)}
+          {showExtras && pad('Source', COL.source)}
+          {showExtras && pad('Form', COL.form)}
+          {showExtras && pad('Expiry', COL.expiry)}
         </text>
       </box>
       <box style={{ paddingLeft: 1, marginBottom: 1 }}>
         <text fg={theme.border}>
-          {'─'.repeat(COL.drug + COL.amount + COL.status + COL.source + COL.form + COL.expiry + 2)}
+          {'─'.repeat(COL.drug + COL.amount + COL.status + (showExtras ? COL.source + COL.form + COL.expiry : 0) + 2)}
         </text>
       </box>
 
@@ -213,15 +221,19 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
           {filteredItems.map((item, idx) => {
             const isSelected = idx === selectedIndex
             return (
-              <box key={item.id} style={{ paddingLeft: 1 }} backgroundColor={isSelected ? theme.bgSelected : theme.bg}>
+              <box
+                key={item.id}
+                style={{ paddingLeft: 1, height: 1 }}
+                backgroundColor={isSelected ? theme.bgSelected : theme.bg}
+              >
                 <text fg={isSelected ? theme.text : theme.textMuted}>
                   {isSelected ? '> ' : '  '}
                   {pad(item.drug, COL.drug)}
                   {pad(item.totalAmount, COL.amount)}
                   {pad(item.status, COL.status)}
-                  {pad(item.source, COL.source)}
-                  {pad(item.form, COL.form)}
-                  {pad(formatDateOrDash(item.beyondUseDate), COL.expiry)}
+                  {showExtras && pad(item.source, COL.source)}
+                  {showExtras && pad(item.form, COL.form)}
+                  {showExtras && pad(formatDateOrDash(item.beyondUseDate), COL.expiry)}
                 </text>
               </box>
             )
