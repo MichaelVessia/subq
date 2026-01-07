@@ -41,13 +41,19 @@ An interactive terminal UI for managing injections, weight logs, and schedules.
 
 ### Installation
 
-Currently only Linux x64 binaries are available due to native dependencies.
+#### Nix
 
 ```bash
-# Linux x64
+nix run github:MichaelVessia/subq#subq
+```
+
+#### Binary Download (Linux x64 only)
+
+Only Linux x64 binaries are available due to native dependencies in @opentui/core.
+
+```bash
 curl -L https://github.com/MichaelVessia/subq/releases/download/tui-latest/subq-linux-x64 -o subq
-chmod +x subq
-sudo mv subq /usr/local/bin/
+chmod +x subq && sudo mv subq /usr/local/bin/
 ```
 
 For other platforms, run from source: `cd packages/tui && bun run dev`
@@ -64,28 +70,39 @@ A command-line interface for scripting and automation.
 
 ### Installation
 
-Download the latest binary for your platform from [Releases](https://github.com/MichaelVessia/subq/releases/tag/cli-latest):
+#### Homebrew (macOS/Linux)
+
+```bash
+brew tap MichaelVessia/tap
+brew install subq-cli
+```
+
+#### Nix
+
+```bash
+nix run github:MichaelVessia/subq#subq-cli
+```
+
+#### Binary Download
+
+Download from [Releases](https://github.com/MichaelVessia/subq/releases/tag/cli-latest):
 
 ```bash
 # macOS Apple Silicon
 curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-arm64 -o subq-cli
-chmod +x subq-cli
-sudo mv subq-cli /usr/local/bin/
+chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
 
 # macOS Intel
 curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-x64 -o subq-cli
-chmod +x subq-cli
-sudo mv subq-cli /usr/local/bin/
+chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
 
 # Linux x64
 curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-x64 -o subq-cli
-chmod +x subq-cli
-sudo mv subq-cli /usr/local/bin/
+chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
 
 # Linux ARM64
 curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-arm64 -o subq-cli
-chmod +x subq-cli
-sudo mv subq-cli /usr/local/bin/
+chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
 ```
 
 ### Usage

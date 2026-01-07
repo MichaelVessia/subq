@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+      - "tui-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-cli:
+    if: startsWith(github.ref, 'refs/tags/cli-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test
+
+      - name: Build all targets
+        run: |
+          mkdir -p dist
+          bun build packages/cli/src/main.ts --compile --target=bun-linux-x64 --outfile dist/subq-cli-linux-x64
+          bun build packages/cli/src/main.ts --compile --target=bun-linux-arm64 --outfile dist/subq-cli-linux-arm64
+          bun build packages/cli/src/main.ts --compile --target=bun-darwin-x64 --outfile dist/subq-cli-darwin-x64
+          bun build packages/cli/src/main.ts --compile --target=bun-darwin-arm64 --outfile dist/subq-cli-darwin-arm64
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+      - name: Update cli-latest tag
+        run: |
+          git tag -f cli-latest
+          git push -f origin cli-latest
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/cli-v}
+
+          # Get checksums
+          SHA_LINUX_X64=$(grep 'subq-cli-linux-x64$' dist/checksums.txt | cut -d' ' -f1)
+          SHA_LINUX_ARM64=$(grep 'subq-cli-linux-arm64$' dist/checksums.txt | cut -d' ' -f1)
+          SHA_DARWIN_X64=$(grep 'subq-cli-darwin-x64$' dist/checksums.txt | cut -d' ' -f1)
+          SHA_DARWIN_ARM64=$(grep 'subq-cli-darwin-arm64$' dist/checksums.txt | cut -d' ' -f1)
+
+          # Generate formula
+          cat > subq-cli.rb << EOF
+          class SubqCli < Formula
+            desc "CLI for SubQ health tracking"
+            homepage "https://github.com/MichaelVessia/subq"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/MichaelVessia/subq/releases/download/cli-v${VERSION}/subq-cli-darwin-arm64"
+                sha256 "${SHA_DARWIN_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/MichaelVessia/subq/releases/download/cli-v${VERSION}/subq-cli-darwin-x64"
+                sha256 "${SHA_DARWIN_X64}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/MichaelVessia/subq/releases/download/cli-v${VERSION}/subq-cli-linux-arm64"
+                sha256 "${SHA_LINUX_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/MichaelVessia/subq/releases/download/cli-v${VERSION}/subq-cli-linux-x64"
+                sha256 "${SHA_LINUX_X64}"
+              end
+            end
+
+            def install
+              if OS.mac?
+                bin.install "subq-cli-darwin-#{Hardware::CPU.arm? ? "arm64" : "x64"}" => "subq-cli"
+              else
+                bin.install "subq-cli-linux-#{Hardware::CPU.arm? ? "arm64" : "x64"}" => "subq-cli"
+              end
+            end
+
+            test do
+              assert_match "subq", shell_output("#{bin}/subq-cli --help")
+            end
+          end
+          EOF
+
+          # Push to tap
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/MichaelVessia/homebrew-tap.git tap
+          cp subq-cli.rb tap/Formula/
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/subq-cli.rb
+          git commit -m "Update subq-cli to ${VERSION}"
+          git push
+
+  release-tui:
+    if: startsWith(github.ref, 'refs/tags/tui-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test
+
+      - name: Build Linux x64
+        run: |
+          mkdir -p dist
+          bun build packages/tui/src/main.tsx --compile --target=bun-linux-x64 --outfile dist/subq-linux-x64
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## TUI Release
+
+            **Note:** Only Linux x64 binaries are available due to native dependencies in @opentui/core.
+
+            For other platforms, run from source:
+            ```bash
+            git clone https://github.com/MichaelVessia/subq.git
+            cd subq
+            bun install
+            bun run packages/tui/src/main.tsx
+            ```
+
+      - name: Update tui-latest tag
+        run: |
+          git tag -f tui-latest
+          git push -f origin tui-latest
