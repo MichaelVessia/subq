@@ -184,7 +184,7 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
 
   const weightTrendSection =
     stats.weightTrend && stats.weightTrend.points.length > 0 ? (
-      <WeightTrendChart trend={stats.weightTrend} weight={stats.weight} containerWidthPct={singleColumn ? 1.0 : 0.55} />
+      <WeightTrendChart trend={stats.weightTrend} containerWidthPct={singleColumn ? 1.0 : 0.55} />
     ) : (
       <Section title="WEIGHT TREND" color={theme.tab3}>
         <text fg={theme.textMuted}>No weight data</text>
@@ -209,7 +209,6 @@ export function StatsDashboard({ onMessage }: StatsDashboardProps) {
         <WeightTrendChart
           key="trend"
           trend={stats.weightTrend}
-          weight={stats.weight}
           containerWidthPct={1.0}
           isSelected={selectedSection === idx}
         />
@@ -398,12 +397,10 @@ const SPARKLINE_BLOCKS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'
 
 function WeightTrendChart({
   trend,
-  weight,
   containerWidthPct,
   isSelected = false,
 }: {
   trend: WeightTrendStats
-  weight: WeightStats | null
   containerWidthPct: number
   isSelected?: boolean
 }) {
@@ -473,11 +470,9 @@ function WeightTrendChart({
             <strong>WEIGHT TREND</strong>
           </text>
         </box>
-        {weight && (
-          <text fg={theme.textMuted}>
-            {weight.minWeight} - {weight.maxWeight} lbs
-          </text>
-        )}
+        <text fg={theme.textMuted}>
+          {firstPoint.weight} → {lastPoint.weight} lbs
+        </text>
       </box>
 
       <box style={{ flexDirection: 'column', marginTop: 1 }}>
