@@ -1,7 +1,7 @@
 // Login view with email/password inputs
 
-import { useKeyboard } from '@opentui/react'
-import { useState } from 'react'
+import { useKeyboard, useRenderer } from '@opentui/react'
+import { useEffect, useState } from 'react'
 import { getConfig } from '../services/config'
 import { saveSession, type StoredSession } from '../services/session'
 import { theme } from '../theme'
@@ -114,13 +114,28 @@ export function LoginView({ onLogin }: LoginViewProps) {
     }
   }
 
+  const renderer = useRenderer()
+
+  // Handle paste events (opentui Input doesn't support paste natively)
+  useEffect(() => {
+    const handlePaste = (event: { text: string }) => {
+      if (loading) return
+      const setter = focusedField === 'email' ? setEmail : setPassword
+      setter((prev) => prev + event.text)
+    }
+    renderer.keyInput.on('paste', handlePaste)
+    return () => {
+      renderer.keyInput.off('paste', handlePaste)
+    }
+  }, [renderer, focusedField, loading])
+
   useKeyboard((key) => {
     if (loading) return
 
-    if (key.name === 'tab' || key.name === 'j') {
-      setFocusedField((f) => (f === 'email' ? 'password' : 'email'))
-    } else if (key.name === 'k' || (key.shift && key.name === 'tab')) {
+    if (key.shift && key.name === 'tab') {
       setFocusedField((f) => (f === 'password' ? 'email' : 'password'))
+    } else if (key.name === 'tab') {
+      setFocusedField((f) => (f === 'email' ? 'password' : 'email'))
     } else if (key.ctrl && key.name === 'd') {
       // Demo login
       handleLogin(DEMO_USER.email, DEMO_USER.password)
@@ -168,7 +183,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
               height: 3,
             }}
           >
-            <input placeholder="Enter email..." focused={focusedField === 'email'} onInput={setEmail} />
+            <input placeholder="Enter email..." focused={focusedField === 'email'} value={email} onInput={setEmail} />
           </box>
         </box>
 
@@ -182,7 +197,12 @@ export function LoginView({ onLogin }: LoginViewProps) {
               height: 3,
             }}
           >
-            <input placeholder="Enter password..." focused={focusedField === 'password'} onInput={setPassword} />
+            <input
+              placeholder="Enter password..."
+              focused={focusedField === 'password'}
+              value={password}
+              onInput={setPassword}
+            />
           </box>
         </box>
 
