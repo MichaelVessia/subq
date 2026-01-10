@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Button } from './button.js'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table.js'
 
@@ -32,6 +32,33 @@ export function DataTable<TData, TValue>({
   const [sorting, setSorting] = useState<SortingState>([])
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
+  // Handler that updates state and notifies parent in one go
+  const handleRowSelectionChange = useCallback(
+    (updater: RowSelectionState | ((old: RowSelectionState) => RowSelectionState)) => {
+      setRowSelection((prev) => {
+        const newSelection = typeof updater === 'function' ? updater(prev) : updater
+
+        if (onSelectionChange) {
+          // Convert selection state to actual data rows
+          const selectedData: TData[] = []
+          for (const [rowId, isSelected] of Object.entries(newSelection)) {
+            if (isSelected) {
+              const rowIndex = getRowId ? data.findIndex((row) => getRowId(row) === rowId) : Number.parseInt(rowId, 10)
+              const row = data[rowIndex]
+              if (rowIndex >= 0 && row !== undefined) {
+                selectedData.push(row)
+              }
+            }
+          }
+          onSelectionChange(selectedData)
+        }
+
+        return newSelection
+      })
+    },
+    [data, getRowId, onSelectionChange],
+  )
+
   const table = useReactTable({
     data,
     columns,
@@ -40,7 +67,7 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: handleRowSelectionChange,
     enableRowSelection,
     getRowId: getRowId as (row: TData) => string,
     state: {
@@ -53,15 +80,6 @@ export function DataTable<TData, TValue>({
       },
     },
   })
-
-  // Notify parent of selection changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection is needed to trigger effect when selection changes
-  useEffect(() => {
-    if (onSelectionChange) {
-      const selectedRows = table.getFilteredSelectedRowModel().rows.map((row) => row.original)
-      onSelectionChange(selectedRows)
-    }
-  }, [rowSelection, onSelectionChange, table])
 
   return (
     <div className="w-full">
