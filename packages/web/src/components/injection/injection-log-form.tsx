@@ -137,34 +137,34 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
     return [...new Set(selectedSchedule.phases.map((p) => p.dosage))]
   }, [selectedSchedule])
 
-  // Auto-select schedule when drug changes (if only one schedule for drug)
-  // Skip if we already have a scheduleId from initialData
+  // Auto-select schedule when drug changes and auto-populate source from it
+  // Consolidates two cascading effects into one
   useEffect(() => {
-    // Don't override if initialData provided a scheduleId that matches a schedule for this drug
     const hasInitialScheduleForDrug =
       initialData?.scheduleId && schedulesForDrug.some((s) => s.id === initialData.scheduleId)
 
+    let newScheduleId = ''
     if (hasInitialScheduleForDrug && initialData.scheduleId) {
-      // Keep the initial schedule, just ensure state is set
-      setSelectedScheduleId(initialData.scheduleId)
+      newScheduleId = initialData.scheduleId
       setUseCustomDosage(false)
     } else if (schedulesForDrug.length === 1 && schedulesForDrug[0]) {
-      setSelectedScheduleId(schedulesForDrug[0].id)
+      newScheduleId = schedulesForDrug[0].id
       setUseCustomDosage(false)
     } else if (schedulesForDrug.length === 0) {
-      setSelectedScheduleId('')
       setUseCustomDosage(false)
     }
-    // Reset confirmation when drug changes
-    setConfirmedOffSchedule(false)
-  }, [schedulesForDrug, initialData?.scheduleId])
 
-  // Auto-populate source from schedule when schedule is selected
-  useEffect(() => {
-    if (selectedSchedule?.source && !isEditing) {
-      setValue('source', selectedSchedule.source)
+    setSelectedScheduleId(newScheduleId)
+    setConfirmedOffSchedule(false)
+
+    // Auto-populate source from the auto-selected schedule
+    if (newScheduleId && !isEditing) {
+      const schedule = schedulesForDrug.find((s) => s.id === newScheduleId)
+      if (schedule?.source) {
+        setValue('source', schedule.source)
+      }
     }
-  }, [selectedSchedule, setValue, isEditing])
+  }, [schedulesForDrug, initialData?.scheduleId, isEditing, setValue])
 
   // Check if current dosage matches schedule
   const isOffScheduleDose = useMemo(() => {
@@ -261,9 +261,17 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
             id="schedule"
             value={selectedScheduleId}
             onChange={(e) => {
-              setSelectedScheduleId(e.target.value)
+              const scheduleId = e.target.value
+              setSelectedScheduleId(scheduleId)
               setUseCustomDosage(false)
               setConfirmedOffSchedule(false)
+              // Auto-populate source from manually selected schedule
+              if (!isEditing && scheduleId) {
+                const schedule = schedulesForDrug.find((s) => s.id === scheduleId)
+                if (schedule?.source) {
+                  setValue('source', schedule.source)
+                }
+              }
             }}
           >
             <option value="">No schedule</option>
