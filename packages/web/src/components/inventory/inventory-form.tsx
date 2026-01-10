@@ -1,7 +1,6 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { DrugName, DrugSource, InventoryCreate, type InventoryId, InventoryUpdate, TotalAmount } from '@subq/shared'
 import { DateTime, Option } from 'effect'
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { type InventoryFormInput, inventoryFormStandardSchema } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
@@ -78,13 +77,6 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
   // Simple validity check for button enable state (matches original behavior)
   const hasRequiredFields = drug !== '' && source !== '' && totalAmount !== ''
 
-  // Clear drug selection when form changes and drug isn't valid for new form
-  useEffect(() => {
-    if (drug && !availableDrugs.includes(drug)) {
-      setValue('drug', '')
-    }
-  }, [drug, availableDrugs, setValue])
-
   const onFormSubmit = async (data: InventoryFormInput) => {
     if (isEditing && onUpdate && initialData?.id) {
       await onUpdate(
@@ -126,7 +118,19 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           <Label htmlFor="form" className="mb-2 block">
             Form <span className="text-destructive">*</span>
           </Label>
-          <Select id="form" {...register('form')}>
+          <Select
+            id="form"
+            {...register('form')}
+            onChange={(e) => {
+              register('form').onChange(e)
+              // Clear drug if not valid for new form type
+              const newFormType = e.target.value as 'vial' | 'pen'
+              const newAvailableDrugs = newFormType === 'vial' ? VIAL_DRUGS : PEN_DRUGS
+              if (drug && !newAvailableDrugs.includes(drug)) {
+                setValue('drug', '')
+              }
+            }}
+          >
             <option value="vial">Vial (Compounded)</option>
             <option value="pen">Pen (Branded)</option>
           </Select>
