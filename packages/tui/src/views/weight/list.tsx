@@ -2,9 +2,10 @@
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { WeightLogListParams, type WeightLog, type WeightLogId } from '@subq/shared'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
+import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
@@ -22,26 +23,19 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
   const { width: termWidth } = useTerminalDimensions()
   const showNotes = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const [items, setItems] = useState<readonly WeightLog[]>([])
+  const {
+    data: items,
+    loading,
+    reload: loadItems,
+  } = useAsyncData(() => rpcCall((client) => client.WeightLogList(new WeightLogListParams({}))), {
+    onError: (msg) => onMessage(msg, 'error'),
+  })
+
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<WeightLog | null>(null)
   const [detailView, setDetailView] = useState<WeightLog | null>(null)
 
-  const loadItems = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await rpcCall((client) => client.WeightLogList(new WeightLogListParams({})))
-      setItems(result)
-    } catch (err) {
-      onMessage(`Failed to load: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
-    }
-    setLoading(false)
-  }, [onMessage])
-
-  useEffect(() => {
-    loadItems()
-  }, [loadItems])
+  const allItems = items ?? []
 
   // Handle delete
   const handleDelete = useCallback(async () => {
@@ -61,7 +55,7 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
   useKeyboard((key) => {
     if (deleteConfirm || detailView) return // Modal handles its own keys
 
-    const len = items.length
+    const len = allItems.length
 
     if (key.name === 'j' || key.name === 'down') {
       setSelectedIndex((i) => Math.min(i + 1, len - 1))
@@ -78,15 +72,15 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
     } else if (key.name === 'o') {
       onNew()
     } else if (key.name === 'e' || key.name === 'i') {
-      const selected = items[selectedIndex]
+      const selected = allItems[selectedIndex]
       if (selected) onEdit(selected)
     } else if (key.name === 'd') {
-      const selected = items[selectedIndex]
+      const selected = allItems[selectedIndex]
       if (selected) setDeleteConfirm(selected)
     } else if (key.name === 'r') {
       loadItems()
     } else if (key.name === 'return') {
-      const selected = items[selectedIndex]
+      const selected = allItems[selectedIndex]
       if (selected) setDetailView(selected)
     }
   })
@@ -120,13 +114,13 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
       </box>
 
       {/* List */}
-      {items.length === 0 ? (
+      {allItems.length === 0 ? (
         <box style={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}>
           <text fg={theme.textMuted}>No weight logs. Press o to add.</text>
         </box>
       ) : (
         <box style={{ flexDirection: 'column', flexGrow: 1, overflow: 'scroll' }}>
-          {items.map((item, idx) => {
+          {allItems.map((item, idx) => {
             const isSelected = idx === selectedIndex
             return (
               <box

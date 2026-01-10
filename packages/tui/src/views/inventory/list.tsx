@@ -2,9 +2,10 @@
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { InventoryListParams, type Inventory, type InventoryId } from '@subq/shared'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
+import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDateOrDash, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
@@ -22,37 +23,29 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
   const { width: termWidth } = useTerminalDimensions()
   const showExtras = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const [items, setItems] = useState<readonly Inventory[]>([])
+  const {
+    data: items,
+    loading,
+    reload: loadItems,
+  } = useAsyncData(() => rpcCall((client) => client.InventoryList(new InventoryListParams({}))), {
+    onError: (msg) => onMessage(msg, 'error'),
+  })
+
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<Inventory | null>(null)
   const [detailView, setDetailView] = useState<Inventory | null>(null)
   const [filterText, setFilterText] = useState('')
   const [isFiltering, setIsFiltering] = useState(false)
 
-  const loadItems = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await rpcCall((client) => client.InventoryList(new InventoryListParams({})))
-      setItems(result)
-    } catch (err) {
-      onMessage(`Failed to load: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
-    }
-    setLoading(false)
-  }, [onMessage])
-
-  useEffect(() => {
-    loadItems()
-  }, [loadItems])
-
   // Filter items
+  const allItems = items ?? []
   const filteredItems = filterText
-    ? items.filter(
+    ? allItems.filter(
         (i) =>
           i.drug.toLowerCase().includes(filterText.toLowerCase()) ||
           i.source.toLowerCase().includes(filterText.toLowerCase()),
       )
-    : items
+    : allItems
 
   // Handle delete
   const handleDelete = useCallback(async () => {

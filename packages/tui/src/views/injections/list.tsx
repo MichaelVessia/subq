@@ -2,9 +2,10 @@
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { InjectionLogListParams, Limit, type InjectionLog, type InjectionLogId } from '@subq/shared'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
+import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
 import { theme } from '../../theme'
@@ -22,39 +23,30 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
   const { width: termWidth } = useTerminalDimensions()
   const showSite = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const [injections, setInjections] = useState<readonly InjectionLog[]>([])
+  const {
+    data: injections,
+    loading,
+    reload: loadInjections,
+  } = useAsyncData(
+    () => rpcCall((client) => client.InjectionLogList(new InjectionLogListParams({ limit: Limit.make(100) }))),
+    { onError: (msg) => onMessage(msg, 'error') },
+  )
+
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<InjectionLog | null>(null)
   const [detailView, setDetailView] = useState<InjectionLog | null>(null)
   const [filterText, setFilterText] = useState('')
   const [isFiltering, setIsFiltering] = useState(false)
 
-  const loadInjections = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await rpcCall((client) =>
-        client.InjectionLogList(new InjectionLogListParams({ limit: Limit.make(100) })),
-      )
-      setInjections(result)
-    } catch (err) {
-      onMessage(`Failed to load: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
-    }
-    setLoading(false)
-  }, [onMessage])
-
-  useEffect(() => {
-    loadInjections()
-  }, [loadInjections])
-
   // Filter injections
+  const allInjections = injections ?? []
   const filteredInjections = filterText
-    ? injections.filter(
+    ? allInjections.filter(
         (i) =>
           i.drug.toLowerCase().includes(filterText.toLowerCase()) ||
           i.dosage.toLowerCase().includes(filterText.toLowerCase()),
       )
-    : injections
+    : allInjections
 
   // Handle delete
   const handleDelete = useCallback(async () => {
