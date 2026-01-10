@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { type DateRange, TIME_RANGES, type TimeRangeKey } from '../../hooks/use-date-range-params.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -16,11 +16,6 @@ function DateRangeInputs({
 }) {
   const [startValue, setStartValue] = useState(formatDateForInput(range.start))
   const [endValue, setEndValue] = useState(formatDateForInput(range.end))
-
-  useEffect(() => {
-    setStartValue(formatDateForInput(range.start))
-    setEndValue(formatDateForInput(range.end))
-  }, [range.start, range.end])
 
   const handleStartBlur = () => {
     const newStart = new Date(startValue)
@@ -93,6 +88,7 @@ export function TimeRangeSelector({
       {hasCustomRange && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <DateRangeInputs
+            key={`${range.start!.getTime()}-${range.end!.getTime()}`}
             range={{ start: range.start!, end: range.end! }}
             onRangeChange={(r) => onRangeChange({ start: r.start, end: r.end })}
           />
