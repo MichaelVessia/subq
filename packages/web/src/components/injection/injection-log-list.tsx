@@ -347,6 +347,7 @@ export function InjectionLogList() {
             </p>
           </div>
           <ScheduleForm
+            key={selectedLogs.map((log) => log.id).join(',')}
             onSubmit={async (data: InjectionScheduleCreate) => {
               const schedule = await createSchedule({
                 payload: data,

@@ -16,7 +16,7 @@ import {
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toDate, toDateString } from '../../lib/utils.js'
 import { InjectionDrugsAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
@@ -162,27 +162,6 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
-
-  // Update form when preselected injections change
-  useEffect(() => {
-    if (preselectedInjections && preselectedInjections.length > 0 && !initialData) {
-      const firstInj = preselectedInjections[0]
-      if (!firstInj) return
-      const drug = firstInj.drug
-      const startDate = toLocalDateString(
-        preselectedInjections.reduce(
-          (min, inj) => (toDate(inj.datetime) < min ? toDate(inj.datetime) : min),
-          toDate(firstInj.datetime),
-        ),
-      )
-      const inferredPhases = inferPhasesFromInjections(preselectedInjections)
-
-      setName(`${drug} Schedule`)
-      setDrug(drug)
-      setStartDate(startDate)
-      setPhases(inferredPhases)
-    }
-  }, [preselectedInjections, initialData])
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const userDrugs = Result.getOrElse(drugsResult, () => [])
