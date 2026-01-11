@@ -54,9 +54,13 @@ const AuthLive = Layer.unwrapEffect(
     const authSecret = yield* Config.redacted('BETTER_AUTH_SECRET')
     const authUrl = yield* Config.string('BETTER_AUTH_URL')
 
+    // Detect if running over HTTPS (production)
+    const isSecure = authUrl.startsWith('https://')
+
     yield* Effect.logDebug('Auth configuration loaded', {
       authUrl,
       databasePath,
+      isSecure,
       hasAuthSecret: !!Redacted.value(authSecret),
     })
 
@@ -79,6 +83,15 @@ const AuthLive = Layer.unwrapEffect(
         cookieCache: {
           enabled: true,
           maxAge: 60 * 5, // 5 minutes
+        },
+      },
+      advanced: {
+        // Use secure cookies in production (HTTPS)
+        useSecureCookies: isSecure,
+        // Set sameSite to lax for same-site requests (works for both local dev and prod)
+        defaultCookieAttributes: {
+          sameSite: 'lax',
+          path: '/',
         },
       },
       plugins: [bearer()],

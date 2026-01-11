@@ -26,8 +26,8 @@ export const toEffectHandler: (
     })
 
     // Convert Web Response headers to plain object
-    // Use getSetCookie() for Set-Cookie since it can have multiple values
-    const headers: Record<string, string> = {}
+    // Set-Cookie headers MUST be passed as array - they cannot be combined per HTTP spec
+    const headers: Record<string, string | ReadonlyArray<string>> = {}
     response.headers.forEach((value, key) => {
       if (key.toLowerCase() !== 'set-cookie') {
         headers[key] = value
@@ -35,7 +35,7 @@ export const toEffectHandler: (
     })
     const setCookies = response.headers.getSetCookie()
     if (setCookies.length > 0) {
-      headers['set-cookie'] = setCookies.join(', ')
+      headers['set-cookie'] = setCookies
     }
 
     // Read response body as Uint8Array
