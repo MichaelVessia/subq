@@ -65,7 +65,6 @@ function WeightTrendChart({
     root.append(() =>
       renderBrush({
         xScale: scales.xScale,
-        yScale: scales.yScale,
         dimensions: scales.dimensions,
         onZoom,
         svg,
@@ -104,7 +103,6 @@ function WeightTrendChart({
     root.append(() =>
       renderPills({
         dosageChanges: pillLayout.dosageChanges,
-        xScale: scales.xScale,
         yScale: scales.yScale,
         selectedFilter,
         setSelectedFilter,

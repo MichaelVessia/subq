@@ -5,7 +5,6 @@ import { PILL_CONSTANTS } from '../utils.js'
 
 interface RenderPillsParams {
   dosageChanges: DosageChange[]
-  xScale: d3.ScaleTime<number, number>
   yScale: d3.ScaleLinear<number, number>
   selectedFilter: DrugDosageFilter | null
   setSelectedFilter: Dispatch<SetStateAction<DrugDosageFilter | null>>
@@ -14,7 +13,6 @@ interface RenderPillsParams {
 
 export function renderPills({
   dosageChanges,
-  xScale,
   yScale,
   selectedFilter,
   setSelectedFilter,

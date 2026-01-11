@@ -13,11 +13,15 @@ interface RenderAxesParams {
 
 export function renderBrush({
   xScale,
-  yScale,
   dimensions,
   onZoom,
   svg,
-}: Omit<RenderAxesParams, 'unitLabel' | 'containerWidth'>): d3.Selection<SVGGElement, unknown, null, undefined> {
+}: Omit<RenderAxesParams, 'yScale' | 'unitLabel' | 'containerWidth'>): d3.Selection<
+  SVGGElement,
+  unknown,
+  null,
+  undefined
+> {
   const g = d3.create('svg:g').attr('class', 'brush-layer') as unknown as d3.Selection<
     SVGGElement,
     unknown,
