@@ -162,7 +162,7 @@
         ],
         "pattern": "Define inline response schemas or import from shared once 2.1.1 is done"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

@@ -1,8 +1,35 @@
 import { Command, Options, Prompt } from '@effect/cli'
-import { Effect, Option, Redacted } from 'effect'
+import { Effect, Option, Redacted, Schema } from 'effect'
 import { error, success } from '../../lib/output.js'
 import { CliConfigService } from '../../services/config.js'
 import { Session, StoredSession } from '../../services/session.js'
+
+/**
+ * Auth API response schemas.
+ * Inline until shared auth schemas are created (story 2.1.1).
+ */
+const AuthErrorBody = Schema.Struct({
+  message: Schema.optional(Schema.String),
+})
+
+const AuthUser = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  name: Schema.optional(Schema.String),
+})
+
+const AuthSuccessBody = Schema.Struct({
+  user: AuthUser,
+})
+
+/** Schema for parsing session_data cookie (better-auth format) */
+const SessionDataCookie = Schema.Struct({
+  session: Schema.Struct({
+    session: Schema.Struct({
+      token: Schema.String,
+    }),
+  }),
+})
 
 // Demo user credentials (from seed.ts)
 const DEMO_USER = { email: 'consistent@example.com', password: 'testpassword123' }
@@ -76,11 +103,14 @@ export const loginCommand = Command.make(
       })
 
       if (!response.ok) {
-        const body = yield* Effect.tryPromise({
+        const rawBody: unknown = yield* Effect.tryPromise({
           try: () => response.json(),
-          catch: () => ({ message: 'Login failed' }),
+          catch: () => ({}),
         })
-        yield* error(`Login failed: ${(body as any).message || response.statusText}`)
+        const errorBody = yield* Schema.decodeUnknown(AuthErrorBody)(rawBody).pipe(
+          Effect.orElseSucceed(() => ({ message: undefined })),
+        )
+        yield* error(`Login failed: ${errorBody.message ?? response.statusText}`)
         return
       }
 
@@ -114,18 +144,21 @@ export const loginCommand = Command.make(
         sessionData = dataMatch?.[1]
       } else if (dataMatch?.[1]) {
         // Fallback: extract token from session_data JSON
-        try {
-          const decoded = JSON.parse(atob(dataMatch[1]))
-          sessionToken = decoded.session?.session?.token
-          sessionData = dataMatch[1]
-          if (!sessionToken) {
-            yield* error('Could not extract session token from session_data')
-            return
-          }
-        } catch {
+        const rawSessionData = dataMatch[1]
+        const parseResult = yield* Effect.try({
+          try: () => JSON.parse(atob(rawSessionData)) as unknown,
+          catch: () => 'parse_error' as const,
+        }).pipe(
+          Effect.flatMap((decoded) => Schema.decodeUnknown(SessionDataCookie)(decoded)),
+          Effect.either,
+        )
+
+        if (parseResult._tag === 'Left') {
           yield* error('Could not parse session_data cookie')
           return
         }
+        sessionToken = parseResult.right.session.session.token
+        sessionData = rawSessionData
       } else {
         yield* error('Could not parse session cookies')
         return
@@ -135,16 +168,17 @@ export const loginCommand = Command.make(
       const isSecure = allCookies.includes('__Secure-better-auth.')
 
       // Get user info from response
-      const data = yield* Effect.tryPromise({
+      const rawData: unknown = yield* Effect.tryPromise({
         try: () => response.json(),
         catch: () => ({}),
       })
 
-      const user = (data as any).user
-      if (!user) {
+      const successResult = yield* Schema.decodeUnknown(AuthSuccessBody)(rawData).pipe(Effect.either)
+      if (successResult._tag === 'Left') {
         yield* error('No user data in response')
         return
       }
+      const user = successResult.right.user
 
       // Calculate expiration (better-auth default is 7 days)
       const expiresAt = new Date()
