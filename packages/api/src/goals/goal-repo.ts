@@ -47,6 +47,16 @@ const goalRowToDomain = (row: typeof GoalRow.Type): UserGoal =>
 
 const generateUuid = () => crypto.randomUUID()
 
+/**
+ * Extract date portion from ISO string. DateTime.formatIso always returns
+ * 'YYYY-MM-DDTHH:MM:SS.sssZ' format, so the split is guaranteed to have
+ * at least one element.
+ */
+const extractDatePart = (isoString: string): string => {
+  const parts = isoString.split('T')
+  return parts[0] ?? isoString
+}
+
 // ============================================
 // Repository Service Definition
 // ============================================
@@ -127,8 +137,8 @@ export const GoalRepoLive = Layer.effect(
         const id = generateUuid()
         const now = DateTime.formatIso(DateTime.unsafeNow())
         const startingDate = Option.isSome(data.startingDate)
-          ? DateTime.formatIso(data.startingDate.value).split('T')[0]!
-          : now.split('T')[0]! // Just the date part
+          ? extractDatePart(DateTime.formatIso(data.startingDate.value))
+          : extractDatePart(now)
         const targetDate = Option.isSome(data.targetDate) ? DateTime.formatIso(data.targetDate.value) : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
 
@@ -177,7 +187,7 @@ export const GoalRepoLive = Layer.effect(
           updates.push(`starting_weight = ${data.startingWeight}`)
         }
         if (data.startingDate !== undefined) {
-          const val = DateTime.formatIso(data.startingDate).split('T')[0]!
+          const val = extractDatePart(DateTime.formatIso(data.startingDate))
           updates.push(`starting_date = '${val}'`)
         }
         if (data.targetDate !== undefined) {

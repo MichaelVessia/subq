@@ -344,7 +344,8 @@ export const StatsServiceLive = Layer.effect(
           const decoded = yield* decodeDosageHistoryRow(row)
           // Extract numeric value from dosage string (e.g., "5mg" -> 5)
           const match = decoded.dosage.match(/(\d+(?:\.\d+)?)/)
-          const dosageValueNum = match ? Number.parseFloat(match[1]!) : 0
+          const captured = match?.[1]
+          const dosageValueNum = captured !== undefined ? Number.parseFloat(captured) : 0
           points.push(
             new DosageHistoryPoint({
               date: decoded.datetime,
