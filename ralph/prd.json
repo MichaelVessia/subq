@@ -202,7 +202,7 @@
           "packages/api/tests/stats-service.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
