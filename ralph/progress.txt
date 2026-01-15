@@ -136,3 +136,8 @@
 **Story**: TEST-2.0 - Create property tests for branded types
 **Status**: complete
 ---
+
+## Iteration 5 - 2026-01-15 00:00
+**Story**: TEST-2.1 - Add property tests for frequency conversion
+**Status**: complete
+---

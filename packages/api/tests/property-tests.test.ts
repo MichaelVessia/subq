@@ -7,6 +7,7 @@ import {
   Count,
   DayOfWeek,
   DaysBetween,
+  Frequency,
   InjectionsPerWeek,
   Limit,
   Offset,
@@ -16,6 +17,7 @@ import {
 } from '@subq/shared'
 import { Arbitrary, Effect, Either, Schema } from 'effect'
 import * as FC from 'effect/FastCheck'
+import { frequencyToDays } from '../src/schedule/rpc-handlers.js'
 
 /**
  * Helper to run property tests within Effect context.
@@ -317,4 +319,79 @@ describe('Branded Type Property Tests', () => {
       }),
     )
   })
+})
+
+// ============================================
+// frequencyToDays Property Tests
+// ============================================
+describe('frequencyToDays Property Tests', () => {
+  /**
+   * Expected mappings for all frequency variants.
+   */
+  const expectedDays: Record<typeof Frequency.Type, number> = {
+    daily: 1,
+    every_3_days: 3,
+    weekly: 7,
+    every_2_weeks: 14,
+    monthly: 30,
+  }
+
+  it.effect('returns positive integers for all frequency variants (property test)', () =>
+    Effect.gen(function* () {
+      const arbitrary = Arbitrary.make(Frequency)
+      runProperty(arbitrary, (frequency) => {
+        const days = frequencyToDays(frequency)
+        // Should be positive integer
+        return days > 0 && Number.isInteger(days)
+      })
+    }),
+  )
+
+  it.effect('daily returns 1', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('daily')).toBe(1)
+    }),
+  )
+
+  it.effect('every_3_days returns 3', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('every_3_days')).toBe(3)
+    }),
+  )
+
+  it.effect('weekly returns 7', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('weekly')).toBe(7)
+    }),
+  )
+
+  it.effect('every_2_weeks returns 14', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('every_2_weeks')).toBe(14)
+    }),
+  )
+
+  it.effect('monthly returns 30', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('monthly')).toBe(30)
+    }),
+  )
+
+  it.effect('all variants map to correct day counts (property test)', () =>
+    Effect.gen(function* () {
+      const arbitrary = Arbitrary.make(Frequency)
+      runProperty(arbitrary, (frequency) => {
+        const days = frequencyToDays(frequency)
+        return days === expectedDays[frequency]
+      })
+    }),
+  )
+
+  it.effect('unknown frequency defaults to 7', () =>
+    Effect.gen(function* () {
+      expect(frequencyToDays('unknown')).toBe(7)
+      expect(frequencyToDays('')).toBe(7)
+      expect(frequencyToDays('biweekly')).toBe(7)
+    }),
+  )
 })

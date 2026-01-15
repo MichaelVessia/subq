@@ -294,7 +294,7 @@
         ],
         "pattern": "Test with Schema.Literal for enum values, verify output > 0"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

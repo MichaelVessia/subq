@@ -17,8 +17,11 @@ import { DateTime, Effect, Option } from 'effect'
 import { InjectionLogRepo } from '../injection/injection-log-repo.js'
 import { ScheduleRepo } from './schedule-repo.js'
 
-// Frequency to days mapping
-const frequencyToDays = (frequency: string): number => {
+/**
+ * Converts a frequency string to the number of days between doses.
+ * Used in schedule calculations for next dose and phase views.
+ */
+export const frequencyToDays = (frequency: string): number => {
   switch (frequency) {
     case 'daily':
       return 1
