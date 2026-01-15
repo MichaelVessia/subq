@@ -171,3 +171,8 @@
 **Story**: 1.2.0 - Create ScheduleFormSchema with unit tests
 **Status**: complete
 ---
+
+## Iteration 5 - 2026-01-15 00:37
+**Story**: 1.2.1 - Migrate schedule-form.tsx with useFieldArray
+**Status**: complete
+---
