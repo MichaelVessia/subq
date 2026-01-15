@@ -246,7 +246,7 @@
           "packages/api/tests/helpers/test-db.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

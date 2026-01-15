@@ -251,15 +251,8 @@ export const insertSettings = (id: string, userId: string, weightUnit: 'lbs' | '
   })
 
 // ============================================
-// Test Layer Builders
+// Test Layer Builder
 // ============================================
-
-/**
- * Creates a test layer that combines the SQLite test layer with a repo layer.
- * Usage: const TestLayer = makeTestLayer(WeightLogRepoLive)
- */
-export const makeTestLayer = <Out, Err>(repoLayer: Layer.Layer<Out, Err, SqlClient.SqlClient>) =>
-  repoLayer.pipe(Layer.provideMerge(SqliteTestLayer))
 
 /**
  * Creates a test layer with setup/teardown composed into the layer.

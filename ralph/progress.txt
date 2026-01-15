@@ -126,3 +126,8 @@
 **Story**: TEST-1.7 - Migrate data-export-service.test.ts to it.layer pattern
 **Status**: complete
 ---
+
+## Iteration 3 - 2026-01-14 23:54
+**Story**: TEST-1.8 - Remove deprecated makeTestLayer helper
+**Status**: complete
+---
