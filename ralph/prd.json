@@ -271,7 +271,7 @@
         ],
         "pattern": "it.effect.prop('constraint name', [Schema.Number.pipe(Schema.positive())], ([value]) => ...)"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
