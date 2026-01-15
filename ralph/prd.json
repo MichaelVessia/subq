@@ -136,7 +136,7 @@
           "packages/api/tests/inventory-repo.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
