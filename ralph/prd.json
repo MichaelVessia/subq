@@ -1,29 +1,82 @@
 {
-  "project": "PROJECT_NAME",
-  "description": "Project description",
-  "updated_at": "2025-01-01",
+  "project": "subq",
+  "description": "Weight tracking application with Effect-based API and React frontend",
+  "updated_at": "2025-01-14",
   "technology": {
     "language": "TypeScript",
-    "framework": "Your framework",
-    "testing": "Your test framework"
-  },
-  "reference_repos": [],
-  "specs_dir": "specs/",
-  "available_specs": [],
-  "stories": [
-    {
-      "id": "1.1.0",
-      "phase": "Setup",
-      "epic": "Initial Setup",
-      "title": "Example story",
-      "description": "Description of what needs to be done",
-      "acceptance_criteria": [
-        "First criterion",
-        "Second criterion"
-      ],
-      "specs": [],
-      "status": "pending",
-      "estimated_complexity": "small"
+    "runtime": "Bun",
+    "backend": {
+      "framework": "Effect HttpApi",
+      "database": "SQLite (drizzle-orm, @effect/sql-sqlite-bun)",
+      "auth": "better-auth"
+    },
+    "frontend": {
+      "framework": "React 19",
+      "routing": "TanStack Router",
+      "state": "Effect Atom (@effect-atom/atom-react)",
+      "styling": "Tailwind CSS v4"
+    },
+    "testing": {
+      "unit": "bun test (@codeforbreakfast/bun-test-effect)",
+      "e2e": "Playwright"
     }
-  ]
+  },
+  "reference_repos": [
+    "https://github.com/mikearnaldi/accountability",
+    "https://github.com/Effect-TS/effect",
+    "https://github.com/TanStack/router",
+    "https://github.com/Effect-TS/effect-atom"
+  ],
+  "specs_dir": "specs/",
+  "available_specs": [
+    {
+      "file": "API_BEST_PRACTICES.md",
+      "description": "Effect HttpApi patterns: branded schemas, automatic decoding, error handling"
+    },
+    {
+      "file": "EFFECT_BEST_PRACTICES.md",
+      "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
+    },
+    {
+      "file": "EFFECT_ATOM.md",
+      "description": "Reactivity patterns: queries, mutations, refresh, families, Result handling"
+    },
+    {
+      "file": "EFFECT_LAYERS.md",
+      "description": "Layer memoization, Layer.fresh, ManagedRuntime, testing isolation"
+    },
+    {
+      "file": "EFFECT_SQL.md",
+      "description": "Schema-based SQL, SqlSchema helpers, transactions, Model.Class"
+    },
+    {
+      "file": "EFFECT_TESTING.md",
+      "description": "it.effect variants, TestClock, layer composition, property testing"
+    },
+    {
+      "file": "E2E_TESTING.md",
+      "description": "Playwright patterns: fixtures, auth flows, form testing, CI integration"
+    },
+    {
+      "file": "HTTP_API_TANSTACK.md",
+      "description": "Full-stack integration: HttpApi + TanStack Router + Effect Atom"
+    },
+    {
+      "file": "REACT_BEST_PRACTICES.md",
+      "description": "Atom-first state, Result rendering, Tailwind styling, CVA variants"
+    },
+    {
+      "file": "TYPESCRIPT_CONVENTIONS.md",
+      "description": "Project references, imports, no barrel files, strict type safety"
+    },
+    {
+      "file": "USABILITY_BEST_PRACTICES.md",
+      "description": "UX patterns: navigation, forms, loading, errors, accessibility"
+    },
+    {
+      "file": "REFERENCE_REPOS.md",
+      "description": "Git subtrees setup: Effect, TanStack Router, Effect Atom for pattern lookup"
+    }
+  ],
+  "stories": []
 }
