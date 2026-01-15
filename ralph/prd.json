@@ -22,10 +22,9 @@
     }
   },
   "reference_repos": [
-    "https://github.com/mikearnaldi/accountability",
     "https://github.com/Effect-TS/effect",
     "https://github.com/TanStack/router",
-    "https://github.com/Effect-TS/effect-atom"
+    "https://github.com/tim-smart/effect-atom"
   ],
   "specs_dir": "specs/",
   "available_specs": [

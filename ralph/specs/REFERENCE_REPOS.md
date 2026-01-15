@@ -8,7 +8,7 @@ Git subtrees for pattern discovery and API lookup. Clone these into `repos/` for
 mkdir -p repos
 git subtree add --prefix=repos/effect https://github.com/Effect-TS/effect.git main --squash
 git subtree add --prefix=repos/tanstack-router https://github.com/TanStack/router.git main --squash
-git subtree add --prefix=repos/effect-atom https://github.com/Effect-TS/effect-atom.git main --squash
+git subtree add --prefix=repos/effect-atom https://github.com/tim-smart/effect-atom.git main --squash
 ```
 
 ## Effect Library (`repos/effect/`)
@@ -154,5 +154,5 @@ cat repos/effect-atom/packages/atom-react/package.json | grep version
 ```bash
 git subtree pull --prefix=repos/effect https://github.com/Effect-TS/effect.git main --squash
 git subtree pull --prefix=repos/tanstack-router https://github.com/TanStack/router.git main --squash
-git subtree pull --prefix=repos/effect-atom https://github.com/Effect-TS/effect-atom.git main --squash
+git subtree pull --prefix=repos/effect-atom https://github.com/tim-smart/effect-atom.git main --squash
 ```
