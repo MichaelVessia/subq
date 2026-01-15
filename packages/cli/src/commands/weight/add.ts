@@ -1,9 +1,10 @@
 import { Command, Options, Prompt } from '@effect/cli'
-import { type Weight, WeightLogCreate } from '@subq/shared'
+import { WeightLogCreate } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 
 import { WeightLogDisplay } from '../../lib/display-schemas.js'
 import { type OutputFormat, output, success } from '../../lib/output.js'
+import { validateNotes, validateWeight } from '../../lib/validators.js'
 import { ApiClient } from '../../services/api-client.js'
 
 const formatOption = Options.choice('format', ['table', 'json']).pipe(
@@ -95,10 +96,13 @@ export const weightAddCommand = Command.make(
         notes = notesInput || undefined
       }
 
+      const validatedWeight = yield* validateWeight(weight)
+      const validatedNotes = notes ? yield* validateNotes(notes).pipe(Effect.map(Option.some)) : Option.none()
+
       const payload = new WeightLogCreate({
-        weight: weight as Weight,
+        weight: validatedWeight,
         datetime: DateTime.unsafeFromDate(datetime),
-        notes: notes ? Option.some(notes as any) : Option.none(),
+        notes: validatedNotes,
       })
 
       const created = yield* api.call((client) => client.WeightLogCreate(payload))

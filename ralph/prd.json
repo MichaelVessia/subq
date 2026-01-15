@@ -137,7 +137,7 @@
         ],
         "pattern": "yield* validateWeight(weight) instead of 'weight as Weight'"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

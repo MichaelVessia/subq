@@ -6,3 +6,8 @@
 **Story**: 1.1.0 - Create CLI branded type validators
 **Status**: complete
 ---
+
+## Iteration 2 - 2026-01-14 22:14
+**Story**: 1.1.1 - Fix weight command any casts
+**Status**: complete
+---

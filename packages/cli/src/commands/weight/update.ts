@@ -1,9 +1,10 @@
 import { Args, Command, Options } from '@effect/cli'
-import { type Weight, type WeightLogId, WeightLogUpdate } from '@subq/shared'
+import { WeightLogUpdate } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 
 import { WeightLogDisplay } from '../../lib/display-schemas.js'
 import { type OutputFormat, output, success } from '../../lib/output.js'
+import { validateNotes, validateWeight, validateWeightLogId } from '../../lib/validators.js'
 import { ApiClient } from '../../services/api-client.js'
 
 const formatOption = Options.choice('format', ['table', 'json']).pipe(
@@ -39,11 +40,17 @@ export const weightUpdateCommand = Command.make(
     Effect.gen(function* () {
       const api = yield* ApiClient
 
+      const validatedId = yield* validateWeightLogId(id)
+      const validatedWeight = Option.isSome(weight) ? yield* validateWeight(weight.value) : undefined
+      const validatedNotes = Option.isSome(notes)
+        ? yield* validateNotes(notes.value).pipe(Effect.map(Option.some))
+        : Option.none()
+
       const payload = new WeightLogUpdate({
-        id: id as WeightLogId,
-        weight: Option.isSome(weight) ? (weight.value as Weight) : undefined,
+        id: validatedId,
+        weight: validatedWeight,
         datetime: Option.isSome(date) ? DateTime.unsafeFromDate(date.value) : undefined,
-        notes: Option.isSome(notes) ? Option.some(notes.value as any) : Option.none(),
+        notes: validatedNotes,
       })
 
       const updated = yield* api.call((client) => client.WeightLogUpdate(payload))
