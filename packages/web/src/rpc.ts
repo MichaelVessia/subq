@@ -10,7 +10,7 @@ import {
   StatsParams,
   WeightLogListParams,
 } from '@subq/shared'
-import { DateTime, Layer } from 'effect'
+import { DateTime, Layer, Option } from 'effect'
 
 // FetchHttpClient layer with credentials for auth cookies
 const FetchWithCredentials = FetchHttpClient.layer.pipe(
@@ -43,6 +43,27 @@ export const ReactivityKeys = {
 
 // Helper to convert optional Date to DateTime.Utc
 const toDateTimeUtc = (date?: Date) => (date ? DateTime.unsafeMake(date) : undefined)
+
+/**
+ * Creates a stable string key from optional start/end dates for use with Atom.family.
+ * Returns empty string for undefined dates.
+ */
+export const dateRangeKey = (startDate: Date | undefined, endDate: Date | undefined): string => {
+  const start = startDate ? startDate.toISOString() : ''
+  const end = endDate ? endDate.toISOString() : ''
+  return `${start}|${end}`
+}
+
+/**
+ * Parses a date range key back into optional start/end dates.
+ * Returns [undefined, undefined] for empty or invalid keys.
+ */
+export const parseDateRangeKey = (key: string): [Date | undefined, Date | undefined] => {
+  const [startStr, endStr] = key.split('|')
+  const start = startStr ? Option.fromNullable(new Date(startStr)).pipe(Option.getOrUndefined) : undefined
+  const end = endStr ? Option.fromNullable(new Date(endStr)).pipe(Option.getOrUndefined) : undefined
+  return [start, end]
+}
 
 // Factory functions for queries (no longer need userId - server gets it from session)
 export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
@@ -78,41 +99,72 @@ export const InjectionSitesAtom = ApiClient.query('InjectionLogGetSites', undefi
 // Get the browser's timezone for stats that need it
 const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
-// Stats page atoms
-export const createWeightStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightStats', new StatsParams({ startDate, endDate }), {
+// Stats page atom families (keyed by date range)
+export const WeightStatsAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query('GetWeightStats', new StatsParams({ startDate: start, endDate: end }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
+})
 
-export const createWeightTrendAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetWeightTrend', new StatsParams({ startDate, endDate }), {
+export const WeightTrendAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query('GetWeightTrend', new StatsParams({ startDate: start, endDate: end }), {
     reactivityKeys: [ReactivityKeys.weightLogs],
   })
+})
 
-export const createInjectionSiteStatsAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionSiteStats', new StatsParams({ startDate, endDate }), {
+export const InjectionLogListAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query(
+    'InjectionLogList',
+    new InjectionLogListParams({
+      startDate: toDateTimeUtc(start),
+      endDate: toDateTimeUtc(end),
+      limit: Limit.make(10000),
+    }),
+    { reactivityKeys: [ReactivityKeys.injectionLogs] },
+  )
+})
+
+export const InjectionSiteStatsAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query('GetInjectionSiteStats', new StatsParams({ startDate: start, endDate: end }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
+})
 
-export const createDosageHistoryAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDosageHistory', new StatsParams({ startDate, endDate }), {
+export const DosageHistoryAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query('GetDosageHistory', new StatsParams({ startDate: start, endDate: end }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
+})
 
-export const createInjectionFrequencyAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionFrequency', new StatsParams({ startDate, endDate, timezone: getBrowserTimezone() }), {
+export const InjectionFrequencyAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query(
+    'GetInjectionFrequency',
+    new StatsParams({ startDate: start, endDate: end, timezone: getBrowserTimezone() }),
+    { reactivityKeys: [ReactivityKeys.injectionLogs] },
+  )
+})
+
+export const DrugBreakdownAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query('GetDrugBreakdown', new StatsParams({ startDate: start, endDate: end }), {
     reactivityKeys: [ReactivityKeys.injectionLogs],
   })
+})
 
-export const createDrugBreakdownAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetDrugBreakdown', new StatsParams({ startDate, endDate }), {
-    reactivityKeys: [ReactivityKeys.injectionLogs],
-  })
-
-export const createInjectionByDayOfWeekAtom = (startDate?: Date, endDate?: Date) =>
-  ApiClient.query('GetInjectionByDayOfWeek', new StatsParams({ startDate, endDate, timezone: getBrowserTimezone() }), {
-    reactivityKeys: [ReactivityKeys.injectionLogs],
-  })
+export const InjectionByDayOfWeekAtomFamily = Atom.family((key: string) => {
+  const [start, end] = parseDateRangeKey(key)
+  return ApiClient.query(
+    'GetInjectionByDayOfWeek',
+    new StatsParams({ startDate: start, endDate: end, timezone: getBrowserTimezone() }),
+    { reactivityKeys: [ReactivityKeys.injectionLogs] },
+  )
+})
 
 // Inventory atoms
 export const createInventoryListAtom = (status?: 'new' | 'opened' | 'finished') =>

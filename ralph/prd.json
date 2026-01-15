@@ -273,7 +273,7 @@
         ],
         "pattern": "Atom.family((key: string) => { const [start, end] = parseDateRangeKey(key); return atom })"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     }
   ]

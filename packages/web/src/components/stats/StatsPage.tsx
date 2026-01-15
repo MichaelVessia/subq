@@ -18,15 +18,16 @@ import { useDateRangeParams } from '../../hooks/use-date-range-params.js'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { toDate } from '../../lib/utils.js'
 import {
-  createDosageHistoryAtom,
-  createDrugBreakdownAtom,
-  createInjectionByDayOfWeekAtom,
-  createInjectionFrequencyAtom,
-  createInjectionLogListAtom,
-  createInjectionSiteStatsAtom,
-  createWeightStatsAtom,
-  createWeightTrendAtom,
+  dateRangeKey,
+  DosageHistoryAtomFamily,
+  DrugBreakdownAtomFamily,
+  InjectionByDayOfWeekAtomFamily,
+  InjectionFrequencyAtomFamily,
+  InjectionLogListAtomFamily,
+  InjectionSiteStatsAtomFamily,
   ScheduleListAtom,
+  WeightStatsAtomFamily,
+  WeightTrendAtomFamily,
 } from '../../rpc.js'
 import { GoalProgressCard } from '../goals/goal-progress.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
@@ -381,32 +382,18 @@ export function StatsPage() {
     [setRange],
   )
 
-  const weightStatsAtom = useMemo(() => createWeightStatsAtom(range.start, range.end), [range.start, range.end])
-  const weightTrendAtom = useMemo(() => createWeightTrendAtom(range.start, range.end), [range.start, range.end])
-  const injectionAtom = useMemo(() => createInjectionLogListAtom(range.start, range.end), [range.start, range.end])
-  const injectionSiteStatsAtom = useMemo(
-    () => createInjectionSiteStatsAtom(range.start, range.end),
-    [range.start, range.end],
-  )
-  const dosageHistoryAtom = useMemo(() => createDosageHistoryAtom(range.start, range.end), [range.start, range.end])
-  const injectionFrequencyAtom = useMemo(
-    () => createInjectionFrequencyAtom(range.start, range.end),
-    [range.start, range.end],
-  )
-  const drugBreakdownAtom = useMemo(() => createDrugBreakdownAtom(range.start, range.end), [range.start, range.end])
-  const injectionByDayOfWeekAtom = useMemo(
-    () => createInjectionByDayOfWeekAtom(range.start, range.end),
-    [range.start, range.end],
-  )
+  // Create a stable key for atom families based on the date range
+  const rangeKey = dateRangeKey(range.start, range.end)
 
-  const weightStatsResult = useAtomValue(weightStatsAtom)
-  const weightTrendResult = useAtomValue(weightTrendAtom)
-  const injectionResult = useAtomValue(injectionAtom)
-  const injectionSiteStatsResult = useAtomValue(injectionSiteStatsAtom)
-  const dosageHistoryResult = useAtomValue(dosageHistoryAtom)
-  const injectionFrequencyResult = useAtomValue(injectionFrequencyAtom)
-  const drugBreakdownResult = useAtomValue(drugBreakdownAtom)
-  const injectionByDayOfWeekResult = useAtomValue(injectionByDayOfWeekAtom)
+  // Use atom families instead of useMemo factory functions
+  const weightStatsResult = useAtomValue(WeightStatsAtomFamily(rangeKey))
+  const weightTrendResult = useAtomValue(WeightTrendAtomFamily(rangeKey))
+  const injectionResult = useAtomValue(InjectionLogListAtomFamily(rangeKey))
+  const injectionSiteStatsResult = useAtomValue(InjectionSiteStatsAtomFamily(rangeKey))
+  const dosageHistoryResult = useAtomValue(DosageHistoryAtomFamily(rangeKey))
+  const injectionFrequencyResult = useAtomValue(InjectionFrequencyAtomFamily(rangeKey))
+  const drugBreakdownResult = useAtomValue(DrugBreakdownAtomFamily(rangeKey))
+  const injectionByDayOfWeekResult = useAtomValue(InjectionByDayOfWeekAtomFamily(rangeKey))
   const scheduleListResult = useAtomValue(ScheduleListAtom)
 
   const isLoading =
