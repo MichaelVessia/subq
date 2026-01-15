@@ -36,3 +36,8 @@
 **Story**: 2.1.0 - Create CLI error types
 **Status**: complete
 ---
+
+## Iteration 8 - 2026-01-14 22:24
+**Story**: 2.1.1 - Create auth response schemas
+**Status**: complete
+---

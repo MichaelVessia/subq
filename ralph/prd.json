@@ -290,7 +290,7 @@
         ],
         "pattern": "Schema.Struct for API response shapes"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

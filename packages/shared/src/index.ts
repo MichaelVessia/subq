@@ -1,6 +1,9 @@
 // Common types
 export * from './common/index.js'
 
+// Auth
+export * from './auth/index.js'
+
 // Domain modules
 export * from './weight/index.js'
 export * from './injection/index.js'
