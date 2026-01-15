@@ -9,6 +9,7 @@ import {
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 
+import { MissingArgumentError } from '../../errors.js'
 import { InventoryDisplay } from '../../lib/display-schemas.js'
 import { type OutputFormat, output, success } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
@@ -124,7 +125,7 @@ export const inventoryAddCommand = Command.make(
       } else if (interactive) {
         drug = yield* drugPrompt
       } else {
-        return yield* Effect.fail(new Error('--drug is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'drug', hint: 'use -i for interactive mode' }))
       }
 
       // Get source - from option or prompt if interactive
@@ -134,7 +135,7 @@ export const inventoryAddCommand = Command.make(
       } else if (interactive) {
         source = yield* sourcePrompt
       } else {
-        return yield* Effect.fail(new Error('--source is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'source', hint: 'use -i for interactive mode' }))
       }
 
       // Get form - from option or prompt if interactive
@@ -144,7 +145,7 @@ export const inventoryAddCommand = Command.make(
       } else if (interactive) {
         form = yield* formPrompt
       } else {
-        return yield* Effect.fail(new Error('--form is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'form', hint: 'use -i for interactive mode' }))
       }
 
       // Get amount - from option or prompt if interactive
@@ -154,7 +155,7 @@ export const inventoryAddCommand = Command.make(
       } else if (interactive) {
         amount = yield* amountPrompt
       } else {
-        return yield* Effect.fail(new Error('--amount is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'amount', hint: 'use -i for interactive mode' }))
       }
 
       // Get status - from option, prompt if interactive, or default to 'new'

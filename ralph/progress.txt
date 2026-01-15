@@ -41,3 +41,8 @@
 **Story**: 2.1.1 - Create auth response schemas
 **Status**: complete
 ---
+
+## Iteration 9 - 2026-01-14 22:27
+**Story**: 2.1.2 - Replace Effect.fail(new Error) in CLI
+**Status**: complete
+---

@@ -2,6 +2,7 @@ import { Command, Options, Prompt } from '@effect/cli'
 import { WeightLogCreate } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 
+import { MissingArgumentError } from '../../errors.js'
 import { WeightLogDisplay } from '../../lib/display-schemas.js'
 import { type OutputFormat, output, success } from '../../lib/output.js'
 import { validateNotes, validateWeight } from '../../lib/validators.js'
@@ -74,7 +75,7 @@ export const weightAddCommand = Command.make(
       } else if (interactive) {
         weight = yield* weightPrompt
       } else {
-        return yield* Effect.fail(new Error('--weight is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'weight', hint: 'use -i for interactive mode' }))
       }
 
       // Get date - from option, prompt if interactive, or default to now

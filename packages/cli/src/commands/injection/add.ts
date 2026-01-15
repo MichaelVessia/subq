@@ -9,6 +9,7 @@ import {
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 
+import { MissingArgumentError } from '../../errors.js'
 import { InjectionLogDisplay } from '../../lib/display-schemas.js'
 import { type OutputFormat, output, success } from '../../lib/output.js'
 import { ApiClient } from '../../services/api-client.js'
@@ -118,7 +119,7 @@ export const injectionAddCommand = Command.make(
       } else if (interactive) {
         drug = yield* drugPrompt
       } else {
-        return yield* Effect.fail(new Error('--drug is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'drug', hint: 'use -i for interactive mode' }))
       }
 
       // Get dosage - from option or prompt if interactive
@@ -128,7 +129,7 @@ export const injectionAddCommand = Command.make(
       } else if (interactive) {
         dosage = yield* dosagePrompt
       } else {
-        return yield* Effect.fail(new Error('--dosage is required (or use -i for interactive mode)'))
+        return yield* Effect.fail(new MissingArgumentError({ argument: 'dosage', hint: 'use -i for interactive mode' }))
       }
 
       // Get date - from option, prompt if interactive, or default to now

@@ -2,6 +2,8 @@ import { FileSystem, Path } from '@effect/platform'
 import type { PlatformError } from '@effect/platform/Error'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 
+import { InvalidSessionError } from '../errors.js'
+
 // Session data stored locally
 export class StoredSession extends Schema.Class<StoredSession>('StoredSession')({
   // The session_token cookie value (required for auth)
@@ -48,7 +50,7 @@ export class Session extends Context.Tag('@subq/cli/Session')<Session, SessionSe
           const content = yield* fs.readFileString(sessionFile)
           const parsed = yield* Effect.try(() => JSON.parse(content))
           const session = yield* Schema.decodeUnknown(StoredSession)(parsed).pipe(
-            Effect.mapError(() => new Error('Invalid session format')),
+            Effect.mapError(() => new InvalidSessionError({ message: 'Invalid session format' })),
           )
 
           // Check if expired

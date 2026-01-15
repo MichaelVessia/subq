@@ -320,7 +320,7 @@
         ],
         "pattern": "Effect.fail(new MissingArgumentError({ argument: 'x', hint: '...' }))"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
