@@ -86,3 +86,8 @@
 **Story**: SQL-4.0 - Verify all SQL patterns comply with EFFECT_SQL.md
 **Status**: complete
 ---
+
+## Iteration 1 - 2026-01-14 23:39
+**Story**: TEST-1.0 - Create makeInitializedTestLayer helper
+**Status**: complete
+---

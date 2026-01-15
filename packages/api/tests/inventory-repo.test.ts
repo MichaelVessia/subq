@@ -2,17 +2,14 @@ import { DrugName, DrugSource, InventoryId, TotalAmount } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { InventoryRepo, InventoryRepoLive } from '../src/inventory/inventory-repo.js'
-import { clearTables, insertInventory, makeTestLayer, setupTables } from './helpers/test-db.js'
+import { insertInventory, makeInitializedTestLayer } from './helpers/test-db.js'
 
-const TestLayer = makeTestLayer(InventoryRepoLive)
+const TestLayer = makeInitializedTestLayer(InventoryRepoLive)
 
 describe('InventoryRepo', () => {
   describe('create', () => {
     it.effect('creates inventory item with all fields', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const beyondUseDate = DateTime.unsafeMake('2024-03-01')
         const created = yield* repo.create(
@@ -38,9 +35,6 @@ describe('InventoryRepo', () => {
 
     it.effect('creates inventory item without beyondUseDate', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -64,9 +58,6 @@ describe('InventoryRepo', () => {
   describe('findById', () => {
     it.effect('finds existing item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -90,9 +81,6 @@ describe('InventoryRepo', () => {
 
     it.effect('returns none for non-existent id', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const found = yield* repo.findById('non-existent', 'user-123')
         expect(Option.isNone(found)).toBe(true)
@@ -101,8 +89,6 @@ describe('InventoryRepo', () => {
 
     it.effect('does not find item belonging to different user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Semaglutide', 'Empower', 'vial', '10mg', 'new', 'user-456')
 
         const repo = yield* InventoryRepo
@@ -115,9 +101,6 @@ describe('InventoryRepo', () => {
   describe('list', () => {
     it.effect('lists all items for user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         yield* repo.create(
           {
@@ -149,9 +132,6 @@ describe('InventoryRepo', () => {
 
     it.effect('filters by status', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         yield* repo.create(
           {
@@ -188,9 +168,6 @@ describe('InventoryRepo', () => {
 
     it.effect('filters by drug', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         yield* repo.create(
           {
@@ -223,8 +200,6 @@ describe('InventoryRepo', () => {
 
     it.effect('only returns items for the specified user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Drug A', 'Source', 'vial', '10mg', 'new', 'user-123')
         yield* insertInventory('inv-2', 'Drug B', 'Source', 'vial', '10mg', 'new', 'user-456')
         yield* insertInventory('inv-3', 'Drug C', 'Source', 'vial', '10mg', 'new', 'user-123')
@@ -241,9 +216,6 @@ describe('InventoryRepo', () => {
   describe('update', () => {
     it.effect('updates inventory fields', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -275,9 +247,6 @@ describe('InventoryRepo', () => {
 
     it.effect('fails for non-existent item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const result = yield* repo
           .update(
@@ -299,8 +268,6 @@ describe('InventoryRepo', () => {
 
     it.effect('cannot update item belonging to different user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'new', 'user-456')
 
         const repo = yield* InventoryRepo
@@ -326,9 +293,6 @@ describe('InventoryRepo', () => {
   describe('delete', () => {
     it.effect('deletes existing item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -352,9 +316,6 @@ describe('InventoryRepo', () => {
 
     it.effect('returns false for non-existent item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const deleted = yield* repo.delete('non-existent', 'user-123')
         expect(deleted).toBe(false)
@@ -363,8 +324,6 @@ describe('InventoryRepo', () => {
 
     it.effect('cannot delete item belonging to different user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'new', 'user-456')
 
         const repo = yield* InventoryRepo
@@ -377,9 +336,6 @@ describe('InventoryRepo', () => {
   describe('markOpened', () => {
     it.effect('marks item as opened', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -402,9 +358,6 @@ describe('InventoryRepo', () => {
 
     it.effect('fails for non-existent item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const result = yield* repo.markOpened('non-existent', 'user-123').pipe(Effect.either)
 
@@ -417,8 +370,6 @@ describe('InventoryRepo', () => {
 
     it.effect('cannot mark item belonging to different user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'new', 'user-456')
 
         const repo = yield* InventoryRepo
@@ -435,9 +386,6 @@ describe('InventoryRepo', () => {
   describe('markFinished', () => {
     it.effect('marks item as finished', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const created = yield* repo.create(
           {
@@ -460,9 +408,6 @@ describe('InventoryRepo', () => {
 
     it.effect('fails for non-existent item', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
         const result = yield* repo.markFinished('non-existent', 'user-123').pipe(Effect.either)
 
@@ -475,8 +420,6 @@ describe('InventoryRepo', () => {
 
     it.effect('cannot mark item belonging to different user', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
         yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'opened', 'user-456')
 
         const repo = yield* InventoryRepo
@@ -493,9 +436,6 @@ describe('InventoryRepo', () => {
   describe('inventory lifecycle', () => {
     it.effect('tracks full lifecycle: new -> opened -> finished', () =>
       Effect.gen(function* () {
-        yield* setupTables
-        yield* clearTables
-
         const repo = yield* InventoryRepo
 
         // Create new item

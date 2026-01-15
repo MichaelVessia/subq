@@ -260,3 +260,21 @@ export const insertSettings = (id: string, userId: string, weightUnit: 'lbs' | '
  */
 export const makeTestLayer = <Out, Err>(repoLayer: Layer.Layer<Out, Err, SqlClient.SqlClient>) =>
   repoLayer.pipe(Layer.provideMerge(SqliteTestLayer))
+
+/**
+ * Creates a test layer with setup/teardown composed into the layer.
+ * Each test gets fresh state via Layer.fresh. Eliminates need to call
+ * setupTables and clearTables in every test body.
+ *
+ * Usage:
+ *   const TestLayer = makeInitializedTestLayer(WeightLogRepoLive)
+ *   it.layer(TestLayer)("creates entry", () => Effect.gen(function* () {
+ *     const repo = yield* WeightLogRepo
+ *     // tables already set up and cleared
+ *   }))
+ */
+export const makeInitializedTestLayer = <Out, Err>(repoLayer: Layer.Layer<Out, Err, SqlClient.SqlClient>) =>
+  Layer.effectDiscard(setupTables.pipe(Effect.andThen(clearTables))).pipe(
+    Layer.provideMerge(repoLayer.pipe(Layer.provideMerge(SqliteTestLayer))),
+    Layer.fresh,
+  )

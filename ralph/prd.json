@@ -31,8 +31,8 @@
   "specs_dir": "specs/",
   "available_specs": [
     {
-      "file": "EFFECT_SQL.md",
-      "description": "Schema-based SQL, SqlSchema helpers, transactions, Model.Class"
+      "file": "EFFECT_TESTING.md",
+      "description": "Core testing patterns: it.effect, it.layer, TestClock, property-based testing"
     },
     {
       "file": "EFFECT_BEST_PRACTICES.md",
@@ -46,188 +46,305 @@
   },
   "stories": [
     {
-      "id": "SQL-1.0",
-      "phase": "SQL Safety",
-      "epic": "Eliminate unsafe queries",
-      "title": "Replace unsafe dynamic UPDATE in goal-repo",
-      "description": "The goal-repo.ts update function uses sql.unsafe() with string concatenation (line 206), creating SQL injection risk. Refactor to use parameterized queries. Build the UPDATE statement with sql template literals and proper placeholders instead of string interpolation.",
+      "id": "TEST-1.0",
+      "phase": "Layer Pattern",
+      "epic": "Test infrastructure",
+      "title": "Create makeInitializedTestLayer helper",
+      "description": "Create a new helper function in test-db.ts that composes setupTables and clearTables into the layer setup, eliminating the need to call these in every test body. Use Layer.effectDiscard for setup and Layer.fresh for test isolation.",
       "specs": [
-        "EFFECT_SQL.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "packages/api/src/goals/goal-repo.ts has no .unsafe() calls",
-        "rg '\\.unsafe\\(' packages/api/ returns 0 matches",
-        "Update uses parameterized sql template literals",
-        "bun run test:api passes (goal tests)",
-        "Manual test: update goal with apostrophe in notes field works"
+        "New makeInitializedTestLayer function in packages/api/tests/helpers/test-db.ts",
+        "Function accepts a repo layer and returns layer with setup/teardown composed",
+        "Uses Layer.fresh to ensure each test gets clean state",
+        "Existing makeTestLayer helper preserved for backward compatibility",
+        "At least one test file migrated to validate the pattern works"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/goals/goal-repo.ts"
+          "packages/api/tests/helpers/test-db.ts"
         ],
-        "pattern": "Use sql`UPDATE ... SET column = ${value}` instead of string concatenation. May need multiple SET clauses or conditional logic.",
-        "current_issue": "Line 182-206: builds updates array with string interpolation, then uses sql.unsafe()"
+        "pattern": "Layer.effectDiscard(setupTables.pipe(Effect.andThen(clearTables))).pipe(Layer.provideMerge(repo), Layer.fresh)"
       },
       "status": "complete",
       "estimated_complexity": "medium"
     },
     {
-      "id": "SQL-1.1",
-      "phase": "SQL Safety",
-      "epic": "Remove type assertions",
-      "title": "Fix settings-repo type assertion",
-      "description": "settings-repo.ts line 85 uses 'as { weight_unit: string; reminders_enabled: number }' type assertion. Replace with Schema.Struct decoding for the existing row check.",
+      "id": "TEST-1.1",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate weight-log-repo.test.ts to it.layer pattern",
+      "description": "Convert weight-log-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(TestLayer)('test', ...). Remove all yield* setupTables and yield* clearTables calls from test bodies.",
       "specs": [
-        "EFFECT_SQL.md",
-        "EFFECT_BEST_PRACTICES.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "packages/api/src/settings/settings-repo.ts has no 'as {' type assertions",
-        "Uses Schema.Struct for decoding the SELECT result",
-        "bun run test:api passes (settings tests)",
-        "bun run typecheck passes"
+        "weight-log-repo.test.ts uses it.layer() for all tests",
+        "Zero 'yield* setupTables' in test bodies",
+        "Zero 'yield* clearTables' in test bodies",
+        "Zero '.pipe(Effect.provide(TestLayer))' in test bodies",
+        "cd packages/api && bun test tests/weight-log-repo.test.ts passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/settings/settings-repo.ts"
+          "packages/api/tests/weight-log-repo.test.ts"
         ],
-        "pattern": "Define CurrentSettingsRow = Schema.Struct({ weight_unit: Schema.String, reminders_enabled: Schema.Number }), use Schema.decodeUnknown",
-        "current_issue": "Line 85: existing[0] as { weight_unit: string; reminders_enabled: number }"
+        "pattern": "it.layer(TestLayer)('creates entry', () => Effect.gen(function* () { ... }))"
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
     },
     {
-      "id": "SQL-1.2",
-      "phase": "SQL Safety",
-      "epic": "Remove type assertions",
-      "title": "Fix injection-log-repo generic types",
-      "description": "injection-log-repo.ts uses sql<{ drug: string }> and sql<{ injection_site: string }> generic types instead of Schema validation. Replace with Schema.Struct decoding for type safety and runtime validation.",
+      "id": "TEST-1.2",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate injection-log-repo.test.ts to it.layer pattern",
+      "description": "Convert injection-log-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
       "specs": [
-        "EFFECT_SQL.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "getUniqueDrugs uses Schema.Struct for result decoding",
-        "getUniqueSites uses Schema.Struct for result decoding",
-        "getLastSite uses Schema.Struct for result decoding",
-        "No sql<T> generic type annotations remain in injection-log-repo.ts",
-        "bun run test:api passes"
+        "injection-log-repo.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/injection-log-repo.test.ts passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/injection/injection-log-repo.ts"
-        ],
-        "pattern": "Define DrugRow = Schema.Struct({ drug: Schema.String }), decode with Schema.decodeUnknown(Schema.Array(DrugRow))",
-        "current_issue": "Lines 228, 236, 247: sql<{...}> without runtime validation"
+          "packages/api/tests/injection-log-repo.test.ts"
+        ]
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
     },
     {
-      "id": "SQL-2.0",
-      "phase": "Error Handling",
-      "epic": "Proper Option handling",
-      "title": "Replace Option.getOrThrow in goal-repo",
-      "description": "goal-repo.ts uses Option.getOrThrow after create (line 156) and update (line 213). This throws exceptions bypassing Effect error channel. Replace with proper error handling using Effect.flatMap and Option.match or a custom NotFoundError.",
+      "id": "TEST-1.3",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate inventory-repo.test.ts to it.layer pattern",
+      "description": "Convert inventory-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
       "specs": [
-        "EFFECT_SQL.md",
-        "EFFECT_BEST_PRACTICES.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "packages/api/src/goals/goal-repo.ts has no Option.getOrThrow calls",
-        "rg 'getOrThrow' packages/api/src/goals/ returns 0 matches",
-        "Create/update return proper Effect errors if row not found",
-        "bun run test:api passes (goal tests)"
+        "inventory-repo.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/inventory-repo.test.ts passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/goals/goal-repo.ts"
-        ],
-        "pattern": "Use Option.match with Effect.fail for None case, or Effect.flatMap with Option.getOrElse(() => Effect.fail(...))",
-        "current_issue": "Lines 156, 213: Option.getOrThrow(result)"
+          "packages/api/tests/inventory-repo.test.ts"
+        ]
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
     },
     {
-      "id": "SQL-2.1",
-      "phase": "Error Handling",
-      "epic": "Proper Option handling",
-      "title": "Replace Option.getOrThrow in settings-repo",
-      "description": "settings-repo.ts uses Option.getOrThrow after upsert (line 97). Replace with proper error handling using Effect error channel.",
+      "id": "TEST-1.4",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate schedule-repo.test.ts to it.layer pattern",
+      "description": "Convert schedule-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
       "specs": [
-        "EFFECT_SQL.md",
-        "EFFECT_BEST_PRACTICES.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "packages/api/src/settings/settings-repo.ts has no Option.getOrThrow calls",
-        "rg 'getOrThrow' packages/api/src/settings/ returns 0 matches",
-        "Upsert returns proper Effect error if row not found after insert",
-        "bun run test:api passes (settings tests)"
+        "schedule-repo.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/schedule-repo.test.ts passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/settings/settings-repo.ts"
-        ],
-        "pattern": "Use Option.match with Effect.fail for None case",
-        "current_issue": "Line 97: Option.getOrThrow(result)"
+          "packages/api/tests/schedule-repo.test.ts"
+        ]
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
     },
     {
-      "id": "SQL-3.0",
-      "phase": "Performance",
-      "epic": "Batch operations",
-      "title": "Replace loop with batch update in bulkAssignSchedule",
-      "description": "injection-log-repo.ts bulkAssignSchedule (lines 258-279) uses a loop to update N rows individually. This is N+1 pattern. Additionally uses type assertion 'as unknown as { rowsAffected?: number }'. Refactor to batch operation using sql.in() or parameterized array binding.",
+      "id": "TEST-1.5",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate goal-repo.test.ts to it.layer pattern",
+      "description": "Convert goal-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
       "specs": [
-        "EFFECT_SQL.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "bulkAssignSchedule uses single UPDATE with IN clause",
-        "No 'as unknown as' type assertions",
-        "rg 'as unknown as' packages/api/src/injection/ returns 0 matches",
-        "bun run test:api passes (injection tests)",
-        "Performance: 100 updates should be single query"
+        "goal-repo.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/goal-repo.test.ts passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/injection/injection-log-repo.ts"
-        ],
-        "pattern": "sql`UPDATE ... WHERE id IN ${sql.in(ids)} AND user_id = ${userId}` or use sql.unsafe with properly escaped array",
-        "current_issue": "Lines 267-277: for loop + (result as unknown as { rowsAffected?: number })"
+          "packages/api/tests/goal-repo.test.ts"
+        ]
       },
-      "status": "complete",
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "TEST-1.6",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate stats-service.test.ts to it.layer pattern",
+      "description": "Convert stats-service.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "stats-service.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/stats-service.test.ts passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/stats-service.test.ts"
+        ]
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "TEST-1.7",
+      "phase": "Layer Pattern",
+      "epic": "Migrate to it.layer",
+      "title": "Migrate data-export-service.test.ts to it.layer pattern",
+      "description": "Convert data-export-service.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "data-export-service.test.ts uses it.layer() for all tests",
+        "Zero setup/clear boilerplate in test bodies",
+        "cd packages/api && bun test tests/data-export-service.test.ts passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/data-export-service.test.ts"
+        ]
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "TEST-1.8",
+      "phase": "Layer Pattern",
+      "epic": "Cleanup",
+      "title": "Remove deprecated makeTestLayer helper",
+      "description": "After all test files migrated, remove the old makeTestLayer helper and verify no usages remain. Keep only makeInitializedTestLayer.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "rg 'makeTestLayer' packages/api/ returns 0 matches",
+        "Only makeInitializedTestLayer exported from test-db.ts",
+        "cd packages/api && bun test passes all tests"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/helpers/test-db.ts"
+        ]
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "TEST-2.0",
+      "phase": "Property Testing",
+      "epic": "Add property-based tests",
+      "title": "Create property tests for branded types",
+      "description": "Add property-based tests using it.effect.prop for branded type validation. Test that Weight, Limit, Offset, and other branded types properly validate their constraints.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "New file packages/api/tests/property-tests.test.ts created",
+        "Property test for Weight (positive number constraint)",
+        "Property test for Limit (positive integer constraint)",
+        "Property test for Offset (non-negative integer constraint)",
+        "cd packages/api && bun test tests/property-tests.test.ts passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/property-tests.test.ts"
+        ],
+        "pattern": "it.effect.prop('constraint name', [Schema.Number.pipe(Schema.positive())], ([value]) => ...)"
+      },
+      "status": "pending",
       "estimated_complexity": "medium"
     },
     {
-      "id": "SQL-4.0",
+      "id": "TEST-2.1",
+      "phase": "Property Testing",
+      "epic": "Add property-based tests",
+      "title": "Add property tests for frequency conversion",
+      "description": "Add property-based tests for the frequencyToDays function used in schedule calculations. Verify conversion is correct for all frequency types.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Property test validates frequencyToDays returns positive integers",
+        "Tests all frequency variants: daily, every_3_days, weekly, every_2_weeks, monthly",
+        "cd packages/api && bun test tests/property-tests.test.ts passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/property-tests.test.ts"
+        ],
+        "pattern": "Test with Schema.Literal for enum values, verify output > 0"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "TEST-3.0",
+      "phase": "TestClock",
+      "epic": "Deterministic time testing",
+      "title": "Refactor schedule-rpc-handlers to use TestClock",
+      "description": "Replace setSystemTime() usage in schedule-rpc-handlers.test.ts with Effect TestClock pattern. Use fork + TestClock.adjust for time-dependent tests.",
+      "specs": [
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Zero setSystemTime() calls in schedule-rpc-handlers.test.ts",
+        "Uses TestClock.adjust or TestClock.setTime pattern",
+        "Time-dependent tests use fork + join pattern",
+        "cd packages/api && bun test tests/schedule-rpc-handlers.test.ts passes",
+        "Tests are deterministic (run multiple times, same results)"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/tests/schedule-rpc-handlers.test.ts"
+        ],
+        "pattern": "const fiber = yield* Effect.fork(effect); yield* TestClock.setTime(time); yield* Fiber.join(fiber)"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "TEST-4.0",
       "phase": "Verification",
       "epic": "Full compliance check",
-      "title": "Verify all SQL patterns comply with EFFECT_SQL.md",
-      "description": "Final verification pass across all repo files. Run comprehensive grep checks, ensure no type assertions, no unsafe queries, no Option.getOrThrow, all Schema.Struct for rows.",
+      "title": "Verify all tests comply with EFFECT_TESTING.md",
+      "description": "Final verification pass. Run comprehensive checks to ensure all tests follow the patterns in EFFECT_TESTING.md.",
       "specs": [
-        "EFFECT_SQL.md",
-        "EFFECT_BEST_PRACTICES.md"
+        "EFFECT_TESTING.md"
       ],
       "acceptance_criteria": [
-        "rg '\\.unsafe\\(' packages/api/ returns 0 matches",
-        "rg 'as any' packages/api/src/ returns 0 matches",
-        "rg 'as unknown' packages/api/src/ returns 0 matches",
-        "rg 'getOrThrow' packages/api/src/ returns 0 matches",
-        "rg 'sql<' packages/api/src/ returns 0 matches (no generic type annotations)",
-        "bun run check passes",
-        "bun run test:all passes"
+        "rg 'setupTables' packages/api/tests/*.test.ts returns 0 matches (only in helpers)",
+        "rg 'clearTables' packages/api/tests/*.test.ts returns 0 matches (only in helpers)",
+        "rg '\\.pipe\\(Effect\\.provide' packages/api/tests/*.test.ts returns 0 matches",
+        "rg 'setSystemTime' packages/api/tests/ returns 0 matches",
+        "cd packages/api && bun test passes all tests",
+        "bun run check passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/**/*-repo.ts",
-          "packages/api/src/**/*-service.ts"
-        ],
-        "pattern": "Comprehensive grep verification of all anti-patterns"
+          "packages/api/tests/**/*.test.ts"
+        ]
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
     }
   ]
