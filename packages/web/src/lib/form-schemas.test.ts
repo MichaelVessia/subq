@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { Effect, Either, Schema } from 'effect'
-import { GoalFormSchema } from './form-schemas.js'
+import { GoalFormSchema, ScheduleFormSchema, SchedulePhaseSchema } from './form-schemas.js'
 
 describe('GoalFormSchema', () => {
   describe('valid inputs', () => {
@@ -155,6 +155,365 @@ describe('GoalFormSchema', () => {
           startDate: '',
           targetDate: '',
           notes: longNotes,
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.notes).toBe(longNotes)
+        }
+      }),
+    )
+  })
+})
+
+describe('SchedulePhaseSchema', () => {
+  describe('valid inputs', () => {
+    it.effect('accepts valid phase with duration', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 1,
+          durationDays: '28',
+          dosage: '2.5mg',
+          isIndefinite: false,
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.order).toBe(1)
+          expect(result.right.durationDays).toBe('28')
+          expect(result.right.dosage).toBe('2.5mg')
+          expect(result.right.isIndefinite).toBe(false)
+        }
+      }),
+    )
+
+    it.effect('accepts indefinite phase with empty duration', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 3,
+          durationDays: '',
+          dosage: '10mg',
+          isIndefinite: true,
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.isIndefinite).toBe(true)
+          expect(result.right.durationDays).toBe('')
+        }
+      }),
+    )
+
+    it.effect('accepts various dosage formats', () =>
+      Effect.gen(function* () {
+        const validDosages = ['2.5mg', '0.5ml', '10 units', '100mcg', '5 IU']
+        for (const dosage of validDosages) {
+          const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+            order: 1,
+            durationDays: '28',
+            dosage,
+            isIndefinite: false,
+          })
+          expect(Either.isRight(result)).toBe(true)
+        }
+      }),
+    )
+  })
+
+  describe('invalid inputs', () => {
+    it.effect('rejects non-indefinite phase with empty duration', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 1,
+          durationDays: '',
+          dosage: '2.5mg',
+          isIndefinite: false,
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty dosage', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 1,
+          durationDays: '28',
+          dosage: '',
+          isIndefinite: false,
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects invalid dosage format', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 1,
+          durationDays: '28',
+          dosage: 'two point five',
+          isIndefinite: false,
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects zero order', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: 0,
+          durationDays: '28',
+          dosage: '2.5mg',
+          isIndefinite: false,
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects negative order', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(SchedulePhaseSchema)({
+          order: -1,
+          durationDays: '28',
+          dosage: '2.5mg',
+          isIndefinite: false,
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+  })
+})
+
+describe('ScheduleFormSchema', () => {
+  const validPhase = {
+    order: 1,
+    durationDays: '28',
+    dosage: '2.5mg',
+    isIndefinite: false,
+  }
+
+  const validIndefinitePhase = {
+    order: 2,
+    durationDays: '',
+    dosage: '5mg',
+    isIndefinite: true,
+  }
+
+  describe('valid inputs', () => {
+    it.effect('accepts valid schedule with single phase', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Semaglutide Titration',
+          drug: 'Semaglutide (Ozempic)',
+          frequency: 'weekly',
+          startDate: '2024-01-15',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.name).toBe('Semaglutide Titration')
+          expect(result.right.drug).toBe('Semaglutide (Ozempic)')
+          expect(result.right.frequency).toBe('weekly')
+          expect(result.right.phases.length).toBe(1)
+        }
+      }),
+    )
+
+    it.effect('accepts valid schedule with multiple phases', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'GLP-1 Titration',
+          drug: 'Tirzepatide (Mounjaro)',
+          frequency: 'weekly',
+          startDate: '2024-06-01',
+          notes: 'Standard titration protocol',
+          phases: [
+            { order: 1, durationDays: '28', dosage: '2.5mg', isIndefinite: false },
+            { order: 2, durationDays: '28', dosage: '5mg', isIndefinite: false },
+            { order: 3, durationDays: '', dosage: '7.5mg', isIndefinite: true },
+          ],
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.phases.length).toBe(3)
+          expect(result.right.phases[2]?.isIndefinite).toBe(true)
+        }
+      }),
+    )
+
+    it.effect('accepts all valid frequency values', () =>
+      Effect.gen(function* () {
+        const frequencies = ['daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly'] as const
+        for (const frequency of frequencies) {
+          const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+            name: 'Test Schedule',
+            drug: 'Test Drug',
+            frequency,
+            startDate: '2024-01-01',
+            notes: '',
+            phases: [validPhase],
+          })
+          expect(Either.isRight(result)).toBe(true)
+        }
+      }),
+    )
+
+    it.effect('accepts schedule with indefinite last phase', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Maintenance Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [validPhase, validIndefinitePhase],
+        })
+        expect(Either.isRight(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('required fields', () => {
+    it.effect('rejects empty name', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: '',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty drug', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: '',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty startDate', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty phases array', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('invalid inputs', () => {
+    it.effect('rejects invalid frequency', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'biweekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects invalid date format', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: 'not-a-date',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects indefinite phase that is not last', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [
+            { order: 1, durationDays: '', dosage: '2.5mg', isIndefinite: true },
+            { order: 2, durationDays: '28', dosage: '5mg', isIndefinite: false },
+          ],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects phase with invalid dosage', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [{ order: 1, durationDays: '28', dosage: 'invalid', isIndefinite: false }],
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('notes handling', () => {
+    it.effect('accepts empty notes', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: '',
+          phases: [validPhase],
+        })
+        expect(Either.isRight(result)).toBe(true)
+      }),
+    )
+
+    it.effect('accepts long notes', () =>
+      Effect.gen(function* () {
+        const longNotes = 'Detailed schedule notes '.repeat(50)
+        const result = Schema.decodeUnknownEither(ScheduleFormSchema)({
+          name: 'Test Schedule',
+          drug: 'Semaglutide',
+          frequency: 'weekly',
+          startDate: '2024-01-01',
+          notes: longNotes,
+          phases: [validPhase],
         })
         expect(Either.isRight(result)).toBe(true)
         if (Either.isRight(result)) {

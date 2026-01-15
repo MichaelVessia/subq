@@ -132,7 +132,7 @@
         ],
         "pattern": "Use Schema.Array for phases, Schema.Struct for phase items"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

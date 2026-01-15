@@ -179,3 +179,79 @@ export class GoalFormSchema extends Schema.Class<GoalFormSchema>('GoalFormSchema
 export type GoalFormInput = typeof GoalFormSchema.Type
 
 export const goalFormStandardSchema = Schema.standardSchemaV1(GoalFormSchema)
+
+// ============================================
+// Schedule Form Schemas
+// ============================================
+
+/**
+ * Schema for a single phase within a schedule form.
+ * Validates phase inputs from HTML form fields.
+ * Handles conditional validation: durationDays is optional if isIndefinite is true.
+ */
+export const SchedulePhaseSchema = Schema.Struct({
+  order: Schema.Number.pipe(
+    Schema.int({ message: () => 'Phase order must be a whole number' }),
+    Schema.positive({ message: () => 'Phase order must be positive' }),
+  ),
+  durationDays: Schema.String, // Empty string when indefinite
+  dosage: Schema.String.pipe(
+    Schema.nonEmptyString({ message: () => 'Dosage is required' }),
+    Schema.filter((s) => dosagePattern.test(s.trim()), {
+      message: () => 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)',
+    }),
+  ),
+  isIndefinite: Schema.Boolean,
+}).pipe(
+  Schema.filter(
+    (phase) => {
+      // If indefinite, durationDays can be empty
+      if (phase.isIndefinite) return true
+      // Otherwise, must have valid positive integer
+      const parsed = Number.parseInt(phase.durationDays, 10)
+      return !Number.isNaN(parsed) && parsed > 0
+    },
+    { message: () => 'Duration is required for non-indefinite phases' },
+  ),
+)
+
+export type SchedulePhaseFormInput = typeof SchedulePhaseSchema.Type
+
+const frequencyLiteral = Schema.Literal('daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly')
+
+/**
+ * Schema for schedule form inputs.
+ * Validates string inputs from HTML form fields.
+ */
+export class ScheduleFormSchema extends Schema.Class<ScheduleFormSchema>('ScheduleFormSchema')({
+  name: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Schedule name is required' })),
+  drug: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Medication is required' })),
+  frequency: frequencyLiteral,
+  startDate: Schema.String.pipe(
+    Schema.nonEmptyString({ message: () => 'Start date is required' }),
+    Schema.filter(
+      (s) => {
+        const date = new Date(s)
+        return !Number.isNaN(date.getTime())
+      },
+      { message: () => 'Invalid date' },
+    ),
+  ),
+  notes: Schema.String, // Optional
+  phases: Schema.NonEmptyArray(SchedulePhaseSchema).pipe(
+    Schema.filter(
+      (phases) => {
+        // Only the last phase can be indefinite
+        for (let i = 0; i < phases.length - 1; i++) {
+          if (phases[i]?.isIndefinite) return false
+        }
+        return true
+      },
+      { message: () => 'Only the last phase can be indefinite' },
+    ),
+  ),
+}) {}
+
+export type ScheduleFormInput = typeof ScheduleFormSchema.Type
+
+export const scheduleFormStandardSchema = Schema.standardSchemaV1(ScheduleFormSchema)
