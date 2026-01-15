@@ -71,3 +71,8 @@
 **Story**: SQL-2.0 - Replace Option.getOrThrow in goal-repo
 **Status**: complete
 ---
+
+## Iteration 5 - 2026-01-14 23:16
+**Story**: SQL-2.1 - Replace Option.getOrThrow in settings-repo
+**Status**: complete
+---

@@ -102,7 +102,16 @@ export const SettingsRepoLive = Layer.effect(
 
         // Fetch and return
         const result = yield* get(userId)
-        return Option.getOrThrow(result)
+        return yield* Option.match(result, {
+          onNone: () =>
+            Effect.fail(
+              SettingsDatabaseError.make({
+                operation: 'query',
+                cause: new Error('Settings not found after upsert'),
+              }),
+            ),
+          onSome: Effect.succeed,
+        })
       }).pipe(Effect.mapError((cause) => SettingsDatabaseError.make({ operation: 'update', cause })))
 
     return { get, upsert }

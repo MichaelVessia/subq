@@ -172,7 +172,7 @@
         "pattern": "Use Option.match with Effect.fail for None case",
         "current_issue": "Line 97: Option.getOrThrow(result)"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
