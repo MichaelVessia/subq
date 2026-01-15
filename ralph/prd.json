@@ -1,7 +1,9 @@
 {
   "project": "subq",
   "description": "Weight tracking application with Effect-based API and React frontend",
-  "updated_at": "2025-01-14",
+  "version": "1.0.0",
+  "created_at": "2025-01-14",
+  "updated_at": "2026-01-14",
   "technology": {
     "language": "TypeScript",
     "runtime": "Bun",
@@ -35,6 +37,10 @@
     {
       "file": "EFFECT_BEST_PRACTICES.md",
       "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
+    },
+    {
+      "file": "EFFECT_BEST_PRACTICES_REMEDIATION.md",
+      "description": "Audit findings and remediation plan for EFFECT_BEST_PRACTICES compliance"
     },
     {
       "file": "EFFECT_ATOM.md",
@@ -77,5 +83,269 @@
       "description": "Git subtrees setup: Effect, TanStack Router, Effect Atom for pattern lookup"
     }
   ],
-  "stories": []
+  "testing_policy": {
+    "mandatory": "EVERY story MUST include tests. A story is NOT complete without passing tests.",
+    "verification": "bun run check && bun run test:all",
+    "no_exceptions": "Do NOT mark a story as complete if tests are missing or failing."
+  },
+  "stories": [
+    {
+      "id": "1.1.0",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Create CLI branded type validators",
+      "description": "Create packages/cli/src/lib/validators.ts with Schema.decodeUnknown wrappers for Weight, Notes, and other branded types from @subq/shared. These validators will be used to properly type CLI inputs at the boundary.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/lib/validators.ts exists",
+        "validateWeight uses Schema.decodeUnknown(Weight)",
+        "validateNotes uses Schema.decodeUnknown(Notes)",
+        "TypeScript compiles: bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/lib/validators.ts"
+        ],
+        "pattern": "Schema.decodeUnknown for branded types at CLI boundary"
+      },
+      "status": "complete",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.1",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Fix weight command any casts",
+      "description": "Replace 'weight as Weight' and 'notes as any' casts in weight/add.ts and weight/update.ts with proper Schema validation using the validators from 1.1.0.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/weight/add.ts has no 'as any' or 'as Weight' casts",
+        "packages/cli/src/commands/weight/update.ts has no 'as any' casts",
+        "rg 'as any' packages/cli/src/commands/weight/ returns 0 matches",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/weight/add.ts",
+          "packages/cli/src/commands/weight/update.ts"
+        ],
+        "pattern": "yield* validateWeight(weight) instead of 'weight as Weight'"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.2",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Fix auth login any casts",
+      "description": "Replace '(body as any).message' and '(data as any).user' casts in auth/login.ts with proper Schema decoding. This requires creating auth response schemas first (done in 2.1.1, but we can inline temporary schemas here or use unknown with type guards).",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/auth/login.ts has no 'as any' casts",
+        "Auth API responses are decoded with Schema.decodeUnknown",
+        "rg 'as any' packages/cli/src/commands/auth/ returns 0 matches",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/auth/login.ts"
+        ],
+        "pattern": "Define inline response schemas or import from shared once 2.1.1 is done"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.3",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Fix web/api any casts",
+      "description": "Fix remaining any casts: goalId as any in goal-progress.tsx (use proper GoalId type), and Layer cast in seed.ts (fix layer types).",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/web/src/components/goals/goal-progress.tsx has no 'as any' casts",
+        "packages/api/scripts/seed.ts has no 'as any' casts",
+        "rg 'as any' packages/web/ packages/api/ returns 0 matches (excluding node_modules)",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/components/goals/goal-progress.tsx",
+          "packages/api/scripts/seed.ts"
+        ],
+        "pattern": "Use proper branded types and fix layer type inference"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.4",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Replace Schema.*Sync methods",
+      "description": "Convert Schema.encodeSync and Schema.decodeUnknownSync in data-management.tsx to Effect-based variants using Effect.runPromise in the async handlers.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/web/src/components/settings/data-management.tsx uses Schema.encode not encodeSync",
+        "packages/web/src/components/settings/data-management.tsx uses Schema.decodeUnknown not decodeUnknownSync",
+        "rg 'Sync\\(' packages/web/ returns 0 matches for Schema methods",
+        "Schema errors show user-friendly toast/message",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/components/settings/data-management.tsx"
+        ],
+        "pattern": "await Effect.runPromise(Schema.encode(...)) in async handlers"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.5",
+      "phase": "Type Safety",
+      "epic": "Remove any casts",
+      "title": "Replace DateFromSelf schema",
+      "description": "Replace Schema.DateFromSelf with Schema.Date in stats-service.ts for consistency with JSON serialization best practices.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/api/src/stats/stats-service.ts uses Schema.Date not Schema.DateFromSelf",
+        "rg 'FromSelf' packages/ --glob '!repos/*' returns 0 matches",
+        "bun run test passes (stats tests still work)"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/stats/stats-service.ts"
+        ],
+        "pattern": "Schema.transform(Schema.String, Schema.Date, {...})"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "2.1.0",
+      "phase": "Error Handling",
+      "epic": "TaggedErrors",
+      "title": "Create CLI error types",
+      "description": "Create packages/cli/src/errors.ts with Schema.TaggedError classes: MissingArgumentError (for missing CLI args) and InvalidSessionError (for session parsing failures).",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/errors.ts exists",
+        "MissingArgumentError extends Schema.TaggedError with argument and hint fields",
+        "InvalidSessionError extends Schema.TaggedError with message field",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/errors.ts"
+        ],
+        "pattern": "Schema.TaggedError<T>()('TagName', { fields })"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "2.1.1",
+      "phase": "Error Handling",
+      "epic": "TaggedErrors",
+      "title": "Create auth response schemas",
+      "description": "Create packages/shared/src/auth/responses.ts with AuthErrorResponse and AuthSuccessResponse schemas for the BetterAuth API responses consumed by CLI.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/shared/src/auth/responses.ts exists",
+        "AuthErrorResponse schema has message and code fields (optional)",
+        "AuthSuccessResponse schema has user.id, user.email, user.name (optional)",
+        "Schemas are exported from packages/shared index",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/shared/src/auth/responses.ts",
+          "packages/shared/src/index.ts"
+        ],
+        "pattern": "Schema.Struct for API response shapes"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "2.1.2",
+      "phase": "Error Handling",
+      "epic": "TaggedErrors",
+      "title": "Replace Effect.fail(new Error) in CLI",
+      "description": "Replace all Effect.fail(new Error(...)) patterns in CLI commands with MissingArgumentError or InvalidSessionError from errors.ts.",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/inventory/add.ts uses MissingArgumentError (4 places)",
+        "packages/cli/src/commands/injection/add.ts uses MissingArgumentError (2 places)",
+        "packages/cli/src/commands/weight/add.ts uses MissingArgumentError (1 place)",
+        "packages/cli/src/services/session.ts uses InvalidSessionError (1 place)",
+        "rg 'Effect.fail\\(new Error' packages/cli/ returns 0 matches",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/inventory/add.ts",
+          "packages/cli/src/commands/injection/add.ts",
+          "packages/cli/src/commands/weight/add.ts",
+          "packages/cli/src/services/session.ts"
+        ],
+        "pattern": "Effect.fail(new MissingArgumentError({ argument: 'x', hint: '...' }))"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "2.1.3",
+      "phase": "Error Handling",
+      "epic": "TaggedErrors",
+      "title": "Replace throw with Effect.die",
+      "description": "Replace 'throw new Error(...)' with Effect.die in email-service.ts for unrecoverable Resend API errors. Keep main.tsx throw as-is (not in Effect context).",
+      "specs": [
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+      ],
+      "acceptance_criteria": [
+        "packages/api/src/reminders/email-service.ts uses Effect.die not throw",
+        "packages/web/src/main.tsx throw is kept (acceptable outside Effect)",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/reminders/email-service.ts"
+        ],
+        "pattern": "return yield* Effect.die(new Error(...)) for unrecoverable failures"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    }
+  ]
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CI Check Script for Ralph Loop
 # Customize this for your project's CI commands
 

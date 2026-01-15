@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Ralph Loop - Long-running AI coding agent orchestrator
 #

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # PRD Status Script - Shows current progress
 
 PRD_FILE="${1:-ralph/prd.json}"

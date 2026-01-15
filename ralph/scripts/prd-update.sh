@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # PRD Update Script - Updates a story's status
 
 PRD_FILE="ralph/prd.json"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Stream Filter for Claude JSON output
 
 BLUE='\033[0;34m'
