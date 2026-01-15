@@ -146,3 +146,8 @@
 **Story**: TEST-3.0 - Refactor schedule-rpc-handlers to use TestClock
 **Status**: complete
 ---
+
+## Iteration 7 - 2026-01-15 00:09
+**Story**: TEST-4.0 - Verify all tests comply with EFFECT_TESTING.md
+**Status**: complete
+---

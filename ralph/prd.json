@@ -344,7 +344,7 @@
           "packages/api/tests/**/*.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     }
   ]

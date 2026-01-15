@@ -264,19 +264,19 @@ const calculateNextDose = Effect.gen(function* () {
 
 describe('ScheduleGetNextDose', () => {
   describe('no active schedule', () => {
-    it.effect('returns null when no active schedule exists', () =>
+    it.layer(TestLayer)('returns null when no active schedule exists', () =>
       Effect.gen(function* () {
         resetTestState()
         testState.activeSchedule = null
 
         const result = yield* calculateNextDose
         expect(result).toBeNull()
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('no previous injections', () => {
-    it.effect('suggests start date when schedule starts in the future', () =>
+    it.layer(TestLayer)('suggests start date when schedule starts in the future', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
@@ -292,10 +292,10 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(DateTime.toEpochMillis(result!.suggestedDate)).toBe(DateTime.toEpochMillis(futureDate))
         expect(result!.isOverdue).toBe(false)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('suggests today when schedule started in the past', () =>
+    it.layer(TestLayer)('suggests today when schedule started in the past', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
@@ -313,12 +313,12 @@ describe('ScheduleGetNextDose', () => {
         const now = DateTime.unsafeMake('2024-01-15T12:00:00Z')
         const diffMs = Math.abs(DateTime.toEpochMillis(result!.suggestedDate) - DateTime.toEpochMillis(now))
         expect(diffMs).toBeLessThan(24 * 60 * 60 * 1000) // Within 1 day
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('with previous injections', () => {
-    it.effect('calculates next dose based on weekly frequency', () =>
+    it.layer(TestLayer)('calculates next dose based on weekly frequency', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
@@ -336,10 +336,10 @@ describe('ScheduleGetNextDose', () => {
         // Next dose should be 2 days from now (7 - 5 = 2)
         expect(result!.daysUntilDue).toBe(2)
         expect(result!.isOverdue).toBe(false)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('calculates next dose based on every_3_days frequency', () =>
+    it.layer(TestLayer)('calculates next dose based on every_3_days frequency', () =>
       Effect.gen(function* () {
         resetTestState()
 
@@ -359,10 +359,10 @@ describe('ScheduleGetNextDose', () => {
         // Next dose should be 1 day from now (3 - 2 = 1)
         expect(result!.daysUntilDue).toBe(1)
         expect(result!.isOverdue).toBe(false)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('marks dose as overdue when past due date', () =>
+    it.layer(TestLayer)('marks dose as overdue when past due date', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed reference date to avoid timezone/day boundary issues
@@ -380,12 +380,12 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(result!.isOverdue).toBe(true)
         expect(result!.daysUntilDue).toBe(-3) // 3 days overdue
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('phase transitions', () => {
-    it.effect('returns first phase dosage at start', () =>
+    it.layer(TestLayer)('returns first phase dosage at start', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
@@ -404,10 +404,10 @@ describe('ScheduleGetNextDose', () => {
         expect(result!.currentPhase).toBe(1)
         expect(result!.dosage).toBe('100mg')
         expect(result!.totalPhases).toBe(3)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('transitions to second phase after first phase duration', () =>
+    it.layer(TestLayer)('transitions to second phase after first phase duration', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-02-14 (30 days from 2024-01-15)
@@ -425,10 +425,10 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(result!.currentPhase).toBe(2)
         expect(result!.dosage).toBe('150mg')
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('stays on indefinite (maintenance) phase', () =>
+    it.layer(TestLayer)('stays on indefinite (maintenance) phase', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-04-24 (100 days from 2024-01-15)
@@ -446,10 +446,10 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(result!.currentPhase).toBe(3)
         expect(result!.dosage).toBe('200mg')
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('handles single indefinite phase schedule', () =>
+    it.layer(TestLayer)('handles single indefinite phase schedule', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
@@ -469,12 +469,12 @@ describe('ScheduleGetNextDose', () => {
         expect(result!.dosage).toBe('200mg')
         expect(result!.daysUntilDue).toBe(2) // 7 - 5 = 2
         expect(result!.isOverdue).toBe(false)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('edge cases', () => {
-    it.effect('returns null for schedule with no phases', () =>
+    it.layer(TestLayer)('returns null for schedule with no phases', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use a fixed date for determinism
@@ -485,10 +485,10 @@ describe('ScheduleGetNextDose', () => {
 
         const result = yield* calculateNextDose
         expect(result).toBeNull()
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('handles daily frequency correctly', () =>
+    it.layer(TestLayer)('handles daily frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
 
@@ -505,10 +505,10 @@ describe('ScheduleGetNextDose', () => {
 
         expect(result).not.toBeNull()
         expect(result!.daysUntilDue).toBe(1) // Due tomorrow
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('handles monthly frequency correctly', () =>
+    it.layer(TestLayer)('handles monthly frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
 
@@ -526,7 +526,7 @@ describe('ScheduleGetNextDose', () => {
         expect(result).not.toBeNull()
         expect(result!.daysUntilDue).toBe(10) // 30 - 20 = 10
         expect(result!.isOverdue).toBe(false)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 })
@@ -537,7 +537,7 @@ describe('ScheduleGetNextDose', () => {
 
 describe('ScheduleGetView', () => {
   describe('phase status calculation', () => {
-    it.effect('marks past phases as completed', () =>
+    it.layer(TestLayer)('marks past phases as completed', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
@@ -588,10 +588,10 @@ describe('ScheduleGetView', () => {
         expect(phaseStatuses[1]!.status).toBe('completed')
         // Phase 3 (day 56+, indefinite) should be current
         expect(phaseStatuses[2]!.status).toBe('current')
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('marks current phase correctly', () =>
+    it.layer(TestLayer)('marks current phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
@@ -611,10 +611,10 @@ describe('ScheduleGetView', () => {
 
         expect(daysSinceStart).toBeGreaterThanOrEqual(28)
         expect(daysSinceStart).toBeLessThan(56)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('marks future phases as upcoming', () =>
+    it.layer(TestLayer)('marks future phases as upcoming', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
@@ -636,12 +636,12 @@ describe('ScheduleGetView', () => {
         const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
 
         expect(daysSinceStart).toBeLessThan(28) // Still in phase 1
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('injection counting', () => {
-    it.effect('counts injections per phase correctly', () =>
+    it.layer(TestLayer)('counts injections per phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
         const startDate = DateTime.unsafeMake('2024-01-01')
@@ -677,10 +677,10 @@ describe('ScheduleGetView', () => {
           return DateTime.greaterThanOrEqualTo(inj.datetime, jan29)
         })
         expect(phase2Injections.length).toBe(2)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('calculates expected injections based on frequency', () =>
+    it.layer(TestLayer)('calculates expected injections based on frequency', () =>
       Effect.gen(function* () {
         resetTestState()
         const startDate = DateTime.unsafeMake('2024-01-01')
@@ -697,12 +697,12 @@ describe('ScheduleGetView', () => {
 
         // Expected injections for indefinite phase should be null
         // (can't calculate expected for indefinite)
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 
   describe('date range calculations', () => {
-    it.effect('calculates phase start and end dates correctly', () =>
+    it.layer(TestLayer)('calculates phase start and end dates correctly', () =>
       Effect.gen(function* () {
         resetTestState()
         const startDate = DateTime.unsafeMake('2024-01-01T00:00:00Z')
@@ -733,10 +733,10 @@ describe('ScheduleGetView', () => {
         const phase3Start = DateTime.unsafeMake(DateTime.toEpochMillis(phase2Start) + 14 * msPerDay)
 
         expect(DateTime.formatIso(phase3Start).split('T')[0]).toBe('2024-02-12')
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('schedule end date is null for indefinite final phase', () =>
+    it.layer(TestLayer)('schedule end date is null for indefinite final phase', () =>
       Effect.gen(function* () {
         resetTestState()
         const startDate = DateTime.unsafeMake('2024-01-01')
@@ -749,10 +749,10 @@ describe('ScheduleGetView', () => {
         const hasIndefinitePhase = schedule.phases.some((p) => p.durationDays === null)
         expect(hasIndefinitePhase).toBe(true)
         // Schedule end date would be null
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
 
-    it.effect('schedule end date is calculated for finite schedules', () =>
+    it.layer(TestLayer)('schedule end date is calculated for finite schedules', () =>
       Effect.gen(function* () {
         resetTestState()
         const startDate = DateTime.unsafeMake('2024-01-01')
@@ -773,7 +773,7 @@ describe('ScheduleGetView', () => {
         const msPerDay = 1000 * 60 * 60 * 24
         const endDate = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + (totalDays - 1) * msPerDay)
         expect(DateTime.formatIso(endDate).split('T')[0]).toBe('2024-02-25')
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     )
   })
 })
