@@ -1,4 +1,5 @@
 import type { WeightUnit } from '@subq/shared'
+import { useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
@@ -9,6 +10,7 @@ import { DataManagement } from './data-management.js'
 
 export function SettingsPage() {
   const { weightUnit, setWeightUnit, remindersEnabled, setRemindersEnabled } = useUserSettings()
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
 
   const handleUnitChange = (unit: WeightUnit) => {
     setWeightUnit(unit)
@@ -62,7 +64,8 @@ export function SettingsPage() {
           <CardTitle>Change Password</CardTitle>
         </CardHeader>
         <CardContent>
-          <ChangePasswordForm />
+          {passwordChangeSuccess && <p className="text-sm text-green-600 mb-4">Password changed successfully</p>}
+          <ChangePasswordForm onSuccess={() => setPasswordChangeSuccess(true)} />
         </CardContent>
       </Card>
 

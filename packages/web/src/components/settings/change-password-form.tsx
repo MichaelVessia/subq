@@ -1,96 +1,84 @@
-import { useState } from 'react'
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
+import { useForm } from 'react-hook-form'
 import { changePassword } from '../../auth.js'
+import { changePasswordFormStandardSchema, type ChangePasswordFormInput } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 
-export function ChangePasswordForm() {
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [loading, setLoading] = useState(false)
+interface ChangePasswordFormProps {
+  onSuccess: () => void
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(false)
+export function ChangePasswordForm({ onSuccess }: ChangePasswordFormProps) {
+  const {
+    register,
+    handleSubmit,
+    setError,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ChangePasswordFormInput>({
+    resolver: standardSchemaResolver(changePasswordFormStandardSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  })
 
-    if (newPassword !== confirmPassword) {
-      setError('New passwords do not match')
-      return
-    }
-
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters')
-      return
-    }
-
-    setLoading(true)
+  const onFormSubmit = async (data: ChangePasswordFormInput) => {
     try {
       const result = await changePassword({
-        currentPassword,
-        newPassword,
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
         revokeOtherSessions: true,
       })
       if (result.error) {
-        setError(result.error.message ?? 'Failed to change password')
+        setError('root', { message: result.error.message ?? 'Failed to change password' })
       } else {
-        setSuccess(true)
-        setCurrentPassword('')
-        setNewPassword('')
-        setConfirmPassword('')
+        reset()
+        onSuccess()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to change password')
-    } finally {
-      setLoading(false)
+      setError('root', {
+        message: err instanceof Error ? err.message : 'Failed to change password',
+      })
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4" noValidate>
       <div>
         <Label htmlFor="currentPassword" className="mb-2 block">
           Current Password
         </Label>
-        <Input
-          id="currentPassword"
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-        />
+        <Input id="currentPassword" type="password" {...register('currentPassword')} error={!!errors.currentPassword} />
+        {errors.currentPassword && (
+          <span className="block text-xs text-destructive mt-1">{errors.currentPassword.message}</span>
+        )}
       </div>
       <div>
         <Label htmlFor="newPassword" className="mb-2 block">
           New Password
         </Label>
-        <Input
-          id="newPassword"
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-        />
+        <Input id="newPassword" type="password" {...register('newPassword')} error={!!errors.newPassword} />
+        {errors.newPassword && (
+          <span className="block text-xs text-destructive mt-1">{errors.newPassword.message}</span>
+        )}
       </div>
       <div>
         <Label htmlFor="confirmPassword" className="mb-2 block">
           Confirm New Password
         </Label>
-        <Input
-          id="confirmPassword"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
+        <Input id="confirmPassword" type="password" {...register('confirmPassword')} error={!!errors.confirmPassword} />
+        {errors.confirmPassword && (
+          <span className="block text-xs text-destructive mt-1">{errors.confirmPassword.message}</span>
+        )}
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {success && <p className="text-sm text-green-600">Password changed successfully</p>}
-      <Button type="submit" disabled={loading}>
-        {loading ? 'Changing...' : 'Change Password'}
+      {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Changing...' : 'Change Password'}
       </Button>
     </form>
   )
