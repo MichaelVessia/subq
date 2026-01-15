@@ -66,3 +66,8 @@
 **Story**: SQL-1.2 - Fix injection-log-repo generic types
 **Status**: complete
 ---
+
+## Iteration 4 - 2026-01-14 23:15
+**Story**: SQL-2.0 - Replace Option.getOrThrow in goal-repo
+**Status**: complete
+---

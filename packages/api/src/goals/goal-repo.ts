@@ -71,7 +71,7 @@ export class GoalRepo extends Effect.Tag('GoalRepo')<
       data: UserGoalCreate,
       startingWeight: number,
       userId: string,
-    ) => Effect.Effect<UserGoal, GoalDatabaseError>
+    ) => Effect.Effect<UserGoal, GoalNotFoundError | GoalDatabaseError>
     readonly update: (
       data: UserGoalUpdate,
       userId: string,
@@ -143,18 +143,23 @@ export const GoalRepoLive = Layer.effect(
         const notes = Option.isSome(data.notes) ? data.notes.value : null
 
         // Deactivate any existing active goals for this user
-        yield* sql`UPDATE user_goals SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
+        yield* sql`UPDATE user_goals SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`.pipe(
+          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })),
+        )
 
         // Create the goal
         yield* sql`
           INSERT INTO user_goals (id, user_id, goal_weight, starting_weight, starting_date, target_date, notes, is_active, created_at, updated_at)
           VALUES (${id}, ${userId}, ${data.goalWeight}, ${startingWeight}, ${startingDate}, ${targetDate}, ${notes}, 1, ${now}, ${now})
-        `
+        `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'insert', cause })))
 
         // Fetch and return the created goal
         const result = yield* findById(id, userId)
-        return Option.getOrThrow(result)
-      }).pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'insert', cause })))
+        return yield* Option.match(result, {
+          onNone: () => Effect.fail(GoalNotFoundError.make({ id })),
+          onSome: (goal) => Effect.succeed(goal),
+        })
+      })
 
     const update = (data: UserGoalUpdate, userId: string) =>
       Effect.gen(function* () {
@@ -210,10 +215,11 @@ export const GoalRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
 
         // Fetch updated
-        const result = yield* findById(data.id, userId).pipe(
-          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
-        )
-        return Option.getOrThrow(result)
+        const result = yield* findById(data.id, userId)
+        return yield* Option.match(result, {
+          onNone: () => Effect.fail(GoalNotFoundError.make({ id: data.id })),
+          onSome: (goal) => Effect.succeed(goal),
+        })
       })
 
     const del = (id: string, userId: string) =>

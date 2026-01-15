@@ -38,7 +38,7 @@ export const GoalRpcs = RpcGroup.make(
   Rpc.make('GoalCreate', {
     payload: UserGoalCreate,
     success: UserGoal,
-    error: Schema.Union(GoalDatabaseError, NoWeightDataError),
+    error: Schema.Union(GoalNotFoundError, GoalDatabaseError, NoWeightDataError),
   }),
   Rpc.make('GoalUpdate', {
     payload: UserGoalUpdate,

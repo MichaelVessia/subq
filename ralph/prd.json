@@ -146,7 +146,7 @@
         "pattern": "Use Option.match with Effect.fail for None case, or Effect.flatMap with Option.getOrElse(() => Effect.fail(...))",
         "current_issue": "Lines 156, 213: Option.getOrThrow(result)"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
