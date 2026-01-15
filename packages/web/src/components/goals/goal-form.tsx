@@ -1,7 +1,9 @@
+import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { Notes, type UserGoal, UserGoalCreate, UserGoalUpdate, Weight } from '@subq/shared'
 import { DateTime, Option } from 'effect'
-import { useCallback, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { type GoalFormInput, goalFormStandardSchema } from '../../lib/form-schemas.js'
 import { toDateString } from '../../lib/utils.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -32,10 +34,6 @@ interface GoalFormPropsEdit {
 
 type GoalFormProps = GoalFormPropsCreate | GoalFormPropsEdit
 
-interface FormErrors {
-  goalWeight?: string | undefined
-}
-
 export function GoalForm(props: GoalFormProps) {
   const { onCancel, currentWeight } = props
   const isEditMode = props.mode === 'edit'
@@ -43,92 +41,69 @@ export function GoalForm(props: GoalFormProps) {
   const { displayWeight, toStorageLbs, unitLabel } = useUserSettings()
 
   // Convert existing goal weight from storage (lbs) to display unit
-  const [goalWeight, setGoalWeight] = useState(() =>
-    existingGoal ? String(displayWeight(existingGoal.goalWeight).toFixed(1)) : '',
-  )
-  const [startDate, setStartDate] = useState(() =>
-    existingGoal?.startingDate ? toDateString(existingGoal.startingDate) : toLocalDateString(new Date()),
-  )
-  const [targetDate, setTargetDate] = useState(() =>
-    existingGoal?.targetDate ? toDateString(existingGoal.targetDate) : '',
-  )
-  const [notes, setNotes] = useState(() => existingGoal?.notes ?? '')
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const initialGoalWeight = existingGoal ? String(displayWeight(existingGoal.goalWeight).toFixed(1)) : ''
+  const initialStartDate = existingGoal?.startingDate
+    ? toDateString(existingGoal.startingDate)
+    : toLocalDateString(new Date())
+  const initialTargetDate = existingGoal?.targetDate ? toDateString(existingGoal.targetDate) : ''
+  const initialNotes = existingGoal?.notes ?? ''
 
-  const validateField = useCallback(
-    (field: string, value: string): string | undefined => {
-      switch (field) {
-        case 'goalWeight': {
-          if (!value) return 'Goal weight is required'
-          const num = Number.parseFloat(value)
-          if (Number.isNaN(num)) return 'Must be a number'
-          if (num <= 0) return 'Must be greater than 0'
-          if (num > 1000) return 'Please enter a realistic weight'
-          // Compare in display units - currentWeight is in lbs, convert to display unit
-          if (currentWeight && num >= displayWeight(currentWeight)) {
-            return 'Goal weight should be less than current weight'
-          }
-          return undefined
-        }
-        default:
-          return undefined
-      }
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<GoalFormInput>({
+    resolver: standardSchemaResolver(goalFormStandardSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      goalWeight: initialGoalWeight,
+      startDate: initialStartDate,
+      targetDate: initialTargetDate,
+      notes: initialNotes,
     },
-    [currentWeight, displayWeight],
-  )
+  })
 
-  const validateForm = useCallback((): boolean => {
-    const newErrors: FormErrors = {
-      goalWeight: validateField('goalWeight', goalWeight),
-    }
-    setErrors(newErrors)
-    return !newErrors.goalWeight
-  }, [goalWeight, validateField])
+  const goalWeight = watch('goalWeight')
+  const hasRequiredFields = goalWeight !== ''
 
-  const handleBlur = (field: string, value: string) => {
-    setTouched((prev) => ({ ...prev, [field]: true }))
-    setErrors((prev) => ({ ...prev, [field]: validateField(field, value) }))
-  }
+  const onFormSubmit = async (data: GoalFormInput) => {
+    // Convert goal weight from display unit to storage (lbs)
+    const goalWeightInLbs = toStorageLbs(Number.parseFloat(data.goalWeight))
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setTouched({ goalWeight: true })
-
-    if (!validateForm()) return
-
-    setLoading(true)
-    try {
-      // Convert goal weight from display unit to storage (lbs)
-      const goalWeightInLbs = toStorageLbs(Number.parseFloat(goalWeight))
-
-      if (isEditMode) {
-        await props.onSubmit(
-          new UserGoalUpdate({
-            id: props.existingGoal.id,
-            goalWeight: Weight.make(goalWeightInLbs),
-            startingDate: startDate ? DateTime.unsafeMake(new Date(startDate)) : undefined,
-            targetDate: targetDate ? DateTime.unsafeMake(new Date(targetDate)) : null,
-            notes: notes ? Notes.make(notes) : null,
-          }),
-        )
-      } else {
-        await props.onSubmit(
-          new UserGoalCreate({
-            goalWeight: Weight.make(goalWeightInLbs),
-            startingDate: startDate ? Option.some(DateTime.unsafeMake(new Date(startDate))) : Option.none(),
-            targetDate: targetDate ? Option.some(DateTime.unsafeMake(new Date(targetDate))) : Option.none(),
-            notes: notes ? Option.some(Notes.make(notes)) : Option.none(),
-          }),
-        )
-      }
-    } finally {
-      setLoading(false)
+    if (isEditMode) {
+      await props.onSubmit(
+        new UserGoalUpdate({
+          id: props.existingGoal.id,
+          goalWeight: Weight.make(goalWeightInLbs),
+          startingDate: data.startDate ? DateTime.unsafeMake(new Date(data.startDate)) : undefined,
+          targetDate: data.targetDate ? DateTime.unsafeMake(new Date(data.targetDate)) : null,
+          notes: data.notes ? Notes.make(data.notes) : null,
+        }),
+      )
+    } else {
+      await props.onSubmit(
+        new UserGoalCreate({
+          goalWeight: Weight.make(goalWeightInLbs),
+          startingDate: data.startDate ? Option.some(DateTime.unsafeMake(new Date(data.startDate))) : Option.none(),
+          targetDate: data.targetDate ? Option.some(DateTime.unsafeMake(new Date(data.targetDate))) : Option.none(),
+          notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
+        }),
+      )
     }
   }
 
-  const isValid = !errors.goalWeight && goalWeight !== ''
+  // Cross-field validation: goal weight must be less than current weight
+  const validateGoalWeightVsCurrent = (value: string): string | true => {
+    if (!currentWeight) return true
+    const num = Number.parseFloat(value)
+    if (Number.isNaN(num)) return true // Let schema handle this
+    const currentWeightDisplay = displayWeight(currentWeight)
+    if (num >= currentWeightDisplay) {
+      return 'Goal weight should be less than current weight'
+    }
+    return true
+  }
 
   // Calculate minimum target date (tomorrow)
   const minDate = new Date()
@@ -136,7 +111,7 @@ export function GoalForm(props: GoalFormProps) {
   const minDateStr = toLocalDateString(minDate)
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit(onFormSubmit)} noValidate>
       {currentWeight && (
         <div className="mb-4 p-3 bg-muted rounded-lg">
           <span className="text-sm text-muted-foreground">Current weight: </span>
@@ -153,30 +128,21 @@ export function GoalForm(props: GoalFormProps) {
         <Input
           type="number"
           id="goalWeight"
-          value={goalWeight}
-          onChange={(e) => {
-            setGoalWeight(e.target.value)
-            if (touched.goalWeight) {
-              setErrors((prev) => ({ ...prev, goalWeight: validateField('goalWeight', e.target.value) }))
-            }
-          }}
-          onBlur={(e) => handleBlur('goalWeight', e.target.value)}
+          {...register('goalWeight', { validate: validateGoalWeightVsCurrent })}
           step="0.1"
           min="0"
           max="1000"
           placeholder={unitLabel === 'kg' ? 'e.g., 72' : 'e.g., 160'}
-          error={touched.goalWeight && !!errors.goalWeight}
+          error={!!errors.goalWeight}
         />
-        {touched.goalWeight && errors.goalWeight && (
-          <span className="block text-xs text-destructive mt-1">{errors.goalWeight}</span>
-        )}
+        {errors.goalWeight && <span className="block text-xs text-destructive mt-1">{errors.goalWeight.message}</span>}
       </div>
 
       <div className="mb-4">
         <Label htmlFor="startDate" className="mb-2 block">
           Start Date
         </Label>
-        <Input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <Input type="date" id="startDate" {...register('startDate')} />
         <span className="block text-xs text-muted-foreground mt-1">
           When you started working toward this goal. Use a past date if you've already been tracking progress.
         </span>
@@ -186,13 +152,7 @@ export function GoalForm(props: GoalFormProps) {
         <Label htmlFor="targetDate" className="mb-2 block">
           Target Date (optional)
         </Label>
-        <Input
-          type="date"
-          id="targetDate"
-          value={targetDate}
-          onChange={(e) => setTargetDate(e.target.value)}
-          min={minDateStr}
-        />
+        <Input type="date" id="targetDate" {...register('targetDate')} min={minDateStr} />
         <span className="block text-xs text-muted-foreground mt-1">
           Leave blank for no deadline - you can always update it later
         </span>
@@ -204,8 +164,7 @@ export function GoalForm(props: GoalFormProps) {
         </Label>
         <Textarea
           id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          {...register('notes')}
           rows={2}
           placeholder="e.g., Doctor recommended goal, wedding target, etc."
         />
@@ -215,8 +174,8 @@ export function GoalForm(props: GoalFormProps) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || !isValid}>
-          {loading ? (isEditMode ? 'Saving...' : 'Setting Goal...') : isEditMode ? 'Save Changes' : 'Set Goal'}
+        <Button type="submit" disabled={isSubmitting || !hasRequiredFields}>
+          {isSubmitting ? (isEditMode ? 'Saving...' : 'Setting Goal...') : isEditMode ? 'Save Changes' : 'Set Goal'}
         </Button>
       </div>
     </form>

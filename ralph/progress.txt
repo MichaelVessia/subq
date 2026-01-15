@@ -156,3 +156,8 @@
 **Story**: 1.1.0 - Create GoalFormSchema with unit tests
 **Status**: complete
 ---
+
+## Iteration 2 - 2026-01-15 00:30
+**Story**: 1.1.1 - Migrate goal-form.tsx to react-hook-form
+**Status**: complete
+---
