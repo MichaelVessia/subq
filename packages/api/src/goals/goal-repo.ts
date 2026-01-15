@@ -158,53 +158,56 @@ export const GoalRepoLive = Layer.effect(
 
     const update = (data: UserGoalUpdate, userId: string) =>
       Effect.gen(function* () {
-        // First check if goal exists and belongs to user
-        const existing =
-          yield* sql`SELECT id, user_id FROM user_goals WHERE id = ${data.id} AND user_id = ${userId}`.pipe(
-            Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
-          )
+        // First get current values - include user_id check to prevent IDOR
+        const current = yield* sql`
+          SELECT id, user_id, goal_weight, starting_weight, starting_date,
+                 target_date, notes, is_active, completed_at, created_at, updated_at
+          FROM user_goals WHERE id = ${data.id} AND user_id = ${userId}
+        `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
-        if (existing.length === 0) {
+        if (current.length === 0) {
           return yield* GoalNotFoundError.make({ id: data.id })
         }
 
+        const curr = yield* decodeGoalRow(current[0]).pipe(
+          Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
+        )
+
         const now = DateTime.formatIso(DateTime.unsafeNow())
 
+        // Compute new values (use provided or fall back to current)
+        const newGoalWeight = data.goalWeight ?? curr.goal_weight
+        const newStartingWeight = data.startingWeight ?? curr.starting_weight
+        const newStartingDate =
+          data.startingDate !== undefined ? extractDatePart(DateTime.formatIso(data.startingDate)) : curr.starting_date
+        const newTargetDate =
+          data.targetDate !== undefined
+            ? data.targetDate === null
+              ? null
+              : DateTime.formatIso(data.targetDate)
+            : curr.target_date
+        const newNotes = data.notes !== undefined ? data.notes : curr.notes
+        const newIsActive = data.isActive ?? curr.is_active === 1
+
         // If activating this goal, deactivate others
-        if (data.isActive === true) {
+        if (newIsActive && curr.is_active !== 1) {
           yield* sql`
-            UPDATE user_goals SET is_active = 0, updated_at = ${now} 
+            UPDATE user_goals SET is_active = 0, updated_at = ${now}
             WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
           `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
         }
 
-        // Build update dynamically
-        const updates: string[] = [`updated_at = '${now}'`]
-        if (data.goalWeight !== undefined) {
-          updates.push(`goal_weight = ${data.goalWeight}`)
-        }
-        if (data.startingWeight !== undefined) {
-          updates.push(`starting_weight = ${data.startingWeight}`)
-        }
-        if (data.startingDate !== undefined) {
-          const val = extractDatePart(DateTime.formatIso(data.startingDate))
-          updates.push(`starting_date = '${val}'`)
-        }
-        if (data.targetDate !== undefined) {
-          const val = data.targetDate === null ? 'NULL' : `'${DateTime.formatIso(data.targetDate)}'`
-          updates.push(`target_date = ${val}`)
-        }
-        if (data.notes !== undefined) {
-          const val = data.notes === null ? 'NULL' : `'${data.notes}'`
-          updates.push(`notes = ${val}`)
-        }
-        if (data.isActive !== undefined) {
-          updates.push(`is_active = ${data.isActive ? 1 : 0}`)
-        }
-
-        yield* sql
-          .unsafe(`UPDATE user_goals SET ${updates.join(', ')} WHERE id = '${data.id}' AND user_id = '${userId}'`)
-          .pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
+        yield* sql`
+          UPDATE user_goals
+          SET goal_weight = ${newGoalWeight},
+              starting_weight = ${newStartingWeight},
+              starting_date = ${newStartingDate},
+              target_date = ${newTargetDate},
+              notes = ${newNotes},
+              is_active = ${newIsActive ? 1 : 0},
+              updated_at = ${now}
+          WHERE id = ${data.id} AND user_id = ${userId}
+        `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
 
         // Fetch updated
         const result = yield* findById(data.id, userId).pipe(

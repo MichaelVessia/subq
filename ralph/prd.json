@@ -2,7 +2,7 @@
   "project": "subq",
   "description": "Weight tracking application with Effect-based API and React frontend",
   "version": "1.0.0",
-  "created_at": "2025-01-14",
+  "created_at": "2026-01-14",
   "updated_at": "2026-01-14",
   "technology": {
     "language": "TypeScript",
@@ -31,56 +31,12 @@
   "specs_dir": "specs/",
   "available_specs": [
     {
-      "file": "API_BEST_PRACTICES.md",
-      "description": "Effect HttpApi patterns: branded schemas, automatic decoding, error handling"
-    },
-    {
-      "file": "EFFECT_BEST_PRACTICES.md",
-      "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
-    },
-    {
-      "file": "EFFECT_BEST_PRACTICES_REMEDIATION.md",
-      "description": "Audit findings and remediation plan for EFFECT_BEST_PRACTICES compliance"
-    },
-    {
-      "file": "EFFECT_ATOM.md",
-      "description": "Reactivity patterns: queries, mutations, refresh, families, Result handling"
-    },
-    {
-      "file": "EFFECT_LAYERS.md",
-      "description": "Layer memoization, Layer.fresh, ManagedRuntime, testing isolation"
-    },
-    {
       "file": "EFFECT_SQL.md",
       "description": "Schema-based SQL, SqlSchema helpers, transactions, Model.Class"
     },
     {
-      "file": "EFFECT_TESTING.md",
-      "description": "it.effect variants, TestClock, layer composition, property testing"
-    },
-    {
-      "file": "E2E_TESTING.md",
-      "description": "Playwright patterns: fixtures, auth flows, form testing, CI integration"
-    },
-    {
-      "file": "HTTP_API_TANSTACK.md",
-      "description": "Full-stack integration: HttpApi + TanStack Router + Effect Atom"
-    },
-    {
-      "file": "REACT_BEST_PRACTICES.md",
-      "description": "Atom-first state, Result rendering, Tailwind styling, CVA variants"
-    },
-    {
-      "file": "TYPESCRIPT_CONVENTIONS.md",
-      "description": "Project references, imports, no barrel files, strict type safety"
-    },
-    {
-      "file": "USABILITY_BEST_PRACTICES.md",
-      "description": "UX patterns: navigation, forms, loading, errors, accessibility"
-    },
-    {
-      "file": "REFERENCE_REPOS.md",
-      "description": "Git subtrees setup: Effect, TanStack Router, Effect Atom for pattern lookup"
+      "file": "EFFECT_BEST_PRACTICES.md",
+      "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
     }
   ],
   "testing_policy": {
@@ -90,261 +46,188 @@
   },
   "stories": [
     {
-      "id": "1.1.0",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Create CLI branded type validators",
-      "description": "Create packages/cli/src/lib/validators.ts with Schema.decodeUnknown wrappers for Weight, Notes, and other branded types from @subq/shared. These validators will be used to properly type CLI inputs at the boundary.",
+      "id": "SQL-1.0",
+      "phase": "SQL Safety",
+      "epic": "Eliminate unsafe queries",
+      "title": "Replace unsafe dynamic UPDATE in goal-repo",
+      "description": "The goal-repo.ts update function uses sql.unsafe() with string concatenation (line 206), creating SQL injection risk. Refactor to use parameterized queries. Build the UPDATE statement with sql template literals and proper placeholders instead of string interpolation.",
       "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+        "EFFECT_SQL.md"
       ],
       "acceptance_criteria": [
-        "packages/cli/src/lib/validators.ts exists",
-        "validateWeight uses Schema.decodeUnknown(Weight)",
-        "validateNotes uses Schema.decodeUnknown(Notes)",
-        "TypeScript compiles: bun run typecheck passes"
+        "packages/api/src/goals/goal-repo.ts has no .unsafe() calls",
+        "rg '\\.unsafe\\(' packages/api/ returns 0 matches",
+        "Update uses parameterized sql template literals",
+        "bun run test:api passes (goal tests)",
+        "Manual test: update goal with apostrophe in notes field works"
       ],
       "technical_details": {
         "files": [
-          "packages/cli/src/lib/validators.ts"
+          "packages/api/src/goals/goal-repo.ts"
         ],
-        "pattern": "Schema.decodeUnknown for branded types at CLI boundary"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.1",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Fix weight command any casts",
-      "description": "Replace 'weight as Weight' and 'notes as any' casts in weight/add.ts and weight/update.ts with proper Schema validation using the validators from 1.1.0.",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/cli/src/commands/weight/add.ts has no 'as any' or 'as Weight' casts",
-        "packages/cli/src/commands/weight/update.ts has no 'as any' casts",
-        "rg 'as any' packages/cli/src/commands/weight/ returns 0 matches",
-        "bun run test:cli passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/cli/src/commands/weight/add.ts",
-          "packages/cli/src/commands/weight/update.ts"
-        ],
-        "pattern": "yield* validateWeight(weight) instead of 'weight as Weight'"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.2",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Fix auth login any casts",
-      "description": "Replace '(body as any).message' and '(data as any).user' casts in auth/login.ts with proper Schema decoding. This requires creating auth response schemas first (done in 2.1.1, but we can inline temporary schemas here or use unknown with type guards).",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/cli/src/commands/auth/login.ts has no 'as any' casts",
-        "Auth API responses are decoded with Schema.decodeUnknown",
-        "rg 'as any' packages/cli/src/commands/auth/ returns 0 matches",
-        "bun run test:cli passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/cli/src/commands/auth/login.ts"
-        ],
-        "pattern": "Define inline response schemas or import from shared once 2.1.1 is done"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.3",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Fix web/api any casts",
-      "description": "Fix remaining any casts: goalId as any in goal-progress.tsx (use proper GoalId type), and Layer cast in seed.ts (fix layer types).",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/web/src/components/goals/goal-progress.tsx has no 'as any' casts",
-        "packages/api/scripts/seed.ts has no 'as any' casts",
-        "rg 'as any' packages/web/ packages/api/ returns 0 matches (excluding node_modules)",
-        "bun run typecheck passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/components/goals/goal-progress.tsx",
-          "packages/api/scripts/seed.ts"
-        ],
-        "pattern": "Use proper branded types and fix layer type inference"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.4",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Replace Schema.*Sync methods",
-      "description": "Convert Schema.encodeSync and Schema.decodeUnknownSync in data-management.tsx to Effect-based variants using Effect.runPromise in the async handlers.",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/web/src/components/settings/data-management.tsx uses Schema.encode not encodeSync",
-        "packages/web/src/components/settings/data-management.tsx uses Schema.decodeUnknown not decodeUnknownSync",
-        "rg 'Sync\\(' packages/web/ returns 0 matches for Schema methods",
-        "Schema errors show user-friendly toast/message",
-        "bun run typecheck passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/components/settings/data-management.tsx"
-        ],
-        "pattern": "await Effect.runPromise(Schema.encode(...)) in async handlers"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.5",
-      "phase": "Type Safety",
-      "epic": "Remove any casts",
-      "title": "Replace DateFromSelf schema",
-      "description": "Replace Schema.DateFromSelf with Schema.Date in stats-service.ts for consistency with JSON serialization best practices.",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/api/src/stats/stats-service.ts uses Schema.Date not Schema.DateFromSelf",
-        "rg 'FromSelf' packages/ --glob '!repos/*' returns 0 matches",
-        "bun run test passes (stats tests still work)"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/src/stats/stats-service.ts"
-        ],
-        "pattern": "Schema.transform(Schema.String, Schema.Date, {...})"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "2.1.0",
-      "phase": "Error Handling",
-      "epic": "TaggedErrors",
-      "title": "Create CLI error types",
-      "description": "Create packages/cli/src/errors.ts with Schema.TaggedError classes: MissingArgumentError (for missing CLI args) and InvalidSessionError (for session parsing failures).",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/cli/src/errors.ts exists",
-        "MissingArgumentError extends Schema.TaggedError with argument and hint fields",
-        "InvalidSessionError extends Schema.TaggedError with message field",
-        "bun run typecheck passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/cli/src/errors.ts"
-        ],
-        "pattern": "Schema.TaggedError<T>()('TagName', { fields })"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "2.1.1",
-      "phase": "Error Handling",
-      "epic": "TaggedErrors",
-      "title": "Create auth response schemas",
-      "description": "Create packages/shared/src/auth/responses.ts with AuthErrorResponse and AuthSuccessResponse schemas for the BetterAuth API responses consumed by CLI.",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/shared/src/auth/responses.ts exists",
-        "AuthErrorResponse schema has message and code fields (optional)",
-        "AuthSuccessResponse schema has user.id, user.email, user.name (optional)",
-        "Schemas are exported from packages/shared index",
-        "bun run typecheck passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/shared/src/auth/responses.ts",
-          "packages/shared/src/index.ts"
-        ],
-        "pattern": "Schema.Struct for API response shapes"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "2.1.2",
-      "phase": "Error Handling",
-      "epic": "TaggedErrors",
-      "title": "Replace Effect.fail(new Error) in CLI",
-      "description": "Replace all Effect.fail(new Error(...)) patterns in CLI commands with MissingArgumentError or InvalidSessionError from errors.ts.",
-      "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
-      ],
-      "acceptance_criteria": [
-        "packages/cli/src/commands/inventory/add.ts uses MissingArgumentError (4 places)",
-        "packages/cli/src/commands/injection/add.ts uses MissingArgumentError (2 places)",
-        "packages/cli/src/commands/weight/add.ts uses MissingArgumentError (1 place)",
-        "packages/cli/src/services/session.ts uses InvalidSessionError (1 place)",
-        "rg 'Effect.fail\\(new Error' packages/cli/ returns 0 matches",
-        "bun run test:cli passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/cli/src/commands/inventory/add.ts",
-          "packages/cli/src/commands/injection/add.ts",
-          "packages/cli/src/commands/weight/add.ts",
-          "packages/cli/src/services/session.ts"
-        ],
-        "pattern": "Effect.fail(new MissingArgumentError({ argument: 'x', hint: '...' }))"
+        "pattern": "Use sql`UPDATE ... SET column = ${value}` instead of string concatenation. May need multiple SET clauses or conditional logic.",
+        "current_issue": "Line 182-206: builds updates array with string interpolation, then uses sql.unsafe()"
       },
       "status": "complete",
       "estimated_complexity": "medium"
     },
     {
-      "id": "2.1.3",
-      "phase": "Error Handling",
-      "epic": "TaggedErrors",
-      "title": "Replace throw with Effect.die",
-      "description": "Replace 'throw new Error(...)' with Effect.die in email-service.ts for unrecoverable Resend API errors. Keep main.tsx throw as-is (not in Effect context).",
+      "id": "SQL-1.1",
+      "phase": "SQL Safety",
+      "epic": "Remove type assertions",
+      "title": "Fix settings-repo type assertion",
+      "description": "settings-repo.ts line 85 uses 'as { weight_unit: string; reminders_enabled: number }' type assertion. Replace with Schema.Struct decoding for the existing row check.",
       "specs": [
-        "EFFECT_BEST_PRACTICES.md",
-        "EFFECT_BEST_PRACTICES_REMEDIATION.md"
+        "EFFECT_SQL.md",
+        "EFFECT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "packages/api/src/reminders/email-service.ts uses Effect.die not throw",
-        "packages/web/src/main.tsx throw is kept (acceptable outside Effect)",
-        "bun run test passes"
+        "packages/api/src/settings/settings-repo.ts has no 'as {' type assertions",
+        "Uses Schema.Struct for decoding the SELECT result",
+        "bun run test:api passes (settings tests)",
+        "bun run typecheck passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/src/reminders/email-service.ts"
+          "packages/api/src/settings/settings-repo.ts"
         ],
-        "pattern": "return yield* Effect.die(new Error(...)) for unrecoverable failures"
+        "pattern": "Define CurrentSettingsRow = Schema.Struct({ weight_unit: Schema.String, reminders_enabled: Schema.Number }), use Schema.decodeUnknown",
+        "current_issue": "Line 85: existing[0] as { weight_unit: string; reminders_enabled: number }"
       },
-      "status": "complete",
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "SQL-1.2",
+      "phase": "SQL Safety",
+      "epic": "Remove type assertions",
+      "title": "Fix injection-log-repo generic types",
+      "description": "injection-log-repo.ts uses sql<{ drug: string }> and sql<{ injection_site: string }> generic types instead of Schema validation. Replace with Schema.Struct decoding for type safety and runtime validation.",
+      "specs": [
+        "EFFECT_SQL.md"
+      ],
+      "acceptance_criteria": [
+        "getUniqueDrugs uses Schema.Struct for result decoding",
+        "getUniqueSites uses Schema.Struct for result decoding",
+        "getLastSite uses Schema.Struct for result decoding",
+        "No sql<T> generic type annotations remain in injection-log-repo.ts",
+        "bun run test:api passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/injection/injection-log-repo.ts"
+        ],
+        "pattern": "Define DrugRow = Schema.Struct({ drug: Schema.String }), decode with Schema.decodeUnknown(Schema.Array(DrugRow))",
+        "current_issue": "Lines 228, 236, 247: sql<{...}> without runtime validation"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "SQL-2.0",
+      "phase": "Error Handling",
+      "epic": "Proper Option handling",
+      "title": "Replace Option.getOrThrow in goal-repo",
+      "description": "goal-repo.ts uses Option.getOrThrow after create (line 156) and update (line 213). This throws exceptions bypassing Effect error channel. Replace with proper error handling using Effect.flatMap and Option.match or a custom NotFoundError.",
+      "specs": [
+        "EFFECT_SQL.md",
+        "EFFECT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "packages/api/src/goals/goal-repo.ts has no Option.getOrThrow calls",
+        "rg 'getOrThrow' packages/api/src/goals/ returns 0 matches",
+        "Create/update return proper Effect errors if row not found",
+        "bun run test:api passes (goal tests)"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/goals/goal-repo.ts"
+        ],
+        "pattern": "Use Option.match with Effect.fail for None case, or Effect.flatMap with Option.getOrElse(() => Effect.fail(...))",
+        "current_issue": "Lines 156, 213: Option.getOrThrow(result)"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "SQL-2.1",
+      "phase": "Error Handling",
+      "epic": "Proper Option handling",
+      "title": "Replace Option.getOrThrow in settings-repo",
+      "description": "settings-repo.ts uses Option.getOrThrow after upsert (line 97). Replace with proper error handling using Effect error channel.",
+      "specs": [
+        "EFFECT_SQL.md",
+        "EFFECT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "packages/api/src/settings/settings-repo.ts has no Option.getOrThrow calls",
+        "rg 'getOrThrow' packages/api/src/settings/ returns 0 matches",
+        "Upsert returns proper Effect error if row not found after insert",
+        "bun run test:api passes (settings tests)"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/settings/settings-repo.ts"
+        ],
+        "pattern": "Use Option.match with Effect.fail for None case",
+        "current_issue": "Line 97: Option.getOrThrow(result)"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "SQL-3.0",
+      "phase": "Performance",
+      "epic": "Batch operations",
+      "title": "Replace loop with batch update in bulkAssignSchedule",
+      "description": "injection-log-repo.ts bulkAssignSchedule (lines 258-279) uses a loop to update N rows individually. This is N+1 pattern. Additionally uses type assertion 'as unknown as { rowsAffected?: number }'. Refactor to batch operation using sql.in() or parameterized array binding.",
+      "specs": [
+        "EFFECT_SQL.md"
+      ],
+      "acceptance_criteria": [
+        "bulkAssignSchedule uses single UPDATE with IN clause",
+        "No 'as unknown as' type assertions",
+        "rg 'as unknown as' packages/api/src/injection/ returns 0 matches",
+        "bun run test:api passes (injection tests)",
+        "Performance: 100 updates should be single query"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/injection/injection-log-repo.ts"
+        ],
+        "pattern": "sql`UPDATE ... WHERE id IN ${sql.in(ids)} AND user_id = ${userId}` or use sql.unsafe with properly escaped array",
+        "current_issue": "Lines 267-277: for loop + (result as unknown as { rowsAffected?: number })"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "SQL-4.0",
+      "phase": "Verification",
+      "epic": "Full compliance check",
+      "title": "Verify all SQL patterns comply with EFFECT_SQL.md",
+      "description": "Final verification pass across all repo files. Run comprehensive grep checks, ensure no type assertions, no unsafe queries, no Option.getOrThrow, all Schema.Struct for rows.",
+      "specs": [
+        "EFFECT_SQL.md",
+        "EFFECT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "rg '\\.unsafe\\(' packages/api/ returns 0 matches",
+        "rg 'as any' packages/api/src/ returns 0 matches",
+        "rg 'as unknown' packages/api/src/ returns 0 matches",
+        "rg 'getOrThrow' packages/api/src/ returns 0 matches",
+        "rg 'sql<' packages/api/src/ returns 0 matches (no generic type annotations)",
+        "bun run check passes",
+        "bun run test:all passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/**/*-repo.ts",
+          "packages/api/src/**/*-service.ts"
+        ],
+        "pattern": "Comprehensive grep verification of all anti-patterns"
+      },
+      "status": "pending",
       "estimated_complexity": "small"
     }
   ]
