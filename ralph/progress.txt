@@ -56,3 +56,8 @@
 **Story**: SQL-1.0 - Replace unsafe dynamic UPDATE in goal-repo
 **Status**: complete
 ---
+
+## Iteration 2 - 2026-01-14 23:10
+**Story**: SQL-1.1 - Fix settings-repo type assertion
+**Status**: complete
+---

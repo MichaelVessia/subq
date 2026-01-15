@@ -94,7 +94,7 @@
         "pattern": "Define CurrentSettingsRow = Schema.Struct({ weight_unit: Schema.String, reminders_enabled: Schema.Number }), use Schema.decodeUnknown",
         "current_issue": "Line 85: existing[0] as { weight_unit: string; reminders_enabled: number }"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

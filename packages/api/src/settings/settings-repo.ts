@@ -17,6 +17,14 @@ const SettingsRow = Schema.Struct({
 
 const decodeSettingsRow = Schema.decodeUnknown(SettingsRow)
 
+// Schema for the partial row used in upsert's existing check
+const CurrentSettingsRow = Schema.Struct({
+  id: Schema.String,
+  weight_unit: Schema.String,
+  reminders_enabled: Schema.Number,
+})
+const decodeCurrentSettingsRow = Schema.decodeUnknown(CurrentSettingsRow)
+
 const settingsRowToDomain = (row: typeof SettingsRow.Type): UserSettings =>
   new UserSettings({
     id: row.id,
@@ -82,7 +90,7 @@ export const SettingsRepoLive = Layer.effect(
           `
         } else {
           // Update existing - build update dynamically
-          const current = existing[0] as { weight_unit: string; reminders_enabled: number }
+          const current = yield* decodeCurrentSettingsRow(existing[0])
           const weightUnit = data.weightUnit ?? current.weight_unit
           const remindersEnabled = data.remindersEnabled ?? current.reminders_enabled === 1
           yield* sql`
