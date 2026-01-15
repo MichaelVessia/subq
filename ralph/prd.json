@@ -180,7 +180,7 @@
           "packages/api/tests/goal-repo.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
