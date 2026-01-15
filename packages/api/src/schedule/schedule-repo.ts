@@ -37,6 +37,11 @@ const ScheduleRow = Schema.Struct({
   updated_at: Schema.String,
 })
 
+const DatetimeRow = Schema.Struct({
+  datetime: Schema.String,
+})
+const decodeDatetimeRow = Schema.decodeUnknown(DatetimeRow)
+
 const PhaseRow = Schema.Struct({
   id: Schema.String,
   schedule_id: Schema.String,
@@ -390,8 +395,8 @@ export const ScheduleRepoLive = Layer.effect(
 
     const getLastInjectionDate = (userId: string, drug: string) =>
       Effect.gen(function* () {
-        const rows = yield* sql<{ datetime: string }>`
-          SELECT datetime FROM injection_logs 
+        const rows = yield* sql`
+          SELECT datetime FROM injection_logs
           WHERE user_id = ${userId} AND drug = ${drug}
           ORDER BY datetime DESC
           LIMIT 1
@@ -400,7 +405,8 @@ export const ScheduleRepoLive = Layer.effect(
         if (!row) {
           return Option.none()
         }
-        return Option.some(DateTime.unsafeMake(row.datetime))
+        const decoded = yield* decodeDatetimeRow(row)
+        return Option.some(DateTime.unsafeMake(decoded.datetime))
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     return {

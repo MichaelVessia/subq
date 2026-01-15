@@ -51,7 +51,7 @@ describe('GoalRepo', () => {
           'user-123',
         )
 
-        // This would have caused SQL injection with the old .unsafe() implementation
+        // This would have caused SQL injection with the old dynamic SQL string approach
         const updated = yield* repo.update(
           {
             id: GoalId.make(created.id),

@@ -81,3 +81,8 @@
 **Story**: SQL-3.0 - Replace loop with batch update in bulkAssignSchedule
 **Status**: complete
 ---
+
+## Iteration 7 - 2026-01-14 23:23
+**Story**: SQL-4.0 - Verify all SQL patterns comply with EFFECT_SQL.md
+**Status**: complete
+---
