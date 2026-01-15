@@ -38,6 +38,16 @@ const InjectionLogRow = Schema.Struct({
 
 const decodeRow = Schema.decodeUnknown(InjectionLogRow)
 
+// Schemas for simple aggregation queries
+const DrugRow = Schema.Struct({ drug: Schema.String })
+const decodeDrugRows = Schema.decodeUnknown(Schema.Array(DrugRow))
+
+const InjectionSiteRow = Schema.Struct({ injection_site: Schema.String })
+const decodeSiteRows = Schema.decodeUnknown(Schema.Array(InjectionSiteRow))
+
+const LastSiteRow = Schema.Struct({ injection_site: Schema.NullOr(Schema.String) })
+const decodeLastSiteRows = Schema.decodeUnknown(Schema.Array(LastSiteRow))
+
 // Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
@@ -225,32 +235,35 @@ export const InjectionLogRepoLive = Layer.effect(
 
     const getUniqueDrugs = (userId: string) =>
       Effect.gen(function* () {
-        const rows = yield* sql<{ drug: string }>`
+        const rawRows = yield* sql`
           SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
         `
+        const rows = yield* decodeDrugRows(rawRows)
         return rows.map((r) => r.drug)
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const getUniqueSites = (userId: string) =>
       Effect.gen(function* () {
-        const rows = yield* sql<{ injection_site: string }>`
-          SELECT DISTINCT injection_site 
-          FROM injection_logs 
-          WHERE user_id = ${userId} AND injection_site IS NOT NULL 
+        const rawRows = yield* sql`
+          SELECT DISTINCT injection_site
+          FROM injection_logs
+          WHERE user_id = ${userId} AND injection_site IS NOT NULL
           ORDER BY injection_site
         `
+        const rows = yield* decodeSiteRows(rawRows)
         return rows.map((r) => r.injection_site)
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
     const getLastSite = (userId: string) =>
       Effect.gen(function* () {
-        const rows = yield* sql<{ injection_site: string | null }>`
-          SELECT injection_site 
-          FROM injection_logs 
+        const rawRows = yield* sql`
+          SELECT injection_site
+          FROM injection_logs
           WHERE user_id = ${userId}
           ORDER BY datetime DESC
           LIMIT 1
         `
+        const rows = yield* decodeLastSiteRows(rawRows)
         const row = rows[0]
         return row ? row.injection_site : null
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))

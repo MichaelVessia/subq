@@ -61,3 +61,8 @@
 **Story**: SQL-1.1 - Fix settings-repo type assertion
 **Status**: complete
 ---
+
+## Iteration 3 - 2026-01-14 23:12
+**Story**: SQL-1.2 - Fix injection-log-repo generic types
+**Status**: complete
+---

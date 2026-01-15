@@ -120,7 +120,7 @@
         "pattern": "Define DrugRow = Schema.Struct({ drug: Schema.String }), decode with Schema.decodeUnknown(Schema.Array(DrugRow))",
         "current_issue": "Lines 228, 236, 247: sql<{...}> without runtime validation"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
