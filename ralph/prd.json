@@ -158,7 +158,7 @@
           "packages/api/tests/schedule-repo.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
