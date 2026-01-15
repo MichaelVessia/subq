@@ -1,9 +1,9 @@
 {
   "project": "subq",
-  "description": "Weight tracking application with Effect-based API and React frontend",
+  "description": "React best practices remediation: migrate forms to react-hook-form, eliminate useState anti-patterns, convert to Atom.family",
   "version": "1.0.0",
-  "created_at": "2026-01-14",
-  "updated_at": "2026-01-14",
+  "created_at": "2026-01-15",
+  "updated_at": "2026-01-15",
   "technology": {
     "language": "TypeScript",
     "runtime": "Bun",
@@ -16,20 +16,20 @@
       "framework": "React 19",
       "routing": "TanStack Router",
       "state": "Effect Atom (@effect-atom/atom-react)",
-      "styling": "Tailwind CSS v4"
+      "styling": "Tailwind CSS v4",
+      "forms": "react-hook-form 7.68 with @hookform/resolvers"
     },
     "testing": {
       "unit": "bun test (@codeforbreakfast/bun-test-effect)",
       "e2e": "Playwright"
     }
   },
-  "reference_repos": [
-    "https://github.com/Effect-TS/effect",
-    "https://github.com/TanStack/router",
-    "https://github.com/tim-smart/effect-atom"
-  ],
   "specs_dir": "specs/",
   "available_specs": [
+    {
+      "file": "REACT_BEST_PRACTICES.md",
+      "description": "React patterns: Effect Atom state, Result.match, react-hook-form, Tailwind styling"
+    },
     {
       "file": "EFFECT_TESTING.md",
       "description": "Core testing patterns: it.effect, it.layer, TestClock, property-based testing"
@@ -41,311 +41,240 @@
   ],
   "testing_policy": {
     "mandatory": "EVERY story MUST include tests. A story is NOT complete without passing tests.",
+    "schema_tests": "Form schemas must have unit tests validating success/failure cases",
     "verification": "bun run check && bun run test:all",
     "no_exceptions": "Do NOT mark a story as complete if tests are missing or failing."
   },
+  "ui_patterns": {
+    "state_management": "All app state in atoms. useState only for ephemeral UI (hover, animation, local open/close)",
+    "async_state": "Use Result.match or Result.builder for loading/error/success states",
+    "forms": "react-hook-form with standardSchemaResolver(Schema.standardSchemaV1(EffectSchema))",
+    "derived_data": "Computed atoms for derived data, NOT useMemo in components",
+    "parameterized_atoms": "Use Atom.family for atoms that need parameters"
+  },
   "stories": [
     {
-      "id": "TEST-1.0",
-      "phase": "Layer Pattern",
-      "epic": "Test infrastructure",
-      "title": "Create makeInitializedTestLayer helper",
-      "description": "Create a new helper function in test-db.ts that composes setupTables and clearTables into the layer setup, eliminating the need to call these in every test body. Use Layer.effectDiscard for setup and Layer.fresh for test isolation.",
+      "id": "1.1.0",
+      "phase": "Form Migration",
+      "epic": "Goal Form",
+      "title": "Create GoalFormSchema with unit tests",
+      "description": "Add GoalFormSchema to form-schemas.ts with Effect Schema validation. Include unit tests for valid inputs, invalid weight values, and date validation.",
       "specs": [
-        "EFFECT_TESTING.md"
+        "REACT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "New makeInitializedTestLayer function in packages/api/tests/helpers/test-db.ts",
-        "Function accepts a repo layer and returns layer with setup/teardown composed",
-        "Uses Layer.fresh to ensure each test gets clean state",
-        "Existing makeTestLayer helper preserved for backward compatibility",
-        "At least one test file migrated to validate the pattern works"
+        "GoalFormSchema class added to packages/web/src/lib/form-schemas.ts",
+        "Schema validates: goalWeight (required, positive, max 1000), startDate (optional), targetDate (optional), notes (optional)",
+        "goalFormStandardSchema export created with Schema.standardSchemaV1",
+        "TESTS: packages/web/src/lib/form-schemas.test.ts exists with GoalFormSchema tests",
+        "TESTS: At least 4 test cases: valid input, missing weight, invalid weight, notes handling",
+        "cd packages/web && bun test form-schemas passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/tests/helpers/test-db.ts"
+          "packages/web/src/lib/form-schemas.ts",
+          "packages/web/src/lib/form-schemas.test.ts"
         ],
-        "pattern": "Layer.effectDiscard(setupTables.pipe(Effect.andThen(clearTables))).pipe(Layer.provideMerge(repo), Layer.fresh)"
+        "pattern": "Follow existing WeightLogFormSchema pattern in same file"
       },
       "status": "complete",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "1.1.1",
+      "phase": "Form Migration",
+      "epic": "Goal Form",
+      "title": "Migrate goal-form.tsx to react-hook-form",
+      "description": "Replace manual useState/validation in goal-form.tsx with react-hook-form using GoalFormSchema. Use field-level validate callback for cross-field validation (goal weight < current weight).",
+      "specs": [
+        "REACT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "goal-form.tsx uses useForm with standardSchemaResolver(goalFormStandardSchema)",
+        "Zero useState for: goalWeight, startDate, targetDate, notes, loading, errors, touched",
+        "Uses formState.isSubmitting instead of loading state",
+        "Uses formState.errors instead of manual error state",
+        "Cross-field validation via register validate callback for goalWeight < currentWeight",
+        "Form edit mode still works (pre-populating defaultValues)",
+        "cd packages/web && bun run typecheck passes",
+        "Manual test: create goal form works, edit goal form works"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/components/goals/goal-form.tsx"
+        ],
+        "pattern": "Follow weight-log-form.tsx pattern"
+      },
+      "status": "pending",
       "estimated_complexity": "medium"
     },
     {
-      "id": "TEST-1.1",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate weight-log-repo.test.ts to it.layer pattern",
-      "description": "Convert weight-log-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(TestLayer)('test', ...). Remove all yield* setupTables and yield* clearTables calls from test bodies.",
+      "id": "1.2.0",
+      "phase": "Form Migration",
+      "epic": "Schedule Form",
+      "title": "Create ScheduleFormSchema with unit tests",
+      "description": "Add ScheduleFormSchema and SchedulePhaseSchema to form-schemas.ts. Handle complex nested phases array validation.",
       "specs": [
-        "EFFECT_TESTING.md"
+        "REACT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "weight-log-repo.test.ts uses it.layer() for all tests",
-        "Zero 'yield* setupTables' in test bodies",
-        "Zero 'yield* clearTables' in test bodies",
-        "Zero '.pipe(Effect.provide(TestLayer))' in test bodies",
-        "cd packages/api && bun test tests/weight-log-repo.test.ts passes"
+        "SchedulePhaseSchema class in packages/web/src/lib/form-schemas.ts",
+        "ScheduleFormSchema class with: name, drug, frequency, startDate, notes, phases array",
+        "Phase schema validates: order, durationDays, dosage, isIndefinite",
+        "scheduleFormStandardSchema export created",
+        "TESTS: At least 5 test cases covering required fields, valid phases, invalid phases",
+        "cd packages/web && bun test form-schemas passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/tests/weight-log-repo.test.ts"
+          "packages/web/src/lib/form-schemas.ts",
+          "packages/web/src/lib/form-schemas.test.ts"
         ],
-        "pattern": "it.layer(TestLayer)('creates entry', () => Effect.gen(function* () { ... }))"
+        "pattern": "Use Schema.Array for phases, Schema.Struct for phase items"
       },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.2",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate injection-log-repo.test.ts to it.layer pattern",
-      "description": "Convert injection-log-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "injection-log-repo.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/injection-log-repo.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/injection-log-repo.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.3",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate inventory-repo.test.ts to it.layer pattern",
-      "description": "Convert inventory-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "inventory-repo.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/inventory-repo.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/inventory-repo.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.4",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate schedule-repo.test.ts to it.layer pattern",
-      "description": "Convert schedule-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "schedule-repo.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/schedule-repo.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/schedule-repo.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.5",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate goal-repo.test.ts to it.layer pattern",
-      "description": "Convert goal-repo.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "goal-repo.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/goal-repo.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/goal-repo.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.6",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate stats-service.test.ts to it.layer pattern",
-      "description": "Convert stats-service.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "stats-service.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/stats-service.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/stats-service.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.7",
-      "phase": "Layer Pattern",
-      "epic": "Migrate to it.layer",
-      "title": "Migrate data-export-service.test.ts to it.layer pattern",
-      "description": "Convert data-export-service.test.ts from .pipe(Effect.provide(TestLayer)) pattern to it.layer(). Remove setup/clear boilerplate.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "data-export-service.test.ts uses it.layer() for all tests",
-        "Zero setup/clear boilerplate in test bodies",
-        "cd packages/api && bun test tests/data-export-service.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/data-export-service.test.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-1.8",
-      "phase": "Layer Pattern",
-      "epic": "Cleanup",
-      "title": "Remove deprecated makeTestLayer helper",
-      "description": "After all test files migrated, remove the old makeTestLayer helper and verify no usages remain. Keep only makeInitializedTestLayer.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "rg 'makeTestLayer' packages/api/ returns 0 matches",
-        "Only makeInitializedTestLayer exported from test-db.ts",
-        "cd packages/api && bun test passes all tests"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/helpers/test-db.ts"
-        ]
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-2.0",
-      "phase": "Property Testing",
-      "epic": "Add property-based tests",
-      "title": "Create property tests for branded types",
-      "description": "Add property-based tests using it.effect.prop for branded type validation. Test that Weight, Limit, Offset, and other branded types properly validate their constraints.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "New file packages/api/tests/property-tests.test.ts created",
-        "Property test for Weight (positive number constraint)",
-        "Property test for Limit (positive integer constraint)",
-        "Property test for Offset (non-negative integer constraint)",
-        "cd packages/api && bun test tests/property-tests.test.ts passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/property-tests.test.ts"
-        ],
-        "pattern": "it.effect.prop('constraint name', [Schema.Number.pipe(Schema.positive())], ([value]) => ...)"
-      },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "medium"
     },
     {
-      "id": "TEST-2.1",
-      "phase": "Property Testing",
-      "epic": "Add property-based tests",
-      "title": "Add property tests for frequency conversion",
-      "description": "Add property-based tests for the frequencyToDays function used in schedule calculations. Verify conversion is correct for all frequency types.",
+      "id": "1.2.1",
+      "phase": "Form Migration",
+      "epic": "Schedule Form",
+      "title": "Migrate schedule-form.tsx with useFieldArray",
+      "description": "Replace manual useState/validation in schedule-form.tsx with react-hook-form. Use useFieldArray for dynamic phases management.",
       "specs": [
-        "EFFECT_TESTING.md"
+        "REACT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "Property test validates frequencyToDays returns positive integers",
-        "Tests all frequency variants: daily, every_3_days, weekly, every_2_weeks, monthly",
-        "cd packages/api && bun test tests/property-tests.test.ts passes"
+        "schedule-form.tsx uses useForm with standardSchemaResolver(scheduleFormStandardSchema)",
+        "Uses useFieldArray({ control, name: 'phases' }) for phases array",
+        "Zero useState for: name, drug, frequency, startDate, notes, phases, loading, errors, touched",
+        "Add phase uses append(), remove phase uses remove()",
+        "Phase indefinite toggle works correctly",
+        "inferPhasesFromInjections logic preserved for preselectedInjections",
+        "cd packages/web && bun run typecheck passes",
+        "Manual test: create schedule with multiple phases works"
       ],
       "technical_details": {
         "files": [
-          "packages/api/tests/property-tests.test.ts"
+          "packages/web/src/components/schedule/schedule-form.tsx"
         ],
-        "pattern": "Test with Schema.Literal for enum values, verify output > 0"
+        "pattern": "useFieldArray from react-hook-form"
       },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "TEST-3.0",
-      "phase": "TestClock",
-      "epic": "Deterministic time testing",
-      "title": "Refactor schedule-rpc-handlers to use TestClock",
-      "description": "Replace setSystemTime() usage in schedule-rpc-handlers.test.ts with Effect TestClock pattern. Use fork + TestClock.adjust for time-dependent tests.",
-      "specs": [
-        "EFFECT_TESTING.md"
-      ],
-      "acceptance_criteria": [
-        "Zero setSystemTime() calls in schedule-rpc-handlers.test.ts",
-        "Uses TestClock.adjust or TestClock.setTime pattern",
-        "Time-dependent tests use fork + join pattern",
-        "cd packages/api && bun test tests/schedule-rpc-handlers.test.ts passes",
-        "Tests are deterministic (run multiple times, same results)"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/api/tests/schedule-rpc-handlers.test.ts"
-        ],
-        "pattern": "const fiber = yield* Effect.fork(effect); yield* TestClock.setTime(time); yield* Fiber.join(fiber)"
-      },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "medium"
     },
     {
-      "id": "TEST-4.0",
-      "phase": "Verification",
-      "epic": "Full compliance check",
-      "title": "Verify all tests comply with EFFECT_TESTING.md",
-      "description": "Final verification pass. Run comprehensive checks to ensure all tests follow the patterns in EFFECT_TESTING.md.",
+      "id": "1.3.0",
+      "phase": "Form Migration",
+      "epic": "Change Password Form",
+      "title": "Create ChangePasswordFormSchema with unit tests",
+      "description": "Add ChangePasswordFormSchema to form-schemas.ts with password match validation using Schema refinement.",
       "specs": [
-        "EFFECT_TESTING.md"
+        "REACT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "rg 'setupTables' packages/api/tests/*.test.ts returns 0 matches (only in helpers)",
-        "rg 'clearTables' packages/api/tests/*.test.ts returns 0 matches (only in helpers)",
-        "rg '\\.pipe\\(Effect\\.provide' packages/api/tests/*.test.ts returns 0 matches",
-        "rg 'setSystemTime' packages/api/tests/ returns 0 matches",
-        "cd packages/api && bun test passes all tests",
-        "bun run check passes"
+        "ChangePasswordFormSchema class in packages/web/src/lib/form-schemas.ts",
+        "Schema validates: currentPassword (required), newPassword (required, min length), confirmPassword (required)",
+        "Schema refinement ensures confirmPassword === newPassword",
+        "changePasswordFormStandardSchema export created",
+        "TESTS: At least 3 test cases: valid passwords, mismatch, min length",
+        "cd packages/web && bun test form-schemas passes"
       ],
       "technical_details": {
         "files": [
-          "packages/api/tests/**/*.test.ts"
-        ]
+          "packages/web/src/lib/form-schemas.ts",
+          "packages/web/src/lib/form-schemas.test.ts"
+        ],
+        "pattern": "Use Schema.filter or pipe for cross-field validation"
       },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "small"
+    },
+    {
+      "id": "1.3.1",
+      "phase": "Form Migration",
+      "epic": "Change Password Form",
+      "title": "Migrate change-password-form.tsx to react-hook-form",
+      "description": "Replace manual useState in change-password-form.tsx with react-hook-form. Handle success feedback via callback prop.",
+      "specs": [
+        "REACT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "change-password-form.tsx uses useForm with standardSchemaResolver",
+        "Zero useState for: currentPassword, newPassword, confirmPassword, error, success, loading",
+        "Uses formState.isSubmitting for loading state",
+        "Uses setError('root', ...) for server-side errors",
+        "Success handled via onSuccess callback prop (parent manages success state)",
+        "cd packages/web && bun run typecheck passes",
+        "Manual test: change password form validates and submits correctly"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/components/settings/change-password-form.tsx"
+        ],
+        "pattern": "Similar to weight-log-form.tsx"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "2.1.0",
+      "phase": "State Management",
+      "epic": "Data Management",
+      "title": "Migrate data-management.tsx async states to atoms",
+      "description": "Move isExporting, isImporting, and error/success states from useState to Effect Atoms in rpc.ts. Keep modal toggle as local state.",
+      "specs": [
+        "REACT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "DataOperationState type defined in rpc.ts: idle | pending | success | error",
+        "exportOperationAtom and importOperationAtom created in rpc.ts",
+        "data-management.tsx uses atoms for operation states",
+        "Zero useState for: isExporting, isImporting, importError, importSuccess",
+        "showConfirm and pendingImportData remain as acceptable local useState",
+        "Export button shows loading/success/error states correctly",
+        "Import button shows loading/success/error states correctly",
+        "cd packages/web && bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/rpc.ts",
+          "packages/web/src/components/settings/data-management.tsx"
+        ],
+        "pattern": "Atom.make for writable state, reset on new operation"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "3.1.0",
+      "phase": "Atom.family Migration",
+      "epic": "StatsPage",
+      "title": "Convert StatsPage to use Atom.family for stats atoms",
+      "description": "Replace useMemo atom creation in StatsPage with Atom.family. Create families for all 8 stats atoms keyed by date range.",
+      "specs": [
+        "REACT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "dateRangeKey helper function in rpc.ts",
+        "parseDateRangeKey helper function in rpc.ts",
+        "8 Atom.family variants created: WeightStatsAtomFamily, WeightTrendAtomFamily, InjectionLogListAtomFamily, InjectionSiteStatsAtomFamily, DosageHistoryAtomFamily, InjectionFrequencyAtomFamily, DrugBreakdownAtomFamily, InjectionByDayOfWeekAtomFamily",
+        "StatsPage uses families with dateRangeKey(range.start, range.end)",
+        "Zero useMemo for atom creation in StatsPage.tsx",
+        "useMemo for weightData, injectionData, schedulePeriods kept (acceptable data transformation)",
+        "Old createXxxAtom functions can be removed or deprecated",
+        "cd packages/web && bun run typecheck passes",
+        "Manual test: StatsPage renders with different date range presets"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/rpc.ts",
+          "packages/web/src/components/stats/StatsPage.tsx"
+        ],
+        "pattern": "Atom.family((key: string) => { const [start, end] = parseDateRangeKey(key); return atom })"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
     }
   ]
 }

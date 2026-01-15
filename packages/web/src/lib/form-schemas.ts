@@ -137,3 +137,45 @@ export class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>
 export type InjectionLogFormInput = typeof InjectionLogFormSchema.Type
 
 export const injectionLogFormStandardSchema = Schema.standardSchemaV1(InjectionLogFormSchema)
+
+// ============================================
+// Goal Form Schema
+// ============================================
+
+/**
+ * Schema for goal form inputs.
+ * Validates string inputs from HTML form fields.
+ */
+export class GoalFormSchema extends Schema.Class<GoalFormSchema>('GoalFormSchema')({
+  goalWeight: Schema.String.pipe(
+    Schema.nonEmptyString({ message: () => 'Goal weight is required' }),
+    Schema.filter(
+      (s) => {
+        const num = Number.parseFloat(s)
+        return !Number.isNaN(num)
+      },
+      { message: () => 'Must be a number' },
+    ),
+    Schema.filter(
+      (s) => {
+        const num = Number.parseFloat(s)
+        return num > 0
+      },
+      { message: () => 'Must be greater than 0' },
+    ),
+    Schema.filter(
+      (s) => {
+        const num = Number.parseFloat(s)
+        return num <= 1000
+      },
+      { message: () => 'Please enter a realistic weight' },
+    ),
+  ),
+  startDate: Schema.String, // Optional, empty string means no date
+  targetDate: Schema.String, // Optional, empty string means no date
+  notes: Schema.String, // Optional
+}) {}
+
+export type GoalFormInput = typeof GoalFormSchema.Type
+
+export const goalFormStandardSchema = Schema.standardSchemaV1(GoalFormSchema)
