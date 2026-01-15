@@ -1,6 +1,6 @@
 import { FetchHttpClient } from '@effect/platform'
 import { RpcClient, RpcSerialization } from '@effect/rpc'
-import { AtomRpc } from '@effect-atom/atom-react'
+import { Atom, AtomRpc } from '@effect-atom/atom-react'
 import {
   AppRpcs,
   InjectionLogListParams,
@@ -168,3 +168,14 @@ export const GoalListAtom = ApiClient.query('GoalList', undefined, {
 export const UserSettingsAtom = ApiClient.query('UserSettingsGet', undefined, {
   reactivityKeys: [ReactivityKeys.settings],
 })
+
+// Data operation state types for export/import
+export type DataOperationState =
+  | { readonly _tag: 'idle' }
+  | { readonly _tag: 'pending' }
+  | { readonly _tag: 'success'; readonly message: string }
+  | { readonly _tag: 'error'; readonly message: string }
+
+// Writable atoms for data operation states
+export const exportOperationAtom: Atom.Writable<DataOperationState> = Atom.make<DataOperationState>({ _tag: 'idle' })
+export const importOperationAtom: Atom.Writable<DataOperationState> = Atom.make<DataOperationState>({ _tag: 'idle' })

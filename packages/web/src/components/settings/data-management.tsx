@@ -1,15 +1,19 @@
-import { useAtomSet } from '@effect-atom/atom-react'
+import { useAtom, useAtomSet } from '@effect-atom/atom-react'
 import { DataExport } from '@subq/shared'
 import { DateTime, Effect, Schema } from 'effect'
 import { useRef, useState } from 'react'
-import { ApiClient, ReactivityKeys } from '../../rpc.js'
+import {
+  ApiClient,
+  type DataOperationState,
+  exportOperationAtom,
+  importOperationAtom,
+  ReactivityKeys,
+} from '../../rpc.js'
 import { Button } from '../ui/button.js'
 
 export function DataManagement() {
-  const [isExporting, setIsExporting] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importSuccess, setImportSuccess] = useState<string | null>(null)
+  const [exportState, setExportState] = useAtom(exportOperationAtom)
+  const [importState, setImportState] = useAtom(importOperationAtom)
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingImportData, setPendingImportData] = useState<DataExport | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -17,10 +21,20 @@ export function DataManagement() {
   const exportData = useAtomSet(ApiClient.mutation('UserDataExport'), { mode: 'promise' })
   const importData = useAtomSet(ApiClient.mutation('UserDataImport'), { mode: 'promise' })
 
+  const isExporting = exportState._tag === 'pending'
+  const isImporting = importState._tag === 'pending'
+
+  const resetExportState = () => setExportState({ _tag: 'idle' })
+  const resetImportState = () => setImportState({ _tag: 'idle' })
+
+  const getErrorMessage = (state: DataOperationState): string | null => (state._tag === 'error' ? state.message : null)
+
+  const getSuccessMessage = (state: DataOperationState): string | null =>
+    state._tag === 'success' ? state.message : null
+
   const handleExport = async () => {
-    setIsExporting(true)
-    setImportError(null)
-    setImportSuccess(null)
+    setExportState({ _tag: 'pending' })
+    resetImportState()
 
     try {
       const result = await exportData({
@@ -40,11 +54,10 @@ export function DataManagement() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      setExportState({ _tag: 'success', message: 'Data exported successfully' })
     } catch (error) {
       console.error('Export failed:', error)
-      setImportError('Failed to export data. Please try again.')
-    } finally {
-      setIsExporting(false)
+      setExportState({ _tag: 'error', message: 'Failed to export data. Please try again.' })
     }
   }
 
@@ -52,8 +65,8 @@ export function DataManagement() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    setImportError(null)
-    setImportSuccess(null)
+    resetImportState()
+    resetExportState()
 
     try {
       const text = await file.text()
@@ -65,7 +78,7 @@ export function DataManagement() {
       setShowConfirm(true)
     } catch (error) {
       console.error('File validation failed:', error)
-      setImportError('Invalid export file. Please select a valid SubQ export file.')
+      setImportState({ _tag: 'error', message: 'Invalid export file. Please select a valid SubQ export file.' })
     }
 
     // Reset file input
@@ -77,7 +90,7 @@ export function DataManagement() {
   const handleConfirmImport = async () => {
     if (!pendingImportData) return
 
-    setIsImporting(true)
+    setImportState({ _tag: 'pending' })
     setShowConfirm(false)
 
     try {
@@ -93,14 +106,14 @@ export function DataManagement() {
         ],
       })
 
-      setImportSuccess(
-        `Successfully imported: ${result.weightLogs} weight logs, ${result.injectionLogs} injection logs, ${result.inventory} inventory items, ${result.schedules} schedules, ${result.goals} goals`,
-      )
+      setImportState({
+        _tag: 'success',
+        message: `Successfully imported: ${result.weightLogs} weight logs, ${result.injectionLogs} injection logs, ${result.inventory} inventory items, ${result.schedules} schedules, ${result.goals} goals`,
+      })
     } catch (error) {
       console.error('Import failed:', error)
-      setImportError('Failed to import data. Please try again.')
+      setImportState({ _tag: 'error', message: 'Failed to import data. Please try again.' })
     } finally {
-      setIsImporting(false)
       setPendingImportData(null)
     }
   }
@@ -136,15 +149,15 @@ export function DataManagement() {
         </Button>
       </div>
 
-      {importError && (
+      {(getErrorMessage(exportState) ?? getErrorMessage(importState)) && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
-          {importError}
+          {getErrorMessage(exportState) ?? getErrorMessage(importState)}
         </div>
       )}
 
-      {importSuccess && (
+      {(getSuccessMessage(exportState) ?? getSuccessMessage(importState)) && (
         <div className="bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400 px-4 py-3 rounded-md text-sm">
-          {importSuccess}
+          {getSuccessMessage(exportState) ?? getSuccessMessage(importState)}
         </div>
       )}
 
