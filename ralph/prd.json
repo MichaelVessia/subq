@@ -344,7 +344,7 @@
         ],
         "pattern": "return yield* Effect.die(new Error(...)) for unrecoverable failures"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     }
   ]

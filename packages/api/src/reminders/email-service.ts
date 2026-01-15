@@ -100,14 +100,13 @@ const createRealEmailService = (apiKey: string): EmailService['Type'] => {
     Effect.tryPromise({
       try: async () => {
         const email = createReminderEmail(user)
-        const result = await resend.emails.send(email)
-        if (result.error) {
-          throw new Error(result.error.message)
-        }
-        return result
+        return resend.emails.send(email)
       },
       catch: (error) => new EmailServiceError({ message: `Failed to send email to ${user.email}`, cause: error }),
     }).pipe(
+      Effect.flatMap((result) =>
+        result.error ? Effect.die(new Error(`Resend API error: ${result.error.message}`)) : Effect.succeed(result),
+      ),
       Effect.retry(retryPolicy),
       Effect.tap(() =>
         Effect.logInfo('Reminder email sent').pipe(Effect.annotateLogs({ email: user.email, drug: user.drug })),
