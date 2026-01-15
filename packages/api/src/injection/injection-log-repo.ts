@@ -48,6 +48,9 @@ const decodeSiteRows = Schema.decodeUnknown(Schema.Array(InjectionSiteRow))
 const LastSiteRow = Schema.Struct({ injection_site: Schema.NullOr(Schema.String) })
 const decodeLastSiteRows = Schema.decodeUnknown(Schema.Array(LastSiteRow))
 
+const CountRow = Schema.Struct({ count: Schema.Number })
+const decodeCountRow = Schema.decodeUnknown(CountRow)
+
 // Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
@@ -275,20 +278,21 @@ export const InjectionLogRepoLive = Layer.effect(
         const now = DateTime.formatIso(DateTime.unsafeNow())
         const scheduleId = data.scheduleId
 
-        // Build a query that updates all matching IDs for this user
-        // Using a loop since @effect/sql doesn't have great support for IN clauses with arrays
-        let count = 0
-        for (const id of data.ids) {
-          const result = yield* sql`
-            UPDATE injection_logs
-            SET schedule_id = ${scheduleId},
-                updated_at = ${now}
-            WHERE id = ${id} AND user_id = ${userId}
-          `
-          // SQLite returns rowsAffected for UPDATE statements
-          count += (result as unknown as { rowsAffected?: number }).rowsAffected ?? 0
-        }
-        return count
+        // Single batch UPDATE using IN clause for all IDs
+        yield* sql`
+          UPDATE injection_logs
+          SET schedule_id = ${scheduleId},
+              updated_at = ${now}
+          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
+        `
+
+        // Count how many rows were actually updated (belong to this user)
+        const countResult = yield* sql`
+          SELECT COUNT(*) as count FROM injection_logs
+          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
+        `
+        const countRow = yield* decodeCountRow(countResult[0])
+        return countRow.count
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
 
     const listBySchedule = (scheduleId: string, userId: string) =>

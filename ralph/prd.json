@@ -198,7 +198,7 @@
         "pattern": "sql`UPDATE ... WHERE id IN ${sql.in(ids)} AND user_id = ${userId}` or use sql.unsafe with properly escaped array",
         "current_issue": "Lines 267-277: for loop + (result as unknown as { rowsAffected?: number })"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

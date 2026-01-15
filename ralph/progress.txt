@@ -76,3 +76,8 @@
 **Story**: SQL-2.1 - Replace Option.getOrThrow in settings-repo
 **Status**: complete
 ---
+
+## Iteration 6 - 2026-01-14 23:19
+**Story**: SQL-3.0 - Replace loop with batch update in bulkAssignSchedule
+**Status**: complete
+---
