@@ -224,7 +224,7 @@
           "packages/api/tests/data-export-service.test.ts"
         ]
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
