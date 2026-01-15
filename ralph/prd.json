@@ -187,7 +187,7 @@
         ],
         "pattern": "Use Schema.filter or pipe for cross-field validation"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

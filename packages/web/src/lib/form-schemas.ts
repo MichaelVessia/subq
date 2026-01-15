@@ -255,3 +255,28 @@ export class ScheduleFormSchema extends Schema.Class<ScheduleFormSchema>('Schedu
 export type ScheduleFormInput = typeof ScheduleFormSchema.Type
 
 export const scheduleFormStandardSchema = Schema.standardSchemaV1(ScheduleFormSchema)
+
+// ============================================
+// Change Password Form Schema
+// ============================================
+
+const MIN_PASSWORD_LENGTH = 8
+
+/**
+ * Schema for change password form inputs.
+ * Validates password fields and ensures confirmPassword matches newPassword.
+ */
+export const ChangePasswordFormSchema = Schema.Struct({
+  currentPassword: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Current password is required' })),
+  newPassword: Schema.String.pipe(
+    Schema.nonEmptyString({ message: () => 'New password is required' }),
+    Schema.filter((s) => s.length >= MIN_PASSWORD_LENGTH, {
+      message: () => `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+    }),
+  ),
+  confirmPassword: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Please confirm your password' })),
+}).pipe(Schema.filter((form) => form.confirmPassword === form.newPassword, { message: () => 'Passwords do not match' }))
+
+export type ChangePasswordFormInput = typeof ChangePasswordFormSchema.Type
+
+export const changePasswordFormStandardSchema = Schema.standardSchemaV1(ChangePasswordFormSchema)

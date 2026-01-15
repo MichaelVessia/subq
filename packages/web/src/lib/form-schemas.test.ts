@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
 import { Effect, Either, Schema } from 'effect'
-import { GoalFormSchema, ScheduleFormSchema, SchedulePhaseSchema } from './form-schemas.js'
+import { ChangePasswordFormSchema, GoalFormSchema, ScheduleFormSchema, SchedulePhaseSchema } from './form-schemas.js'
 
 describe('GoalFormSchema', () => {
   describe('valid inputs', () => {
@@ -519,6 +519,109 @@ describe('ScheduleFormSchema', () => {
         if (Either.isRight(result)) {
           expect(result.right.notes).toBe(longNotes)
         }
+      }),
+    )
+  })
+})
+
+describe('ChangePasswordFormSchema', () => {
+  describe('valid inputs', () => {
+    it.effect('accepts valid matching passwords', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: 'newPassword456',
+          confirmPassword: 'newPassword456',
+        })
+        expect(Either.isRight(result)).toBe(true)
+        if (Either.isRight(result)) {
+          expect(result.right.currentPassword).toBe('oldPassword123')
+          expect(result.right.newPassword).toBe('newPassword456')
+          expect(result.right.confirmPassword).toBe('newPassword456')
+        }
+      }),
+    )
+
+    it.effect('accepts password at minimum length boundary', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'current1',
+          newPassword: '12345678', // exactly 8 characters
+          confirmPassword: '12345678',
+        })
+        expect(Either.isRight(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('password mismatch', () => {
+    it.effect('rejects non-matching passwords', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: 'newPassword456',
+          confirmPassword: 'differentPassword789',
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects case-sensitive mismatch', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: 'newPassword456',
+          confirmPassword: 'NEWPASSWORD456',
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('minimum length validation', () => {
+    it.effect('rejects password below minimum length', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: '1234567', // 7 characters, below minimum
+          confirmPassword: '1234567',
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+  })
+
+  describe('required fields', () => {
+    it.effect('rejects empty currentPassword', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: '',
+          newPassword: 'newPassword456',
+          confirmPassword: 'newPassword456',
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty newPassword', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: '',
+          confirmPassword: '',
+        })
+        expect(Either.isLeft(result)).toBe(true)
+      }),
+    )
+
+    it.effect('rejects empty confirmPassword', () =>
+      Effect.gen(function* () {
+        const result = Schema.decodeUnknownEither(ChangePasswordFormSchema)({
+          currentPassword: 'oldPassword123',
+          newPassword: 'newPassword456',
+          confirmPassword: '',
+        })
+        expect(Either.isLeft(result)).toBe(true)
       }),
     )
   })
