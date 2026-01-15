@@ -238,7 +238,7 @@
         ],
         "pattern": "Schema.transform(Schema.String, Schema.Date, {...})"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

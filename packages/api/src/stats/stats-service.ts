@@ -31,12 +31,6 @@ import { Effect, Layer, Schema } from 'effect'
 // Raw SQL Result Schema
 // ============================================
 
-// SQLite stores dates as TEXT (ISO8601), so we need to parse them
-const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
-  decode: (s) => new Date(s),
-  encode: (d) => d.toISOString(),
-})
-
 // Weight stats row schema (combined query with points as JSON)
 const WeightStatsRow = Schema.Struct({
   min_weight: Schema.NullOr(Schema.Number),
@@ -54,9 +48,9 @@ const WeightPointJson = Schema.Struct({
 })
 const decodeWeightPointsJson = Schema.decodeUnknown(Schema.Array(WeightPointJson))
 
-// Weight trend row schema
+// Weight trend row schema - Schema.Date decodes ISO8601 string to Date
 const WeightTrendRow = Schema.Struct({
-  datetime: DateFromString,
+  datetime: Schema.Date,
   weight: Schema.Number,
 })
 const decodeWeightTrendRow = Schema.decodeUnknown(WeightTrendRow)
@@ -68,9 +62,9 @@ const InjectionSiteRow = Schema.Struct({
 })
 const decodeInjectionSiteRow = Schema.decodeUnknown(InjectionSiteRow)
 
-// Dosage history row schema
+// Dosage history row schema - Schema.Date decodes ISO8601 string to Date
 const DosageHistoryRow = Schema.Struct({
-  datetime: DateFromString,
+  datetime: Schema.Date,
   drug: Schema.String,
   dosage: Schema.String,
 })
