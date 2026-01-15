@@ -96,3 +96,8 @@
 **Story**: TEST-1.1 - Migrate weight-log-repo.test.ts to it.layer pattern
 **Status**: complete
 ---
+
+## Iteration 3 - 2026-01-14 23:44
+**Story**: TEST-1.2 - Migrate injection-log-repo.test.ts to it.layer pattern
+**Status**: complete
+---
