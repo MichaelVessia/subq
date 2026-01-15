@@ -92,7 +92,7 @@
         ],
         "pattern": "it.layer(TestLayer)('creates entry', () => Effect.gen(function* () { ... }))"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

@@ -91,3 +91,8 @@
 **Story**: TEST-1.0 - Create makeInitializedTestLayer helper
 **Status**: complete
 ---
+
+## Iteration 2 - 2026-01-14 23:42
+**Story**: TEST-1.1 - Migrate weight-log-repo.test.ts to it.layer pattern
+**Status**: complete
+---
