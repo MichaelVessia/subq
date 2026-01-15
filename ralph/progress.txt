@@ -21,3 +21,8 @@
 **Story**: 1.1.3 - Fix web/api any casts
 **Status**: complete
 ---
+
+## Iteration 5 - 2026-01-14 22:21
+**Story**: 1.1.4 - Replace Schema.*Sync methods
+**Status**: complete
+---

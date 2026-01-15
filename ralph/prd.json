@@ -214,7 +214,7 @@
         ],
         "pattern": "await Effect.runPromise(Schema.encode(...)) in async handlers"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

@@ -1,6 +1,6 @@
 import { useAtomSet } from '@effect-atom/atom-react'
 import { DataExport } from '@subq/shared'
-import { DateTime, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 import { useRef, useState } from 'react'
 import { ApiClient, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
@@ -29,7 +29,7 @@ export function DataManagement() {
       })
 
       // Convert to JSON and trigger download
-      const encoded = Schema.encodeSync(DataExport)(result)
+      const encoded = await Effect.runPromise(Schema.encode(DataExport)(result))
       const json = JSON.stringify(encoded, null, 2)
       const blob = new Blob([json], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -57,10 +57,10 @@ export function DataManagement() {
 
     try {
       const text = await file.text()
-      const json = JSON.parse(text)
+      const json: unknown = JSON.parse(text)
 
       // Validate the data structure using Effect Schema
-      const decoded = Schema.decodeUnknownSync(DataExport)(json)
+      const decoded = await Effect.runPromise(Schema.decodeUnknown(DataExport)(json))
       setPendingImportData(decoded)
       setShowConfirm(true)
     } catch (error) {
