@@ -31,3 +31,8 @@
 **Story**: 1.1.5 - Replace DateFromSelf schema
 **Status**: complete
 ---
+
+## Iteration 7 - 2026-01-14 22:23
+**Story**: 2.1.0 - Create CLI error types
+**Status**: complete
+---

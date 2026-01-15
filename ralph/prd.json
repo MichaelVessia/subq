@@ -263,7 +263,7 @@
         ],
         "pattern": "Schema.TaggedError<T>()('TagName', { fields })"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
