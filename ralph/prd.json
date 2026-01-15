@@ -319,7 +319,7 @@
         ],
         "pattern": "const fiber = yield* Effect.fork(effect); yield* TestClock.setTime(time); yield* Fiber.join(fiber)"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

@@ -141,3 +141,8 @@
 **Story**: TEST-2.1 - Add property tests for frequency conversion
 **Status**: complete
 ---
+
+## Iteration 6 - 2026-01-15 00:05
+**Story**: TEST-3.0 - Refactor schedule-rpc-handlers to use TestClock
+**Status**: complete
+---
