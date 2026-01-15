@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
-import type { GoalProgress, UserGoalCreate, UserGoalUpdate } from '@subq/shared'
+import type { GoalId, GoalProgress, UserGoalCreate, UserGoalUpdate } from '@subq/shared'
 import { UserGoalDelete } from '@subq/shared'
 import type { DateTime } from 'effect'
 import { Calendar, Minus, Pencil, Target, Trash2, TrendingDown, TrendingUp } from 'lucide-react'
@@ -165,8 +165,8 @@ export function GoalProgressCard() {
     setEditMode(false)
   }
 
-  const handleDelete = async (goalId: string) => {
-    await deleteGoal({ payload: new UserGoalDelete({ id: goalId as any }), reactivityKeys: [ReactivityKeys.goals] })
+  const handleDelete = async (goalId: GoalId) => {
+    await deleteGoal({ payload: new UserGoalDelete({ id: goalId }), reactivityKeys: [ReactivityKeys.goals] })
     setShowDeleteConfirm(false)
   }
 

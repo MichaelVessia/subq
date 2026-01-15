@@ -158,8 +158,7 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
   })
 
 // Run it
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-Effect.runPromise(seedData.pipe(Effect.provide(SqlLive)) as any)
+Effect.runPromise(seedData.pipe(Effect.provide(SqlLive)))
   .then(() => process.exit(0))
   .catch((err) => {
     console.error('Seeding failed:', err)
