@@ -993,7 +993,7 @@
         ],
         "pattern": "Effect.forkDaemon for background sync, Effect.onInterrupt for shutdown, TestClock for timing tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
