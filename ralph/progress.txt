@@ -416,3 +416,8 @@
 **Story**: 3.4.0 - Implement LocalDb service
 **Status**: complete
 ---
+
+## Iteration 25 - 2026-01-26 01:40
+**Story**: 3.5.0 - Implement outbox trigger for local writes
+**Status**: complete
+---

@@ -593,7 +593,7 @@
         ],
         "pattern": "Wrap write operations to also insert into sync_outbox, use Clock for timestamps"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

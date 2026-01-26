@@ -12,7 +12,7 @@ import { BunContext } from '@effect/platform-bun'
 import { SqlClient } from '@effect/sql'
 import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { type SyncChange, type SyncConflict } from '@subq/shared'
-import { Context, Effect, Layer, Option, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schemas
@@ -65,6 +65,25 @@ type SyncedTable = (typeof SYNCED_TABLES)[number]
 const isSyncedTable = (table: string): table is SyncedTable => SYNCED_TABLES.includes(table as SyncedTable)
 
 // ============================================
+// Write Operation Types
+// ============================================
+
+/** Operation type for writeWithOutbox */
+export type WriteOperation = 'insert' | 'update' | 'delete'
+
+/** Write options for writeWithOutbox */
+export interface WriteWithOutboxOptions {
+  /** Table name (must be a synced table) */
+  readonly table: SyncedTable
+  /** Row ID (UUID) */
+  readonly id: string
+  /** Operation type */
+  readonly operation: WriteOperation
+  /** Row payload (full row data for insert/update, partial for delete) */
+  readonly payload: Record<string, unknown>
+}
+
+// ============================================
 // Service Interface
 // ============================================
 
@@ -83,6 +102,15 @@ export interface LocalDbService {
   readonly applyServerVersion: (conflict: SyncConflict) => Effect.Effect<void>
   /** Remove single entry from outbox by row_id */
   readonly removeFromOutbox: (id: string) => Effect.Effect<void>
+  /**
+   * Write to local database and add entry to sync_outbox atomically.
+   * Used by CLI/TUI write operations to ensure changes are queued for sync.
+   *
+   * - Insert: inserts row and adds outbox entry with operation='insert'
+   * - Update: updates row and adds outbox entry with operation='update'
+   * - Delete: sets deleted_at and adds outbox entry with operation='delete'
+   */
+  readonly writeWithOutbox: (options: WriteWithOutboxOptions) => Effect.Effect<void, never, Clock.Clock>
 }
 
 export class LocalDb extends Context.Tag('@subq/local/LocalDb')<LocalDb, LocalDbService>() {
@@ -231,6 +259,43 @@ const makeLocalDbService = (sql: SqlClient.SqlClient): LocalDbService => ({
   applyServerVersion: (conflict: SyncConflict) => applyServerVersion(sql, conflict),
 
   removeFromOutbox: (id: string) => sql`DELETE FROM sync_outbox WHERE row_id = ${id}`.pipe(Effect.asVoid, Effect.orDie),
+
+  writeWithOutbox: (options: WriteWithOutboxOptions) =>
+    Effect.gen(function* () {
+      const clock = yield* Clock.Clock
+      const timestamp = yield* clock.currentTimeMillis
+      const now = new Date(timestamp).toISOString()
+
+      // Perform the database write based on operation type
+      if (options.operation === 'insert') {
+        yield* insertRow(sql, options.table, options.id, options.payload)
+      } else if (options.operation === 'update') {
+        yield* updateRow(sql, options.table, options.id, options.payload)
+      } else if (options.operation === 'delete') {
+        // Soft delete: set deleted_at
+        yield* sql`
+          UPDATE ${sql.literal(options.table)}
+          SET deleted_at = ${now}, updated_at = ${now}
+          WHERE id = ${options.id}
+        `.pipe(Effect.asVoid, Effect.orDie)
+      }
+
+      // Build the payload for the outbox entry
+      // For insert/update, use the full payload
+      // For delete, include deleted_at and updated_at in the payload
+      const outboxPayload =
+        options.operation === 'delete'
+          ? { ...options.payload, deleted_at: now, updated_at: now }
+          : { ...options.payload, id: options.id }
+
+      const payloadJson = JSON.stringify(outboxPayload)
+
+      // Add entry to sync_outbox
+      yield* sql`
+        INSERT INTO sync_outbox (table_name, row_id, operation, payload, timestamp, created_at)
+        VALUES (${options.table}, ${options.id}, ${options.operation}, ${payloadJson}, ${timestamp}, ${now})
+      `.pipe(Effect.asVoid, Effect.orDie)
+    }),
 })
 
 // ============================================

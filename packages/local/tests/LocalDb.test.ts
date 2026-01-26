@@ -8,8 +8,8 @@ import { SqlClient } from '@effect/sql'
 import { SqliteClient } from '@effect/sql-sqlite-bun'
 import type { SyncChange, SyncConflict } from '@subq/shared'
 import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
-import { Effect, Layer, Option } from 'effect'
-import { LocalDb } from '../src/services/LocalDb.js'
+import { Clock, Effect, Layer, Option } from 'effect'
+import { LocalDb, type WriteWithOutboxOptions } from '../src/services/LocalDb.js'
 
 // ============================================
 // Test Layer Setup
@@ -205,6 +205,70 @@ const makeTestLayer = () =>
 
       const removeFromOutbox = (id: string) => sql`DELETE FROM sync_outbox WHERE row_id = ${id}`.pipe(Effect.asVoid)
 
+      const writeWithOutbox = (options: WriteWithOutboxOptions) =>
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const timestamp = yield* clock.currentTimeMillis
+          const now = new Date(timestamp).toISOString()
+
+          // Perform the database write based on operation type
+          if (options.operation === 'insert') {
+            // Insert new row
+            const columns: Array<string> = ['id']
+            const values: Array<unknown> = [options.id]
+
+            for (const [key, value] of Object.entries(options.payload)) {
+              if (key === 'id') continue
+              columns.push(key)
+              values.push(value)
+            }
+
+            const columnsSql = columns.map((c) => `"${c}"`).join(', ')
+            const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ')
+
+            yield* sql.unsafe(`INSERT INTO "${options.table}" (${columnsSql}) VALUES (${placeholders})`, values)
+          } else if (options.operation === 'update') {
+            // Update existing row
+            const setClauses: Array<string> = []
+            const values: Array<unknown> = []
+            let paramIndex = 1
+
+            for (const [key, value] of Object.entries(options.payload)) {
+              if (key === 'id') continue
+              setClauses.push(`"${key}" = $${paramIndex}`)
+              values.push(value)
+              paramIndex++
+            }
+
+            if (setClauses.length > 0) {
+              values.push(options.id)
+              const setSql = setClauses.join(', ')
+              yield* sql.unsafe(`UPDATE "${options.table}" SET ${setSql} WHERE id = $${paramIndex}`, values)
+            }
+          } else if (options.operation === 'delete') {
+            // Soft delete: set deleted_at
+            yield* sql`
+              UPDATE ${sql.literal(options.table)}
+              SET deleted_at = ${now}, updated_at = ${now}
+              WHERE id = ${options.id}
+            `
+          }
+
+          // Build the payload for the outbox entry
+          const outboxPayload =
+            options.operation === 'delete'
+              ? { ...options.payload, deleted_at: now, updated_at: now }
+              : { ...options.payload, id: options.id }
+
+          const payloadJson = JSON.stringify(outboxPayload)
+
+          // Add entry to sync_outbox
+          yield* sql`
+            INSERT INTO sync_outbox (table_name, row_id, operation, payload, timestamp, created_at)
+            VALUES (${options.table}, ${options.id}, ${options.operation}, ${payloadJson}, ${timestamp}, ${now})
+          `
+        })
+
       return LocalDb.of({
         getMeta,
         setMeta,
@@ -213,6 +277,7 @@ const makeTestLayer = () =>
         applyChanges,
         applyServerVersion,
         removeFromOutbox,
+        writeWithOutbox,
       })
     }),
   ).pipe(
@@ -638,6 +703,536 @@ describe('LocalDb', () => {
           expect(result[0].id).toBe('remove-row-2')
         }),
       )
+    })
+  })
+
+  describe('writeWithOutbox', () => {
+    describe('insert operations', () => {
+      it.layer(makeTestLayer())((it) => {
+        it.effect('insert creates outbox entry with operation=insert', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-insert-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.5,
+                notes: 'Test insert',
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].operation).toBe('insert')
+            expect(outbox[0].table).toBe('weight_logs')
+            expect(outbox[0].id).toBe('outbox-insert-1')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('insert writes row to database', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-insert-2',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 155.0,
+                notes: 'Check database',
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            const rows = yield* sql<{ id: string; weight: number; notes: string }>`
+              SELECT id, weight, notes FROM weight_logs WHERE id = 'outbox-insert-2'
+            `
+
+            expect(rows.length).toBe(1)
+            expect(rows[0].weight).toBe(155.0)
+            expect(rows[0].notes).toBe('Check database')
+          }),
+        )
+      })
+    })
+
+    describe('update operations', () => {
+      it.layer(makeTestLayer())((it) => {
+        it.effect('update creates outbox entry with operation=update', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly to database
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('outbox-update-1', '2024-01-15T10:00:00Z', 150.0, 'Initial', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-update-1',
+              operation: 'update',
+              payload: {
+                weight: 155.0,
+                notes: 'Updated',
+                updated_at: '2024-01-15T11:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].operation).toBe('update')
+            expect(outbox[0].table).toBe('weight_logs')
+            expect(outbox[0].id).toBe('outbox-update-1')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('update modifies row in database', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('outbox-update-2', '2024-01-15T10:00:00Z', 150.0, 'Initial', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-update-2',
+              operation: 'update',
+              payload: {
+                weight: 160.0,
+                notes: 'Modified weight',
+                updated_at: '2024-01-15T11:00:00Z',
+              },
+            })
+
+            const rows = yield* sql<{ weight: number; notes: string }>`
+              SELECT weight, notes FROM weight_logs WHERE id = 'outbox-update-2'
+            `
+
+            expect(rows.length).toBe(1)
+            expect(rows[0].weight).toBe(160.0)
+            expect(rows[0].notes).toBe('Modified weight')
+          }),
+        )
+      })
+    })
+
+    describe('delete operations', () => {
+      it.layer(makeTestLayer())((it) => {
+        it.effect('delete creates outbox entry with operation=delete', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('outbox-delete-1', '2024-01-15T10:00:00Z', 150.0, 'To delete', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-delete-1',
+              operation: 'delete',
+              payload: {},
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].operation).toBe('delete')
+            expect(outbox[0].table).toBe('weight_logs')
+            expect(outbox[0].id).toBe('outbox-delete-1')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('delete sets deleted_at on row', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('outbox-delete-2', '2024-01-15T10:00:00Z', 150.0, 'To delete', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-delete-2',
+              operation: 'delete',
+              payload: {},
+            })
+
+            const rows = yield* sql<{ deleted_at: string | null }>`
+              SELECT deleted_at FROM weight_logs WHERE id = 'outbox-delete-2'
+            `
+
+            expect(rows.length).toBe(1)
+            expect(rows[0].deleted_at).not.toBeNull()
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('delete outbox payload contains deleted_at', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('outbox-delete-3', '2024-01-15T10:00:00Z', 150.0, 'To delete', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-delete-3',
+              operation: 'delete',
+              payload: {},
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].payload.deleted_at).toBeDefined()
+            expect(outbox[0].payload.updated_at).toBeDefined()
+          }),
+        )
+      })
+    })
+
+    describe('payload and timestamp', () => {
+      it.layer(makeTestLayer())((it) => {
+        it.effect('outbox payload matches row data for insert', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            const payload = {
+              datetime: '2024-01-15T10:00:00Z',
+              weight: 150.5,
+              notes: 'Payload test',
+              user_id: 'user-1',
+              created_at: '2024-01-15T10:00:00Z',
+              updated_at: '2024-01-15T10:00:00Z',
+            }
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-payload-1',
+              operation: 'insert',
+              payload,
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].payload.id).toBe('outbox-payload-1')
+            expect(outbox[0].payload.datetime).toBe('2024-01-15T10:00:00Z')
+            expect(outbox[0].payload.weight).toBe(150.5)
+            expect(outbox[0].payload.notes).toBe('Payload test')
+            expect(outbox[0].payload.user_id).toBe('user-1')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('outbox timestamp is Unix ms', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const beforeMs = Date.now()
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-timestamp-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.5,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            const afterMs = Date.now()
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            // Timestamp should be within the time window (reasonable = within 1s)
+            expect(outbox[0].timestamp).toBeGreaterThanOrEqual(beforeMs)
+            expect(outbox[0].timestamp).toBeLessThanOrEqual(afterMs + 1000)
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('outbox timestamp is reasonable (within 1s of now)', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const now = Date.now()
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'outbox-timestamp-2',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.5,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            const diff = Math.abs(outbox[0].timestamp - now)
+            expect(diff).toBeLessThan(1000)
+          }),
+        )
+      })
+    })
+
+    describe('additional test cases', () => {
+      it.layer(makeTestLayer())((it) => {
+        it.effect('multiple writes create multiple outbox entries', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'multi-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'multi-2',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T11:00:00Z',
+                weight: 151.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T11:00:00Z',
+                updated_at: '2024-01-15T11:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(2)
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('works with different synced tables', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            yield* db.writeWithOutbox({
+              table: 'user_goals',
+              id: 'goal-1',
+              operation: 'insert',
+              payload: {
+                user_id: 'user-1',
+                goal_weight: 140.0,
+                starting_weight: 160.0,
+                starting_date: '2024-01-01',
+                target_date: '2024-06-01',
+                notes: null,
+                is_active: 1,
+                completed_at: null,
+                created_at: '2024-01-01T00:00:00Z',
+                updated_at: '2024-01-01T00:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].table).toBe('user_goals')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('insert then update creates two outbox entries', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'insert-update-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'insert-update-1',
+              operation: 'update',
+              payload: {
+                weight: 155.0,
+                updated_at: '2024-01-15T11:00:00Z',
+              },
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(2)
+            expect(outbox[0].operation).toBe('insert')
+            expect(outbox[1].operation).toBe('update')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('insert then delete creates two outbox entries', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'insert-delete-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'insert-delete-1',
+              operation: 'delete',
+              payload: {},
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(2)
+            expect(outbox[0].operation).toBe('insert')
+            expect(outbox[1].operation).toBe('delete')
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('outbox entries have sequential ids', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'seq-1',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T10:00:00Z',
+                weight: 150.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+              },
+            })
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'seq-2',
+              operation: 'insert',
+              payload: {
+                datetime: '2024-01-15T11:00:00Z',
+                weight: 151.0,
+                notes: null,
+                user_id: 'user-1',
+                created_at: '2024-01-15T11:00:00Z',
+                updated_at: '2024-01-15T11:00:00Z',
+              },
+            })
+
+            const rows = yield* sql<{ id: number }>`
+              SELECT id FROM sync_outbox ORDER BY id ASC
+            `
+
+            expect(rows.length).toBe(2)
+            expect(rows[1].id).toBe(rows[0].id + 1)
+          }),
+        )
+      })
+
+      it.layer(makeTestLayer())((it) => {
+        it.effect('update payload is stored correctly', () =>
+          Effect.gen(function* () {
+            const db = yield* LocalDb
+            const sql = yield* SqlClient.SqlClient
+
+            // First insert directly
+            yield* sql`
+              INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
+              VALUES ('update-payload-1', '2024-01-15T10:00:00Z', 150.0, 'Initial', 'user-1', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+            `
+
+            const updatePayload = {
+              weight: 165.0,
+              notes: 'Updated notes',
+              updated_at: '2024-01-15T12:00:00Z',
+            }
+
+            yield* db.writeWithOutbox({
+              table: 'weight_logs',
+              id: 'update-payload-1',
+              operation: 'update',
+              payload: updatePayload,
+            })
+
+            const outbox = yield* db.getOutbox({ limit: 100 })
+            expect(outbox.length).toBe(1)
+            expect(outbox[0].payload.weight).toBe(165.0)
+            expect(outbox[0].payload.notes).toBe('Updated notes')
+            expect(outbox[0].payload.id).toBe('update-payload-1')
+          }),
+        )
+      })
     })
   })
 })
