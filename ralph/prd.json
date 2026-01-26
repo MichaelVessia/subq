@@ -510,7 +510,7 @@
         ],
         "pattern": "Mirror packages/api/src/db/schema.ts for synced tables, use in-memory SQLite for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
