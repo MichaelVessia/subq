@@ -1,0 +1,3 @@
+[test]
+preload = ["@codeforbreakfast/bun-test-effect"]
+root = "src"

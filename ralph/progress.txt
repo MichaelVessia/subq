@@ -261,3 +261,18 @@
 **Story**: 2.1.0 - Create sync protocol schemas in @subq/shared
 **Status**: complete
 ---
+
+## Iteration 14 - 2026-01-26 00:06
+**Story**: 2.2.0 - Create sync error types in @subq/shared
+**Status**: complete
+---
+
+## Iteration 15 - 2026-01-26 00:09
+**Story**: 2.2.0 - Create sync error types in @subq/shared
+**Status**: complete
+---
+
+## Iteration 16 - 2026-01-26 00:12
+**Story**: 2.2.0 - Create sync error types in @subq/shared
+**Status**: complete
+---

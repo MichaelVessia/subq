@@ -22,3 +22,6 @@ export * from './auth-middleware.js'
 
 // Sync protocol schemas
 export * from './sync-schemas.js'
+
+// Sync error types
+export * from './sync-errors.js'

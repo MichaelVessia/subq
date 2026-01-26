@@ -253,7 +253,7 @@
         ],
         "pattern": "Schema.TaggedError pattern per EFFECT_BEST_PRACTICES.md"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
