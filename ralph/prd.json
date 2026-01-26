@@ -178,7 +178,7 @@
         ],
         "pattern": "Add .where(isNull(table.deletedAt)) to all queries"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

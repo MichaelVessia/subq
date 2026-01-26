@@ -83,7 +83,7 @@ export const WeightLogRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
           ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
           ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
           ORDER BY datetime DESC
@@ -98,7 +98,7 @@ export const WeightLogRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
           FROM weight_logs
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
@@ -131,7 +131,7 @@ export const WeightLogRepoLive = Layer.effect(
         // First get current values - include user_id check to prevent IDOR
         const current = yield* sql`
           SELECT id, datetime, weight, notes, created_at, updated_at
-          FROM weight_logs WHERE id = ${data.id} AND user_id = ${userId}
+          FROM weight_logs WHERE id = ${data.id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -170,7 +170,8 @@ export const WeightLogRepoLive = Layer.effect(
     const del = (id: string, userId: string) =>
       Effect.gen(function* () {
         // Check if exists and belongs to user
-        const existing = yield* sql`SELECT id FROM weight_logs WHERE id = ${id} AND user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id FROM weight_logs WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`
         if (existing.length === 0) {
           return false
         }

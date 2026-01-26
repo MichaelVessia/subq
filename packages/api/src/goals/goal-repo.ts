@@ -95,7 +95,7 @@ export const GoalRepoLive = Layer.effect(
           SELECT id, user_id, goal_weight, starting_weight, starting_date,
                  target_date, notes, is_active, completed_at, created_at, updated_at
           FROM user_goals
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
           ORDER BY created_at DESC
         `
         const decoded = yield* Effect.all(rows.map((r) => decodeGoalRow(r)))
@@ -108,7 +108,7 @@ export const GoalRepoLive = Layer.effect(
           SELECT id, user_id, goal_weight, starting_weight, starting_date,
                  target_date, notes, is_active, completed_at, created_at, updated_at
           FROM user_goals
-          WHERE user_id = ${userId} AND is_active = 1
+          WHERE user_id = ${userId} AND is_active = 1 AND deleted_at IS NULL
         `
         if (rows.length === 0) {
           return Option.none()
@@ -123,7 +123,7 @@ export const GoalRepoLive = Layer.effect(
           SELECT id, user_id, goal_weight, starting_weight, starting_date,
                  target_date, notes, is_active, completed_at, created_at, updated_at
           FROM user_goals
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `
         if (rows.length === 0) {
           return Option.none()
@@ -143,7 +143,7 @@ export const GoalRepoLive = Layer.effect(
         const notes = Option.isSome(data.notes) ? data.notes.value : null
 
         // Deactivate any existing active goals for this user
-        yield* sql`UPDATE user_goals SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`.pipe(
+        yield* sql`UPDATE user_goals SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1 AND deleted_at IS NULL`.pipe(
           Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })),
         )
 
@@ -167,7 +167,7 @@ export const GoalRepoLive = Layer.effect(
         const current = yield* sql`
           SELECT id, user_id, goal_weight, starting_weight, starting_date,
                  target_date, notes, is_active, completed_at, created_at, updated_at
-          FROM user_goals WHERE id = ${data.id} AND user_id = ${userId}
+          FROM user_goals WHERE id = ${data.id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -198,7 +198,7 @@ export const GoalRepoLive = Layer.effect(
         if (newIsActive && curr.is_active !== 1) {
           yield* sql`
             UPDATE user_goals SET is_active = 0, updated_at = ${now}
-            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
+            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id} AND deleted_at IS NULL
           `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'update', cause })))
         }
 
@@ -224,7 +224,8 @@ export const GoalRepoLive = Layer.effect(
 
     const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM user_goals WHERE id = ${id} AND user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id FROM user_goals WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`
         if (existing.length === 0) {
           return false
         }

@@ -206,3 +206,8 @@
 **Story**: 1.2.0 - Add CLI session columns to session table
 **Status**: complete
 ---
+
+## Iteration 3 - 2026-01-25 23:47
+**Story**: 1.3.0 - Update queries to filter soft-deleted rows
+**Status**: complete
+---

@@ -29,7 +29,8 @@ export const setupTables = Effect.gen(function* () {
       notes TEXT,
       user_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -46,7 +47,8 @@ export const setupTables = Effect.gen(function* () {
       notes TEXT,
       user_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -59,7 +61,8 @@ export const setupTables = Effect.gen(function* () {
       duration_days INTEGER,
       dosage TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -76,7 +79,8 @@ export const setupTables = Effect.gen(function* () {
       schedule_id TEXT REFERENCES injection_schedules(id) ON DELETE SET NULL,
       user_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -92,7 +96,8 @@ export const setupTables = Effect.gen(function* () {
       beyond_use_date TEXT,
       user_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -109,7 +114,8 @@ export const setupTables = Effect.gen(function* () {
       is_active INTEGER NOT NULL DEFAULT 1,
       completed_at TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 
@@ -119,8 +125,10 @@ export const setupTables = Effect.gen(function* () {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       weight_unit TEXT NOT NULL DEFAULT 'lbs',
+      reminders_enabled INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
     )
   `
 })
@@ -248,6 +256,80 @@ export const insertSettings = (id: string, userId: string, weightUnit: 'lbs' | '
       INSERT INTO user_settings (id, user_id, weight_unit, created_at, updated_at)
       VALUES (${id}, ${userId}, ${weightUnit}, ${now}, ${now})
     `
+  })
+
+export const insertGoal = (
+  id: string,
+  userId: string,
+  goalWeight: number,
+  startingWeight: number,
+  startingDate: Date,
+  options: {
+    targetDate?: Date | null
+    notes?: string | null
+    isActive?: boolean
+  } = {},
+) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`
+      INSERT INTO user_goals (id, user_id, goal_weight, starting_weight, starting_date, target_date, notes, is_active, created_at, updated_at)
+      VALUES (${id}, ${userId}, ${goalWeight}, ${startingWeight}, ${startingDate.toISOString()}, ${options.targetDate?.toISOString() ?? null}, ${options.notes ?? null}, ${options.isActive !== false ? 1 : 0}, ${now}, ${now})
+    `
+  })
+
+// ============================================
+// Soft Delete Helpers
+// ============================================
+
+export const softDeleteWeightLog = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE weight_logs SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteInjectionLog = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE injection_logs SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteSchedule = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE injection_schedules SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteSchedulePhase = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE schedule_phases SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteInventory = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE glp1_inventory SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteGoal = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE user_goals SET deleted_at = ${now} WHERE id = ${id}`
+  })
+
+export const softDeleteSettings = (id: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const now = new Date().toISOString()
+    yield* sql`UPDATE user_settings SET deleted_at = ${now} WHERE id = ${id}`
   })
 
 // ============================================

@@ -62,7 +62,7 @@ export const SettingsRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, user_id, weight_unit, reminders_enabled, created_at, updated_at
           FROM user_settings
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
         `
         if (rows.length === 0) {
           return Option.none()
@@ -77,7 +77,7 @@ export const SettingsRepoLive = Layer.effect(
 
         // Check if settings exist
         const existing =
-          yield* sql`SELECT id, weight_unit, reminders_enabled FROM user_settings WHERE user_id = ${userId}`
+          yield* sql`SELECT id, weight_unit, reminders_enabled FROM user_settings WHERE user_id = ${userId} AND deleted_at IS NULL`
 
         if (existing.length === 0) {
           // Insert new settings
