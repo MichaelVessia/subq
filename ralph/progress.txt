@@ -276,3 +276,43 @@
 **Story**: 2.2.0 - Create sync error types in @subq/shared
 **Status**: complete
 ---
+
+## Iteration 17 - 2026-01-26 00:19
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 18 - 2026-01-26 00:20
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 19 - 2026-01-26 00:23
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 20 - 2026-01-26 00:25
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 1 - 2026-01-26 00:28
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 2 - 2026-01-26 00:31
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 3 - 2026-01-26 00:32
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---
+
+## Iteration 4 - 2026-01-26 00:34
+**Story**: 2.3.0 - Implement CLI auth middleware
+**Status**: complete
+---

@@ -289,7 +289,7 @@
         ],
         "pattern": "Effect middleware pattern, use Clock service for timestamps, it.layer for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
