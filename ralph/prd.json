@@ -1099,7 +1099,7 @@
         ],
         "pattern": "RPC endpoints for revoke, revokeAll, it.layer for API tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     }
   ]

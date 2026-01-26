@@ -3,7 +3,9 @@ import {
   AuthContext,
   CliSession,
   CliSessionList,
+  RevokeAllCliSessionsResponse,
   RevokeCliSessionResponse,
+  SessionNotFoundError,
   SettingsDatabaseError,
   SettingsRpcs,
   type RevokeCliSessionRequest,
@@ -106,7 +108,17 @@ export const SettingsRpcHandlersLive = SettingsRpcs.toLayer(
         Effect.annotateLogs({ rpc: 'RevokeCliSession', userId: user.id, sessionId: data.sessionId }),
       )
 
-      // Delete the session (only if it belongs to this user and is a CLI session)
+      // Check if the session exists and belongs to this user
+      const existingSession = yield* sql`
+        SELECT id FROM session
+        WHERE id = ${data.sessionId} AND userId = ${user.id} AND type = 'cli'
+      `.pipe(Effect.mapError((cause) => SettingsDatabaseError.make({ operation: 'query', cause })))
+
+      if (existingSession.length === 0) {
+        return yield* Effect.fail(SessionNotFoundError.make({ sessionId: data.sessionId }))
+      }
+
+      // Delete the session
       yield* sql`
         DELETE FROM session
         WHERE id = ${data.sessionId} AND userId = ${user.id} AND type = 'cli'
@@ -118,11 +130,38 @@ export const SettingsRpcHandlersLive = SettingsRpcs.toLayer(
       return new RevokeCliSessionResponse({ success: true })
     })
 
+    const RevokeAllCliSessions = Effect.fn('rpc.settings.revokeAllCliSessions')(function* () {
+      const { user } = yield* AuthContext
+      yield* Effect.logInfo('RevokeAllCliSessions called').pipe(
+        Effect.annotateLogs({ rpc: 'RevokeAllCliSessions', userId: user.id }),
+      )
+
+      // Count how many CLI sessions will be deleted
+      const countResult = yield* sql`
+        SELECT COUNT(*) as count FROM session
+        WHERE userId = ${user.id} AND type = 'cli'
+      `.pipe(Effect.mapError((cause) => SettingsDatabaseError.make({ operation: 'query', cause })))
+
+      const revokedCount = Number(countResult[0]?.count ?? 0)
+
+      // Delete all CLI sessions for this user
+      yield* sql`
+        DELETE FROM session
+        WHERE userId = ${user.id} AND type = 'cli'
+      `.pipe(Effect.mapError((cause) => SettingsDatabaseError.make({ operation: 'update', cause })))
+
+      yield* Effect.logInfo('RevokeAllCliSessions completed').pipe(
+        Effect.annotateLogs({ rpc: 'RevokeAllCliSessions', revokedCount }),
+      )
+      return new RevokeAllCliSessionsResponse({ revokedCount })
+    })
+
     return {
       UserSettingsGet,
       UserSettingsUpdate,
       CliSessionList: CliSessionListHandler,
       RevokeCliSession,
+      RevokeAllCliSessions,
     }
   }),
 )

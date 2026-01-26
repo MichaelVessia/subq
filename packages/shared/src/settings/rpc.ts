@@ -50,6 +50,16 @@ export class RevokeCliSessionResponse extends Schema.Class<RevokeCliSessionRespo
   success: Schema.Boolean,
 }) {}
 
+export class RevokeAllCliSessionsResponse extends Schema.Class<RevokeAllCliSessionsResponse>(
+  'RevokeAllCliSessionsResponse',
+)({
+  revokedCount: Schema.Number,
+}) {}
+
+export class SessionNotFoundError extends Schema.TaggedError<SessionNotFoundError>()('SessionNotFoundError', {
+  sessionId: Schema.String,
+}) {}
+
 // ============================================
 // Settings RPCs
 // ============================================
@@ -71,6 +81,10 @@ export const SettingsRpcs = RpcGroup.make(
   Rpc.make('RevokeCliSession', {
     payload: RevokeCliSessionRequest,
     success: RevokeCliSessionResponse,
+    error: Schema.Union(SettingsDatabaseError, SessionNotFoundError),
+  }),
+  Rpc.make('RevokeAllCliSessions', {
+    success: RevokeAllCliSessionsResponse,
     error: SettingsDatabaseError,
   }),
 )

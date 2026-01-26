@@ -18,6 +18,7 @@ export function SettingsPage() {
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
   const cliSessionsResult = useAtomValue(CliSessionsAtom)
   const revokeSession = useAtomSet(ApiClient.mutation('RevokeCliSession'), { mode: 'promise' })
+  const revokeAllSessions = useAtomSet(ApiClient.mutation('RevokeAllCliSessions'), { mode: 'promise' })
 
   const handleUnitChange = (unit: WeightUnit) => {
     setWeightUnit(unit)
@@ -26,6 +27,13 @@ export function SettingsPage() {
   const handleRevokeSession = async (sessionId: string) => {
     await revokeSession({
       payload: new RevokeCliSessionRequest({ sessionId }),
+      reactivityKeys: [ReactivityKeys.cliSessions],
+    })
+  }
+
+  const handleRevokeAllSessions = async () => {
+    await revokeAllSessions({
+      payload: undefined,
       reactivityKeys: [ReactivityKeys.cliSessions],
     })
   }
@@ -90,7 +98,13 @@ export function SettingsPage() {
         <CardContent>
           {Result.builder(cliSessionsResult)
             .onInitial(() => <ListSkeleton items={2} />)
-            .onSuccess((data) => <CliDevices sessions={data.sessions} onRevoke={handleRevokeSession} />)
+            .onSuccess((data) => (
+              <CliDevices
+                sessions={data.sessions}
+                onRevoke={handleRevokeSession}
+                onRevokeAll={handleRevokeAllSessions}
+              />
+            ))
             .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
             .onError(() => <DatabaseError />)
             .render()}
