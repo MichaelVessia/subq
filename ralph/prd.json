@@ -216,7 +216,7 @@
         ],
         "pattern": "Schema.Struct with Schema.Literal for operation enum, use Schema.decodeUnknown for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

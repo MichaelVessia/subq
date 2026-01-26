@@ -19,3 +19,6 @@ export * from './rpc.js'
 
 // Auth middleware
 export * from './auth-middleware.js'
+
+// Sync protocol schemas
+export * from './sync-schemas.js'
