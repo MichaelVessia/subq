@@ -1062,7 +1062,7 @@
         ],
         "pattern": "New RPC endpoint for listing CLI sessions, it.layer for API tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

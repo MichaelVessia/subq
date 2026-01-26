@@ -1,19 +1,33 @@
-import type { WeightUnit } from '@subq/shared'
+import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { RevokeCliSessionRequest, type WeightUnit } from '@subq/shared'
 import { useState } from 'react'
 import { useUserSettings } from '../../hooks/use-user-settings.js'
+import { ApiClient, CliSessionsAtom, ReactivityKeys } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card.js'
+import { DatabaseError, UnauthorizedRedirect } from '../ui/error-states.js'
 import { Label } from '../ui/label.js'
+import { ListSkeleton } from '../ui/skeleton.js'
 import { Switch } from '../ui/switch.js'
 import { ChangePasswordForm } from './change-password-form.js'
+import { CliDevices } from './cli-devices.js'
 import { DataManagement } from './data-management.js'
 
 export function SettingsPage() {
   const { weightUnit, setWeightUnit, remindersEnabled, setRemindersEnabled } = useUserSettings()
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
+  const cliSessionsResult = useAtomValue(CliSessionsAtom)
+  const revokeSession = useAtomSet(ApiClient.mutation('RevokeCliSession'), { mode: 'promise' })
 
   const handleUnitChange = (unit: WeightUnit) => {
     setWeightUnit(unit)
+  }
+
+  const handleRevokeSession = async (sessionId: string) => {
+    await revokeSession({
+      payload: new RevokeCliSessionRequest({ sessionId }),
+      reactivityKeys: [ReactivityKeys.cliSessions],
+    })
   }
 
   return (
@@ -66,6 +80,20 @@ export function SettingsPage() {
         <CardContent>
           {passwordChangeSuccess && <p className="text-sm text-green-600 mb-4">Password changed successfully</p>}
           <ChangePasswordForm onSuccess={() => setPasswordChangeSuccess(true)} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>CLI Devices</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {Result.builder(cliSessionsResult)
+            .onInitial(() => <ListSkeleton items={2} />)
+            .onSuccess((data) => <CliDevices sessions={data.sessions} onRevoke={handleRevokeSession} />)
+            .onErrorTag('Unauthorized', () => <UnauthorizedRedirect />)
+            .onError(() => <DatabaseError />)
+            .render()}
         </CardContent>
       </Card>
 

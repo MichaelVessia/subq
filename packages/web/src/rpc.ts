@@ -39,6 +39,7 @@ export const ReactivityKeys = {
   schedule: 'schedule',
   goals: 'goals',
   settings: 'settings',
+  cliSessions: 'cli-sessions',
 } as const
 
 // Helper to convert optional Date to DateTime.Utc
@@ -219,6 +220,11 @@ export const GoalListAtom = ApiClient.query('GoalList', undefined, {
 // Settings atoms
 export const UserSettingsAtom = ApiClient.query('UserSettingsGet', undefined, {
   reactivityKeys: [ReactivityKeys.settings],
+})
+
+// CLI Sessions atom
+export const CliSessionsAtom = ApiClient.query('CliSessionList', undefined, {
+  reactivityKeys: [ReactivityKeys.cliSessions],
 })
 
 // Data operation state types for export/import

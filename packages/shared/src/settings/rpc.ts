@@ -28,6 +28,29 @@ export class UserSettingsUpdate extends Schema.Class<UserSettingsUpdate>('UserSe
 }) {}
 
 // ============================================
+// CLI Session Types
+// ============================================
+
+export class CliSession extends Schema.Class<CliSession>('CliSession')({
+  id: Schema.String,
+  deviceName: Schema.NullOr(Schema.String),
+  lastUsedAt: Schema.NullOr(Schema.Date),
+  createdAt: Schema.Date,
+}) {}
+
+export class CliSessionList extends Schema.Class<CliSessionList>('CliSessionList')({
+  sessions: Schema.Array(CliSession),
+}) {}
+
+export class RevokeCliSessionRequest extends Schema.Class<RevokeCliSessionRequest>('RevokeCliSessionRequest')({
+  sessionId: Schema.String,
+}) {}
+
+export class RevokeCliSessionResponse extends Schema.Class<RevokeCliSessionResponse>('RevokeCliSessionResponse')({
+  success: Schema.Boolean,
+}) {}
+
+// ============================================
 // Settings RPCs
 // ============================================
 
@@ -39,6 +62,15 @@ export const SettingsRpcs = RpcGroup.make(
   Rpc.make('UserSettingsUpdate', {
     payload: UserSettingsUpdate,
     success: UserSettings,
+    error: SettingsDatabaseError,
+  }),
+  Rpc.make('CliSessionList', {
+    success: CliSessionList,
+    error: SettingsDatabaseError,
+  }),
+  Rpc.make('RevokeCliSession', {
+    payload: RevokeCliSessionRequest,
+    success: RevokeCliSessionResponse,
     error: SettingsDatabaseError,
   }),
 )

@@ -496,3 +496,8 @@
 **Story**: 5.4.0 - Add sync status bar to TUI
 **Status**: complete
 ---
+
+## Iteration 41 - 2026-01-26 03:30
+**Story**: 6.1.0 - Add CLI tokens list to settings page
+**Status**: complete
+---
