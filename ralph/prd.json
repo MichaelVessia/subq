@@ -633,7 +633,7 @@
         ],
         "pattern": "Effect.Service with HttpClient dependency, mock HttpClient for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

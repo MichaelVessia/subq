@@ -421,3 +421,8 @@
 **Story**: 3.5.0 - Implement outbox trigger for local writes
 **Status**: complete
 ---
+
+## Iteration 26 - 2026-01-26 01:43
+**Story**: 3.6.0 - Implement RemoteClient service
+**Status**: complete
+---
