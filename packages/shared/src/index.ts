@@ -25,3 +25,6 @@ export * from './sync-schemas.js'
 
 // Sync error types
 export * from './sync-errors.js'
+
+// Sync RPC definitions
+export * from './sync-rpc.js'

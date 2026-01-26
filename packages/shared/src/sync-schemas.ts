@@ -95,3 +95,31 @@ export const PushResponse = Schema.Struct({
   conflicts: Schema.Array(SyncConflict),
 })
 export type PushResponse = typeof PushResponse.Type
+
+// ============================================
+// Authentication Schemas
+// ============================================
+
+/**
+ * Request to authenticate and obtain a CLI token.
+ *
+ * @property email - User email address
+ * @property password - User password
+ * @property deviceName - Name of the device (e.g., hostname)
+ */
+export const AuthRequest = Schema.Struct({
+  email: Schema.String,
+  password: Schema.String,
+  deviceName: Schema.String,
+})
+export type AuthRequest = typeof AuthRequest.Type
+
+/**
+ * Response containing the CLI token.
+ *
+ * @property token - CLI session token for future authenticated requests
+ */
+export const AuthResponse = Schema.Struct({
+  token: Schema.String,
+})
+export type AuthResponse = typeof AuthResponse.Type

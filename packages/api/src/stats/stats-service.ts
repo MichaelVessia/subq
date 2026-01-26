@@ -212,7 +212,7 @@ export const StatsServiceLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     const getWeightStats = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getWeightStats')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -265,10 +265,10 @@ export const StatsServiceLive = Layer.effect(
           rateOfChange: WeightRateOfChange.make(rateOfChangeNum),
           entryCount: Count.make(decoded.entry_count),
         })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getWeightStats'), Effect.orDie)
 
     const getWeightTrend = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getWeightTrend')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -291,15 +291,15 @@ export const StatsServiceLive = Layer.effect(
         yield* Effect.annotateCurrentSpan('pointCount', points.length)
 
         return new WeightTrendStats({ points, trendLine })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getWeightTrend'), Effect.orDie)
 
     const getInjectionSiteStats = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getInjectionSiteStats')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
         const rows = yield* sql`
-          SELECT 
+          SELECT
             COALESCE(injection_site, 'Unknown') as injection_site,
             COUNT(*) as count
           FROM injection_logs
@@ -324,10 +324,10 @@ export const StatsServiceLive = Layer.effect(
         }
         yield* Effect.annotateCurrentSpan('totalInjections', total)
         return new InjectionSiteStats({ sites, totalInjections: Count.make(total) })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getInjectionSiteStats'), Effect.orDie)
 
     const getDosageHistory = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getDosageHistory')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -357,10 +357,10 @@ export const StatsServiceLive = Layer.effect(
         }
         yield* Effect.annotateCurrentSpan('pointCount', points.length)
         return new DosageHistoryStats({ points })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getDosageHistory'), Effect.orDie)
 
     const getInjectionFrequency = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getInjectionFrequency')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -370,7 +370,7 @@ export const StatsServiceLive = Layer.effect(
         // and let SQLite handle the date arithmetic (avg days between, weeks in period)
         const rows = yield* sql`
           WITH injection_data AS (
-            SELECT 
+            SELECT
               datetime,
               LAG(datetime) OVER (ORDER BY datetime) as prev_datetime
             FROM injection_logs
@@ -436,10 +436,10 @@ export const StatsServiceLive = Layer.effect(
           mostFrequentDayOfWeek: mostFrequentDow !== null ? DayOfWeek.make(mostFrequentDow) : null,
           injectionsPerWeek: InjectionsPerWeek.make(injectionsPerWeekNum),
         })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getInjectionFrequency'), Effect.orDie)
 
     const getDrugBreakdown = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getDrugBreakdown')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -462,10 +462,10 @@ export const StatsServiceLive = Layer.effect(
         }
         yield* Effect.annotateCurrentSpan('totalInjections', total)
         return new DrugBreakdownStats({ drugs, totalInjections: Count.make(total) })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getDrugBreakdown'), Effect.orDie)
 
     const getInjectionByDayOfWeek = (params: StatsParams, userId: string) =>
-      Effect.fn('StatsService.getInjectionByDayOfWeek')(function* () {
+      Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
         const startDateStr = params.startDate?.toISOString()
         const endDateStr = params.endDate?.toISOString()
@@ -507,7 +507,7 @@ export const StatsServiceLive = Layer.effect(
         yield* Effect.annotateCurrentSpan('totalInjections', total)
         yield* Effect.annotateCurrentSpan('timezone', timezone)
         return new InjectionDayOfWeekStats({ days, totalInjections: Count.make(total) })
-      })().pipe(Effect.orDie)
+      }).pipe(Effect.withSpan('StatsService.getInjectionByDayOfWeek'), Effect.orDie)
 
     return {
       getWeightStats,

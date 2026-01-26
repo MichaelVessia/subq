@@ -1,7 +1,7 @@
 import { FileSystem, HttpMiddleware, HttpRouter, HttpServerRequest, HttpServerResponse, Path } from '@effect/platform'
 import { BunContext, BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
-import { AppRpcs } from '@subq/shared'
+import { AppRpcs, SyncRpcs } from '@subq/shared'
 import { bearer } from 'better-auth/plugins'
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
@@ -20,6 +20,7 @@ import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { EmailService, EmailServiceLive, ReminderService, ReminderServiceLive } from './reminders/index.js'
+import { SyncRpcHandlersLive } from './sync/index.js'
 
 // ============================================
 // Database Migrations (sync, before Effect)
@@ -143,6 +144,11 @@ const AuthRoutesLive = HttpRouter.Default.use((router) =>
 // RPC Protocol + routes layer
 // Uses layerProtocolHttp but we'll merge it differently to share the router
 const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(RpcSerialization.layerNdjson))
+
+// Sync RPC Protocol (public endpoints without auth middleware)
+const SyncRpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/sync' }).pipe(
+  Layer.provide(RpcSerialization.layerNdjson),
+)
 
 // Static directory for production (SPA serving)
 const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
@@ -285,7 +291,7 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
 const ReminderServicesLive = Layer.mergeAll(ReminderServiceLive.pipe(Layer.provide(SqlLive)), EmailServiceLive)
 
 // Merge all route layers so they share the same Default router
-const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive, ProductionRoutesLive)
+const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive, SyncRpcProtocolLive, ProductionRoutesLive)
 
 // Services that depend on SQL
 const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive, DataExportServiceLive).pipe(
@@ -302,12 +308,20 @@ const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
   Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
+// Sync RPC handler layer (no auth middleware - public endpoints)
+const SyncRpcLiveWithDeps = RpcServer.layer(SyncRpcs).pipe(
+  Layer.provide(SyncRpcHandlersLive),
+  Layer.provide(SqlLive),
+  Layer.tap(() => Effect.logInfo('Sync RPC server layer initialized')),
+)
+
 // Server port configuration
 const port = Number(process.env.PORT) || 3001
 
 // HTTP server with all dependencies
 const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
   Layer.provide(RpcLiveWithDeps),
+  Layer.provide(SyncRpcLiveWithDeps),
   Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(BunHttpServer.layer({ port })),

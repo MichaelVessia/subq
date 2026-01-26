@@ -325,7 +325,7 @@
         ],
         "pattern": "Effect HttpApi RPC pattern, it.layer with seeded test user"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
