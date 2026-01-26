@@ -822,7 +822,7 @@
         ],
         "pattern": "Use sync flow from @subq/local, mock for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

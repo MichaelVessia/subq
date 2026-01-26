@@ -3,6 +3,7 @@ import { Layer } from 'effect'
 import { loginCommand, logoutCommand } from './commands/auth/index.js'
 import { injectionCommand } from './commands/injection/index.js'
 import { inventoryCommand } from './commands/inventory/index.js'
+import { syncCommand } from './commands/sync.js'
 import { weightCommand } from './commands/weight/index.js'
 import { ApiClient } from './services/api-client.js'
 import { CliConfigService } from './services/config.js'
@@ -15,7 +16,14 @@ import { Session } from './services/session.js'
 // Root command
 const rootCommand = Command.make('subq').pipe(
   Command.withDescription('SubQ CLI - manage your health tracking data'),
-  Command.withSubcommands([weightCommand, injectionCommand, inventoryCommand, loginCommand, logoutCommand]),
+  Command.withSubcommands([
+    weightCommand,
+    injectionCommand,
+    inventoryCommand,
+    loginCommand,
+    logoutCommand,
+    syncCommand,
+  ]),
 )
 
 // Combined services layer
