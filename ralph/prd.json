@@ -856,7 +856,7 @@
         ],
         "pattern": "Query LocalDb for outbox count and sync_meta, mock for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

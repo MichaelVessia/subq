@@ -3,6 +3,7 @@ import { Layer } from 'effect'
 import { loginCommand, logoutCommand } from './commands/auth/index.js'
 import { injectionCommand } from './commands/injection/index.js'
 import { inventoryCommand } from './commands/inventory/index.js'
+import { statusCommand } from './commands/status.js'
 import { syncCommand } from './commands/sync.js'
 import { weightCommand } from './commands/weight/index.js'
 import { ApiClient } from './services/api-client.js'
@@ -22,6 +23,7 @@ const rootCommand = Command.make('subq').pipe(
     inventoryCommand,
     loginCommand,
     logoutCommand,
+    statusCommand,
     syncCommand,
   ]),
 )
