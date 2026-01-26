@@ -201,3 +201,8 @@
 **Story**: 1.1.0 - Add deleted_at column to synced tables
 **Status**: complete
 ---
+
+## Iteration 2 - 2026-01-25 23:38
+**Story**: 1.2.0 - Add CLI session columns to session table
+**Status**: complete
+---

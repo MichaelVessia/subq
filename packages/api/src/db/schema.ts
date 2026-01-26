@@ -22,6 +22,9 @@ export const session = sqliteTable('session', {
   userId: text('userId')
     .notNull()
     .references(() => user.id),
+  type: text('type').default('web'), // 'web' | 'cli'
+  deviceName: text('device_name'),
+  lastUsedAt: text('last_used_at'),
 })
 
 export const account = sqliteTable('account', {

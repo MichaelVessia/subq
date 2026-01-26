@@ -147,7 +147,7 @@
         ],
         "pattern": "ALTER TABLE session ADD COLUMN with DEFAULT values"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {
