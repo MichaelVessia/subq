@@ -364,7 +364,7 @@
         ],
         "pattern": "Query all synced tables, union results, order by updated_at"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "large"
     },
     {

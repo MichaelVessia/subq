@@ -1,11 +1,19 @@
 /**
- * Sync RPC handlers for CLI authentication.
- * Validates credentials and creates CLI sessions with never-expiring tokens.
+ * Sync RPC handlers for CLI authentication and data synchronization.
+ * Validates credentials, creates CLI sessions, and handles sync operations.
  */
 import { SqlClient } from '@effect/sql'
-import { type AuthRequest, LoginFailedError, SyncRpcs } from '@subq/shared'
+import {
+  type AuthRequest,
+  CliAuthContext,
+  LoginFailedError,
+  type PullRequest,
+  type PullResponse,
+  type SyncChange,
+  SyncRpcs,
+} from '@subq/shared'
 import { verifyPassword } from 'better-auth/crypto'
-import { Effect, Schema } from 'effect'
+import { Effect, Number as Num, Option, Order, Schema } from 'effect'
 import { randomUUID } from 'node:crypto'
 
 // ============================================
@@ -23,6 +31,34 @@ const AccountRow = Schema.Struct({
 
 const decodeUserRow = Schema.decodeUnknown(UserRow)
 const decodeAccountRow = Schema.decodeUnknown(AccountRow)
+
+// Schema for generic sync row (all synced tables have these columns)
+const SyncRowSchema = Schema.Struct({
+  id: Schema.String,
+  updated_at: Schema.String,
+  deleted_at: Schema.NullOr(Schema.String),
+})
+
+const decodeSyncRow = Schema.decodeUnknown(SyncRowSchema)
+
+// ============================================
+// Synced Tables Configuration
+// ============================================
+
+const SYNCED_TABLES = [
+  'weight_logs',
+  'injection_logs',
+  'glp1_inventory',
+  'injection_schedules',
+  'schedule_phases',
+  'user_goals',
+  'user_settings',
+] as const
+
+type SyncedTable = (typeof SYNCED_TABLES)[number]
+
+// Default limit for pull requests
+const DEFAULT_PULL_LIMIT = 1000
 
 // ============================================
 // Sync RPC Handlers
@@ -147,8 +183,101 @@ export const SyncRpcHandlersLive = SyncRpcs.toLayer(
       return { token }
     })
 
+    /**
+     * Pull changes from server since cursor timestamp.
+     * Queries all synced tables for rows WHERE updated_at > cursor,
+     * including soft-deleted rows.
+     */
+    const SyncPull = Effect.fn('rpc.sync.pull')(function* (request: PullRequest) {
+      const sql = yield* SqlClient.SqlClient
+      const { userId } = yield* CliAuthContext
+
+      const limit = Option.getOrElse(Option.fromNullable(request.limit), () => DEFAULT_PULL_LIMIT)
+      const cursor = request.cursor
+
+      yield* Effect.logInfo('SyncPull called').pipe(
+        Effect.annotateLogs({
+          rpc: 'SyncPull',
+          userId,
+          cursor,
+          limit,
+        }),
+      )
+
+      // Query each synced table for changes after cursor
+      const queryTable = (table: SyncedTable) =>
+        Effect.gen(function* () {
+          // Raw query to get all columns. We'll convert to SyncChange format.
+          const rows = yield* sql`
+            SELECT * FROM ${sql.literal(table)}
+            WHERE user_id = ${userId}
+              AND updated_at > ${cursor}
+            ORDER BY updated_at ASC
+          `.pipe(Effect.orDie)
+
+          // Convert rows to SyncChange format
+          const changes: Array<SyncChange> = []
+          for (const row of rows) {
+            const syncRow = yield* decodeSyncRow(row).pipe(Effect.orDie)
+
+            // Determine operation type based on deleted_at
+            const operation = syncRow.deleted_at !== null ? 'delete' : 'update'
+
+            // Convert row to payload (plain object)
+            const payload: Record<string, unknown> = {}
+            for (const [key, value] of Object.entries(row)) {
+              payload[key] = value
+            }
+
+            changes.push({
+              table,
+              id: syncRow.id,
+              operation,
+              payload,
+              timestamp: new Date(syncRow.updated_at).getTime(),
+            })
+          }
+
+          return changes
+        })
+
+      // Query all tables in parallel
+      const allChanges = yield* Effect.all(SYNCED_TABLES.map(queryTable), { concurrency: 'unbounded' })
+
+      // Flatten and sort by timestamp (updated_at)
+      const flatChanges: Array<SyncChange> = allChanges.flat()
+      const timestampOrder = Order.mapInput(Num.Order, (change: SyncChange) => change.timestamp)
+      const sortedChanges = flatChanges.toSorted(timestampOrder)
+
+      // Apply limit and determine if there are more changes
+      const hasMore = sortedChanges.length > limit
+      const returnedChanges = hasMore ? sortedChanges.slice(0, limit) : sortedChanges
+
+      // Calculate new cursor (max updated_at of returned rows, or keep original if no changes)
+      const lastChange = returnedChanges[returnedChanges.length - 1]
+      const newCursor = lastChange !== undefined ? new Date(lastChange.timestamp).toISOString() : cursor
+
+      yield* Effect.logInfo('SyncPull completed').pipe(
+        Effect.annotateLogs({
+          userId,
+          changesReturned: returnedChanges.length,
+          hasMore,
+          newCursor,
+        }),
+      )
+
+      const response: PullResponse = {
+        changes: returnedChanges,
+        cursor: newCursor,
+        hasMore,
+      }
+
+      return response
+    })
+
     return {
       SyncAuthenticate,
+      SyncPull,
     }
   }),
 )

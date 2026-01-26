@@ -28,3 +28,6 @@ export * from './sync-errors.js'
 
 // Sync RPC definitions
 export * from './sync-rpc.js'
+
+// CLI auth middleware
+export * from './cli-auth-middleware.js'

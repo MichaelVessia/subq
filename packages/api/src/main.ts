@@ -20,6 +20,7 @@ import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
 import { TracerLayer } from './tracing/index.js'
 import { WeightLogRepoLive, WeightRpcHandlersLive } from './weight/index.js'
 import { EmailService, EmailServiceLive, ReminderService, ReminderServiceLive } from './reminders/index.js'
+import { CliAuthRpcMiddlewareLive } from './middleware/cli-auth.js'
 import { SyncRpcHandlersLive } from './sync/index.js'
 
 // ============================================
@@ -308,9 +309,10 @@ const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
   Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
-// Sync RPC handler layer (no auth middleware - public endpoints)
+// Sync RPC handler layer with CLI auth middleware
 const SyncRpcLiveWithDeps = RpcServer.layer(SyncRpcs).pipe(
   Layer.provide(SyncRpcHandlersLive),
+  Layer.provide(CliAuthRpcMiddlewareLive),
   Layer.provide(SqlLive),
   Layer.tap(() => Effect.logInfo('Sync RPC server layer initialized')),
 )
