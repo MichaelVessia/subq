@@ -1,9 +1,9 @@
 {
   "project": "subq",
-  "description": "React best practices remediation: migrate forms to react-hook-form, eliminate useState anti-patterns, convert to Atom.family",
+  "description": "Local-first TUI/CLI with background sync: TUI/CLI read/write to local SQLite, background sync pushes/pulls to server",
   "version": "1.0.0",
-  "created_at": "2026-01-15",
-  "updated_at": "2026-01-15",
+  "created_at": "2026-01-25",
+  "updated_at": "2026-01-25",
   "technology": {
     "language": "TypeScript",
     "runtime": "Bun",
@@ -21,259 +21,1085 @@
     },
     "testing": {
       "unit": "bun test (@codeforbreakfast/bun-test-effect)",
-      "e2e": "Playwright"
+      "e2e": "Playwright",
+      "patterns": "it.effect for Effect code, it.layer for service tests, in-memory SQLite for DB tests"
     }
   },
   "specs_dir": "specs/",
   "available_specs": [
     {
-      "file": "REACT_BEST_PRACTICES.md",
-      "description": "React patterns: Effect Atom state, Result.match, react-hook-form, Tailwind styling"
+      "file": "local-sync.md",
+      "description": "Local-first sync architecture, protocol, services, and migration path"
+    },
+    {
+      "file": "EFFECT_BEST_PRACTICES.md",
+      "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
+    },
+    {
+      "file": "EFFECT_SQL.md",
+      "description": "Effect SQL patterns with drizzle-orm and @effect/sql-sqlite-bun"
     },
     {
       "file": "EFFECT_TESTING.md",
       "description": "Core testing patterns: it.effect, it.layer, TestClock, property-based testing"
     },
     {
-      "file": "EFFECT_BEST_PRACTICES.md",
-      "description": "Core Effect rules: no any, TaggedErrors, Schema patterns, equality"
+      "file": "EFFECT_LAYERS.md",
+      "description": "Layer composition, memoization, Layer.fresh, testing isolation patterns"
+    },
+    {
+      "file": "API_BEST_PRACTICES.md",
+      "description": "API patterns, middleware, error handling"
     }
   ],
   "testing_policy": {
     "mandatory": "EVERY story MUST include tests. A story is NOT complete without passing tests.",
-    "schema_tests": "Form schemas must have unit tests validating success/failure cases",
+    "schema_tests": "Schema.TaggedError and Schema.Struct types must have unit tests for encode/decode",
+    "service_tests": "Effect.Service implementations must have it.layer tests with in-memory SQLite",
+    "api_tests": "API endpoints must have integration tests covering success and error paths",
     "verification": "bun run check && bun run test:all",
     "no_exceptions": "Do NOT mark a story as complete if tests are missing or failing."
   },
-  "ui_patterns": {
-    "state_management": "All app state in atoms. useState only for ephemeral UI (hover, animation, local open/close)",
-    "async_state": "Use Result.match or Result.builder for loading/error/success states",
-    "forms": "react-hook-form with standardSchemaResolver(Schema.standardSchemaV1(EffectSchema))",
-    "derived_data": "Computed atoms for derived data, NOT useMemo in components",
-    "parameterized_atoms": "Use Atom.family for atoms that need parameters"
+  "effect_patterns": {
+    "critical_rules": [
+      "NEVER use `any` type or `as Type` assertions",
+      "NEVER use catchAllCause - it catches defects (bugs) alongside errors",
+      "NEVER use catchAll on `never` error types - it's dead code",
+      "NEVER use disableValidation - fix the data or schema instead",
+      "NEVER use *FromSelf schemas - they're not JSON serializable"
+    ],
+    "error_handling": {
+      "pattern": "Use Schema.TaggedError for ALL domain errors with unique _tag values",
+      "example": "class NotFoundError extends Schema.TaggedError<NotFoundError>('NotFoundError')({ id: Schema.String }) {}",
+      "catching": "Use Effect.catchTag for precise error handling, Effect.mapError for transformations"
+    },
+    "schema_patterns": {
+      "ids": "Use Schema.brand for type-safe IDs: Schema.String.pipe(Schema.brand('UserId'))",
+      "decoding": "ALWAYS use Schema.decodeUnknown (Effect variant), NEVER decodeUnknownSync",
+      "classes": "Use Schema.Class for domain objects - provides Equal/Hash automatically"
+    },
+    "sql_patterns": {
+      "queries": "Use SqlSchema.findOne (returns Option), SqlSchema.findAll, SqlSchema.void for inserts",
+      "transactions": "Use sql.withTransaction for atomic operations",
+      "transformations": "Use pure functions for row-to-domain mapping, NOT Effect wrapping"
+    },
+    "layer_patterns": {
+      "memoization": "Layers are memoized by object identity - same reference = same instance",
+      "testing": "Use it.layer for service tests - automatically creates fresh MemoMap per test group",
+      "factories": "Factory functions returning new layers don't need Layer.fresh"
+    },
+    "effect_wrapping": "Don't wrap safe operations in Effect - use pure functions for deterministic transforms"
   },
   "stories": [
     {
       "id": "1.1.0",
-      "phase": "Form Migration",
-      "epic": "Goal Form",
-      "title": "Create GoalFormSchema with unit tests",
-      "description": "Add GoalFormSchema to form-schemas.ts with Effect Schema validation. Include unit tests for valid inputs, invalid weight values, and date validation.",
+      "phase": "Server Schema Changes",
+      "epic": "Soft Deletes",
+      "title": "Add deleted_at column to synced tables",
+      "description": "Add deleted_at TEXT column to all synced tables (weight_logs, injection_logs, glp1_inventory, injection_schedules, schedule_phases, user_goals, user_settings) for soft delete support.",
       "specs": [
-        "REACT_BEST_PRACTICES.md"
+        "local-sync.md",
+        "EFFECT_SQL.md"
       ],
       "acceptance_criteria": [
-        "GoalFormSchema class added to packages/web/src/lib/form-schemas.ts",
-        "Schema validates: goalWeight (required, positive, max 1000), startDate (optional), targetDate (optional), notes (optional)",
-        "goalFormStandardSchema export created with Schema.standardSchemaV1",
-        "TESTS: packages/web/src/lib/form-schemas.test.ts exists with GoalFormSchema tests",
-        "TESTS: At least 4 test cases: valid input, missing weight, invalid weight, notes handling",
-        "cd packages/web && bun test form-schemas passes"
+        "Migration file packages/api/drizzle/NNNN_add_deleted_at.sql created",
+        "Migration entry added to packages/api/drizzle/meta/_journal.json",
+        "deleted_at column added to: weight_logs, injection_logs, glp1_inventory, injection_schedules, schedule_phases, user_goals, user_settings",
+        "packages/api/src/db/schema.ts updated with deletedAt field on all synced tables",
+        "cd packages/api && bun run scripts/migrate.ts runs without error",
+        "bun run typecheck passes",
+        "bun run test passes (existing tests still work with new column)"
       ],
       "technical_details": {
         "files": [
-          "packages/web/src/lib/form-schemas.ts",
-          "packages/web/src/lib/form-schemas.test.ts"
+          "packages/api/drizzle/NNNN_add_deleted_at.sql",
+          "packages/api/drizzle/meta/_journal.json",
+          "packages/api/src/db/schema.ts"
         ],
-        "pattern": "Follow existing WeightLogFormSchema pattern in same file"
+        "pattern": "ALTER TABLE ADD COLUMN deleted_at TEXT"
       },
       "status": "complete",
       "estimated_complexity": "small"
-    },
-    {
-      "id": "1.1.1",
-      "phase": "Form Migration",
-      "epic": "Goal Form",
-      "title": "Migrate goal-form.tsx to react-hook-form",
-      "description": "Replace manual useState/validation in goal-form.tsx with react-hook-form using GoalFormSchema. Use field-level validate callback for cross-field validation (goal weight < current weight).",
-      "specs": [
-        "REACT_BEST_PRACTICES.md"
-      ],
-      "acceptance_criteria": [
-        "goal-form.tsx uses useForm with standardSchemaResolver(goalFormStandardSchema)",
-        "Zero useState for: goalWeight, startDate, targetDate, notes, loading, errors, touched",
-        "Uses formState.isSubmitting instead of loading state",
-        "Uses formState.errors instead of manual error state",
-        "Cross-field validation via register validate callback for goalWeight < currentWeight",
-        "Form edit mode still works (pre-populating defaultValues)",
-        "cd packages/web && bun run typecheck passes",
-        "Manual test: create goal form works, edit goal form works"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/components/goals/goal-form.tsx"
-        ],
-        "pattern": "Follow weight-log-form.tsx pattern"
-      },
-      "status": "complete",
-      "estimated_complexity": "medium"
     },
     {
       "id": "1.2.0",
-      "phase": "Form Migration",
-      "epic": "Schedule Form",
-      "title": "Create ScheduleFormSchema with unit tests",
-      "description": "Add ScheduleFormSchema and SchedulePhaseSchema to form-schemas.ts. Handle complex nested phases array validation.",
+      "phase": "Server Schema Changes",
+      "epic": "CLI Sessions",
+      "title": "Add CLI session columns to session table",
+      "description": "Add type, device_name, and last_used_at columns to session table to support CLI token management.",
       "specs": [
-        "REACT_BEST_PRACTICES.md"
+        "local-sync.md"
       ],
       "acceptance_criteria": [
-        "SchedulePhaseSchema class in packages/web/src/lib/form-schemas.ts",
-        "ScheduleFormSchema class with: name, drug, frequency, startDate, notes, phases array",
-        "Phase schema validates: order, durationDays, dosage, isIndefinite",
-        "scheduleFormStandardSchema export created",
-        "TESTS: At least 5 test cases covering required fields, valid phases, invalid phases",
-        "cd packages/web && bun test form-schemas passes"
+        "Migration file packages/api/drizzle/NNNN_cli_session_columns.sql created",
+        "Migration entry added to packages/api/drizzle/meta/_journal.json",
+        "session table has: type TEXT DEFAULT 'web', device_name TEXT, last_used_at TEXT",
+        "packages/api/src/db/schema.ts updated with new session fields",
+        "cd packages/api && bun run scripts/migrate.ts runs without error",
+        "bun run typecheck passes",
+        "bun run test passes (existing auth tests still work)"
       ],
       "technical_details": {
         "files": [
-          "packages/web/src/lib/form-schemas.ts",
-          "packages/web/src/lib/form-schemas.test.ts"
+          "packages/api/drizzle/NNNN_cli_session_columns.sql",
+          "packages/api/drizzle/meta/_journal.json",
+          "packages/api/src/db/schema.ts"
         ],
-        "pattern": "Use Schema.Array for phases, Schema.Struct for phase items"
+        "pattern": "ALTER TABLE session ADD COLUMN with DEFAULT values"
       },
-      "status": "complete",
-      "estimated_complexity": "medium"
-    },
-    {
-      "id": "1.2.1",
-      "phase": "Form Migration",
-      "epic": "Schedule Form",
-      "title": "Migrate schedule-form.tsx with useFieldArray",
-      "description": "Replace manual useState/validation in schedule-form.tsx with react-hook-form. Use useFieldArray for dynamic phases management.",
-      "specs": [
-        "REACT_BEST_PRACTICES.md"
-      ],
-      "acceptance_criteria": [
-        "schedule-form.tsx uses useForm with standardSchemaResolver(scheduleFormStandardSchema)",
-        "Uses useFieldArray({ control, name: 'phases' }) for phases array",
-        "Zero useState for: name, drug, frequency, startDate, notes, phases, loading, errors, touched",
-        "Add phase uses append(), remove phase uses remove()",
-        "Phase indefinite toggle works correctly",
-        "inferPhasesFromInjections logic preserved for preselectedInjections",
-        "cd packages/web && bun run typecheck passes",
-        "Manual test: create schedule with multiple phases works"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/components/schedule/schedule-form.tsx"
-        ],
-        "pattern": "useFieldArray from react-hook-form"
-      },
-      "status": "complete",
-      "estimated_complexity": "medium"
+      "status": "pending",
+      "estimated_complexity": "small"
     },
     {
       "id": "1.3.0",
-      "phase": "Form Migration",
-      "epic": "Change Password Form",
-      "title": "Create ChangePasswordFormSchema with unit tests",
-      "description": "Add ChangePasswordFormSchema to form-schemas.ts with password match validation using Schema refinement.",
+      "phase": "Server Schema Changes",
+      "epic": "Query Updates",
+      "title": "Update queries to filter soft-deleted rows",
+      "description": "Update all queries on synced tables to filter WHERE deleted_at IS NULL. Ensure no queries return soft-deleted rows.",
       "specs": [
-        "REACT_BEST_PRACTICES.md"
+        "local-sync.md",
+        "EFFECT_SQL.md"
       ],
       "acceptance_criteria": [
-        "ChangePasswordFormSchema class in packages/web/src/lib/form-schemas.ts",
-        "Schema validates: currentPassword (required), newPassword (required, min length), confirmPassword (required)",
-        "Schema refinement ensures confirmPassword === newPassword",
-        "changePasswordFormStandardSchema export created",
-        "TESTS: At least 3 test cases: valid passwords, mismatch, min length",
-        "cd packages/web && bun test form-schemas passes"
+        "All SELECT queries on synced tables include WHERE deleted_at IS NULL",
+        "Helper function or pattern established for consistent filtering",
+        "packages/api/tests/soft-delete.test.ts created",
+        "Test: soft-deleted weight_log not returned by findByUser",
+        "Test: soft-deleted injection_log not returned by findByUser",
+        "Test: soft-deleted schedule not returned by findByUser",
+        "Minimum 6 test cases covering each synced table type",
+        "bun run typecheck passes",
+        "bun run test passes"
       ],
       "technical_details": {
         "files": [
-          "packages/web/src/lib/form-schemas.ts",
-          "packages/web/src/lib/form-schemas.test.ts"
+          "packages/api/src/services/*.ts",
+          "packages/api/tests/soft-delete.test.ts"
         ],
-        "pattern": "Use Schema.filter or pipe for cross-field validation"
+        "pattern": "Add .where(isNull(table.deletedAt)) to all queries"
       },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "1.3.1",
-      "phase": "Form Migration",
-      "epic": "Change Password Form",
-      "title": "Migrate change-password-form.tsx to react-hook-form",
-      "description": "Replace manual useState in change-password-form.tsx with react-hook-form. Handle success feedback via callback prop.",
-      "specs": [
-        "REACT_BEST_PRACTICES.md"
-      ],
-      "acceptance_criteria": [
-        "change-password-form.tsx uses useForm with standardSchemaResolver",
-        "Zero useState for: currentPassword, newPassword, confirmPassword, error, success, loading",
-        "Uses formState.isSubmitting for loading state",
-        "Uses setError('root', ...) for server-side errors",
-        "Success handled via onSuccess callback prop (parent manages success state)",
-        "cd packages/web && bun run typecheck passes",
-        "Manual test: change password form validates and submits correctly"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/components/settings/change-password-form.tsx"
-        ],
-        "pattern": "Similar to weight-log-form.tsx"
-      },
-      "status": "complete",
-      "estimated_complexity": "small"
-    },
-    {
-      "id": "2.1.0",
-      "phase": "State Management",
-      "epic": "Data Management",
-      "title": "Migrate data-management.tsx async states to atoms",
-      "description": "Move isExporting, isImporting, and error/success states from useState to Effect Atoms in rpc.ts. Keep modal toggle as local state.",
-      "specs": [
-        "REACT_BEST_PRACTICES.md"
-      ],
-      "acceptance_criteria": [
-        "DataOperationState type defined in rpc.ts: idle | pending | success | error",
-        "exportOperationAtom and importOperationAtom created in rpc.ts",
-        "data-management.tsx uses atoms for operation states",
-        "Zero useState for: isExporting, isImporting, importError, importSuccess",
-        "showConfirm and pendingImportData remain as acceptable local useState",
-        "Export button shows loading/success/error states correctly",
-        "Import button shows loading/success/error states correctly",
-        "cd packages/web && bun run typecheck passes"
-      ],
-      "technical_details": {
-        "files": [
-          "packages/web/src/rpc.ts",
-          "packages/web/src/components/settings/data-management.tsx"
-        ],
-        "pattern": "Atom.make for writable state, reset on new operation"
-      },
-      "status": "complete",
+      "status": "pending",
       "estimated_complexity": "medium"
     },
     {
-      "id": "3.1.0",
-      "phase": "Atom.family Migration",
-      "epic": "StatsPage",
-      "title": "Convert StatsPage to use Atom.family for stats atoms",
-      "description": "Replace useMemo atom creation in StatsPage with Atom.family. Create families for all 8 stats atoms keyed by date range.",
+      "id": "2.1.0",
+      "phase": "Sync Protocol",
+      "epic": "Shared Schemas",
+      "title": "Create sync protocol schemas in @subq/shared",
+      "description": "Define SyncChange, PullRequest, PullResponse, PushRequest, PushResponse, SyncConflict schemas in shared package for use by server and local.",
       "specs": [
-        "REACT_BEST_PRACTICES.md"
+        "local-sync.md",
+        "EFFECT_BEST_PRACTICES.md"
       ],
       "acceptance_criteria": [
-        "dateRangeKey helper function in rpc.ts",
-        "parseDateRangeKey helper function in rpc.ts",
-        "8 Atom.family variants created: WeightStatsAtomFamily, WeightTrendAtomFamily, InjectionLogListAtomFamily, InjectionSiteStatsAtomFamily, DosageHistoryAtomFamily, InjectionFrequencyAtomFamily, DrugBreakdownAtomFamily, InjectionByDayOfWeekAtomFamily",
-        "StatsPage uses families with dateRangeKey(range.start, range.end)",
-        "Zero useMemo for atom creation in StatsPage.tsx",
-        "useMemo for weightData, injectionData, schedulePeriods kept (acceptable data transformation)",
-        "Old createXxxAtom functions can be removed or deprecated",
-        "cd packages/web && bun run typecheck passes",
-        "Manual test: StatsPage renders with different date range presets"
+        "packages/shared/src/sync-schemas.ts exists",
+        "SyncChange schema: table, id, operation (insert|update|delete), payload, timestamp",
+        "SyncConflict schema: id, serverVersion",
+        "PullRequest schema: cursor, limit (optional)",
+        "PullResponse schema: changes, cursor, hasMore",
+        "PushRequest schema: changes array",
+        "PushResponse schema: accepted array, conflicts array",
+        "packages/shared/src/sync-schemas.test.ts exists",
+        "Test: SyncChange encodes/decodes valid data",
+        "Test: SyncChange rejects invalid operation",
+        "Test: PullRequest accepts optional limit",
+        "Test: PushResponse with conflicts decodes correctly",
+        "Minimum 8 test cases covering all schemas",
+        "bun run typecheck passes",
+        "cd packages/shared && bun test passes"
       ],
       "technical_details": {
         "files": [
-          "packages/web/src/rpc.ts",
-          "packages/web/src/components/stats/StatsPage.tsx"
+          "packages/shared/src/sync-schemas.ts",
+          "packages/shared/src/sync-schemas.test.ts",
+          "packages/shared/src/index.ts"
         ],
-        "pattern": "Atom.family((key: string) => { const [start, end] = parseDateRangeKey(key); return atom })"
+        "pattern": "Schema.Struct with Schema.Literal for operation enum, use Schema.decodeUnknown for tests"
       },
-      "status": "complete",
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "2.2.0",
+      "phase": "Sync Protocol",
+      "epic": "Shared Schemas",
+      "title": "Create sync error types in @subq/shared",
+      "description": "Define Schema.TaggedError types for sync operations: SyncNetworkError, SyncAuthError, SyncConflictError, InvalidTokenError, LoginFailedError, SchemaVersionError.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_BEST_PRACTICES.md"
+      ],
+      "acceptance_criteria": [
+        "packages/shared/src/sync-errors.ts exists",
+        "SyncNetworkError with message and optional cause",
+        "SyncAuthError with message",
+        "SyncConflictError with conflicts array and message",
+        "InvalidTokenError with message",
+        "LoginFailedError with reason (invalid_credentials|account_locked|network_error) and message",
+        "SchemaVersionError with localVersion, requiredVersion, message",
+        "packages/shared/src/sync-errors.test.ts exists",
+        "Test: each error type constructs with correct _tag",
+        "Test: LoginFailedError rejects invalid reason",
+        "Test: SyncConflictError holds conflicts array",
+        "Minimum 6 test cases (one per error type)",
+        "bun run typecheck passes",
+        "cd packages/shared && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/shared/src/sync-errors.ts",
+          "packages/shared/src/sync-errors.test.ts",
+          "packages/shared/src/index.ts"
+        ],
+        "pattern": "Schema.TaggedError pattern per EFFECT_BEST_PRACTICES.md"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "2.3.0",
+      "phase": "Sync Protocol",
+      "epic": "Server Endpoints",
+      "title": "Implement CLI auth middleware",
+      "description": "Create middleware that validates CLI tokens from Authorization header, updates last_used_at, and returns user ID. Separate from web auth middleware.",
+      "specs": [
+        "local-sync.md",
+        "API_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md",
+        "EFFECT_LAYERS.md"
+      ],
+      "acceptance_criteria": [
+        "packages/api/src/middleware/cli-auth.ts exists",
+        "Middleware validates token against session table WHERE type = 'cli'",
+        "Updates last_used_at on successful validation",
+        "Returns InvalidTokenError on failure",
+        "packages/api/tests/middleware/cli-auth.test.ts exists",
+        "Test: valid CLI token returns user ID",
+        "Test: expired web token rejected (type mismatch)",
+        "Test: invalid token returns InvalidTokenError",
+        "Test: last_used_at updated after validation",
+        "Minimum 4 test cases using it.layer with test DB",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/middleware/cli-auth.ts",
+          "packages/api/tests/middleware/cli-auth.test.ts"
+        ],
+        "pattern": "Effect middleware pattern, use Clock service for timestamps, it.layer for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "2.4.0",
+      "phase": "Sync Protocol",
+      "epic": "Server Endpoints",
+      "title": "Implement /sync/authenticate endpoint",
+      "description": "Create RPC endpoint that exchanges email/password/deviceName for CLI token. Creates session with type='cli' and never-expiring token.",
+      "specs": [
+        "local-sync.md",
+        "API_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "AuthRequest schema: email, password, deviceName",
+        "AuthResponse schema: token",
+        "Endpoint validates credentials against existing user auth",
+        "Creates session with type='cli', device_name, no expires_at",
+        "Returns LoginFailedError on invalid credentials",
+        "packages/api/tests/sync/authenticate.test.ts exists",
+        "Test: valid credentials return token",
+        "Test: invalid password returns LoginFailedError with reason='invalid_credentials'",
+        "Test: nonexistent user returns LoginFailedError",
+        "Test: session created with type='cli' and device_name",
+        "Minimum 4 test cases using it.layer",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/routes/sync.ts",
+          "packages/api/tests/sync/authenticate.test.ts"
+        ],
+        "pattern": "Effect HttpApi RPC pattern, it.layer with seeded test user"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "2.5.0",
+      "phase": "Sync Protocol",
+      "epic": "Server Endpoints",
+      "title": "Implement /sync/pull endpoint",
+      "description": "Create RPC endpoint that returns changes since cursor. Uses CLI auth middleware. Returns changes in timestamp order with pagination.",
+      "specs": [
+        "local-sync.md",
+        "API_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Endpoint uses CLI auth middleware",
+        "Queries all synced tables for rows WHERE updated_at > cursor",
+        "Returns up to limit (default 1000) changes",
+        "Returns new cursor (max updated_at of returned rows)",
+        "Returns hasMore boolean for pagination",
+        "Includes soft-deleted rows (deleted_at IS NOT NULL)",
+        "packages/api/tests/sync/pull.test.ts exists",
+        "Test: returns changes after cursor timestamp",
+        "Test: respects limit parameter",
+        "Test: hasMore=true when more changes exist",
+        "Test: includes soft-deleted rows in response",
+        "Test: returns empty array for future cursor",
+        "Test: unauthorized without valid CLI token",
+        "Minimum 6 test cases using it.layer",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/routes/sync.ts",
+          "packages/api/tests/sync/pull.test.ts"
+        ],
+        "pattern": "Query all synced tables, union results, order by updated_at"
+      },
+      "status": "pending",
+      "estimated_complexity": "large"
+    },
+    {
+      "id": "2.6.0",
+      "phase": "Sync Protocol",
+      "epic": "Server Endpoints",
+      "title": "Implement /sync/push endpoint",
+      "description": "Create RPC endpoint that accepts changes from client. Uses CLI auth middleware. Detects conflicts via timestamp comparison.",
+      "specs": [
+        "local-sync.md",
+        "API_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Endpoint uses CLI auth middleware",
+        "For each change: check if row.updated_at > change.timestamp",
+        "Conflict: reject change, include server version in conflicts array",
+        "No conflict: apply insert/update/delete, add id to accepted array",
+        "Soft delete: set deleted_at instead of DELETE",
+        "packages/api/tests/sync/push.test.ts exists",
+        "Test: insert creates new row, returns in accepted",
+        "Test: update modifies existing row",
+        "Test: delete sets deleted_at (soft delete)",
+        "Test: conflict detected when server row newer",
+        "Test: conflict response includes server version",
+        "Test: multiple changes in single request",
+        "Test: unauthorized without valid CLI token",
+        "Minimum 7 test cases using it.layer",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/api/src/routes/sync.ts",
+          "packages/api/tests/sync/push.test.ts"
+        ],
+        "pattern": "Wrap in transaction, last-write-wins with timestamp check"
+      },
+      "status": "pending",
+      "estimated_complexity": "large"
+    },
+    {
+      "id": "3.1.0",
+      "phase": "Local Package",
+      "epic": "Package Setup",
+      "title": "Create @subq/local package structure",
+      "description": "Create new local package with package.json, tsconfig, and basic structure. Will contain local database and sync logic.",
+      "specs": [
+        "local-sync.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/package.json exists with name @subq/local",
+        "packages/local/tsconfig.json extends root config",
+        "packages/local/src/index.ts exports placeholder",
+        "Depends on @subq/shared, effect, @effect/sql-sqlite-bun",
+        "devDependencies includes @codeforbreakfast/bun-test-effect",
+        "packages/local/tests/ directory exists",
+        "bun install completes without error",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/package.json",
+          "packages/local/tsconfig.json",
+          "packages/local/src/index.ts",
+          "packages/local/tests/.gitkeep"
+        ],
+        "pattern": "Follow packages/shared structure"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "3.2.0",
+      "phase": "Local Package",
+      "epic": "LocalConfig Service",
+      "title": "Implement LocalConfig service",
+      "description": "Create Effect.Service for managing ~/.subq/config.json. Handles reading/writing auth token, server URL, sync cursor.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md",
+        "EFFECT_LAYERS.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/services/LocalConfig.ts exists",
+        "ConfigSchema type with server_url, auth_token, last_sync_cursor",
+        "get<K>(key): Effect<Option<ConfigSchema[K]>>",
+        "set<K>(key, value): Effect<void>",
+        "getServerUrl(): Effect<string> with default",
+        "getAuthToken(): Effect<Option<string>>",
+        "Creates ~/.subq/ directory if missing",
+        "Sets chmod 600 on config.json",
+        "packages/local/tests/LocalConfig.test.ts exists",
+        "Test: get returns None for missing key",
+        "Test: set then get returns value",
+        "Test: getServerUrl returns default when not set",
+        "Test: getAuthToken returns Option",
+        "Test: creates directory if missing (use temp dir)",
+        "Minimum 5 test cases using it.effect with temp directory",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/services/LocalConfig.ts",
+          "packages/local/tests/LocalConfig.test.ts"
+        ],
+        "pattern": "Effect.Service with FileSystem dependency, use temp dir for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "3.3.0",
+      "phase": "Local Package",
+      "epic": "LocalDb Service",
+      "title": "Create local SQLite schema and sync tables",
+      "description": "Create local SQLite database schema mirroring server synced tables, plus sync_outbox and sync_meta tables.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_SQL.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/db/schema.sql exists",
+        "Schema includes all synced tables: weight_logs, injection_logs, glp1_inventory, injection_schedules, schedule_phases, user_goals, user_settings",
+        "Schema includes sync_outbox table: id, table_name, row_id, operation, payload, timestamp, created_at",
+        "Schema includes sync_meta table: key, value",
+        "All tables have deleted_at column",
+        "packages/local/tests/schema.test.ts exists",
+        "Test: schema.sql executes without error on in-memory SQLite",
+        "Test: all expected tables exist after schema init",
+        "Test: sync_outbox has correct columns",
+        "Test: sync_meta has correct columns",
+        "Minimum 4 test cases",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/db/schema.sql",
+          "packages/local/tests/schema.test.ts"
+        ],
+        "pattern": "Mirror packages/api/src/db/schema.ts for synced tables, use in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "3.4.0",
+      "phase": "Local Package",
+      "epic": "LocalDb Service",
+      "title": "Implement LocalDb service",
+      "description": "Create Effect.Service for local SQLite operations: outbox management, metadata, applying changes.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_SQL.md",
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md",
+        "EFFECT_LAYERS.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/services/LocalDb.ts exists",
+        "getMeta(key): Effect<Option<string>>",
+        "setMeta(key, value): Effect<void>",
+        "getOutbox(options): Effect<Array<SyncChange>>",
+        "clearOutbox(ids): Effect<void>",
+        "applyChanges(changes): Effect<void>",
+        "applyServerVersion(conflict): Effect<void>",
+        "removeFromOutbox(id): Effect<void>",
+        "Initializes database from schema.sql on first use",
+        "packages/local/tests/LocalDb.test.ts exists",
+        "Test: getMeta returns None for missing key",
+        "Test: setMeta then getMeta returns value",
+        "Test: getOutbox returns empty array initially",
+        "Test: clearOutbox removes specified entries",
+        "Test: applyChanges inserts new row",
+        "Test: applyChanges updates existing row",
+        "Test: applyChanges handles delete (soft delete)",
+        "Test: applyServerVersion overwrites local row",
+        "Minimum 8 test cases using it.layer with in-memory SQLite",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/services/LocalDb.ts",
+          "packages/local/tests/LocalDb.test.ts"
+        ],
+        "pattern": "Effect.Service with SqlClient.SqlClient dependency, in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "large"
+    },
+    {
+      "id": "3.5.0",
+      "phase": "Local Package",
+      "epic": "LocalDb Service",
+      "title": "Implement outbox trigger for local writes",
+      "description": "Create mechanism to automatically add entries to sync_outbox when local tables are modified. Used by CLI/TUI write operations.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/services/LocalDb.ts has writeWithOutbox method",
+        "Insert operations add outbox entry with operation='insert'",
+        "Update operations add outbox entry with operation='update'",
+        "Delete operations add outbox entry with operation='delete', set deleted_at",
+        "Payload contains JSON snapshot of the row",
+        "Timestamp is Unix ms when change was made",
+        "packages/local/tests/LocalDb.test.ts extended with outbox tests",
+        "Test: insert creates outbox entry with operation='insert'",
+        "Test: update creates outbox entry with operation='update'",
+        "Test: delete creates outbox entry with operation='delete'",
+        "Test: outbox payload matches row data",
+        "Test: outbox timestamp is reasonable (within 1s of now)",
+        "Minimum 5 additional test cases",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/services/LocalDb.ts",
+          "packages/local/tests/LocalDb.test.ts"
+        ],
+        "pattern": "Wrap write operations to also insert into sync_outbox, use Clock for timestamps"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "3.6.0",
+      "phase": "Local Package",
+      "epic": "RemoteClient Service",
+      "title": "Implement RemoteClient service",
+      "description": "Create Effect.Service for making RPC calls to server sync endpoints. Uses LocalConfig for auth token and server URL.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md",
+        "EFFECT_LAYERS.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/services/RemoteClient.ts exists",
+        "pull(request): Effect<PullResponse, SyncNetworkError | SyncAuthError>",
+        "push(request): Effect<PushResponse, SyncNetworkError | SyncAuthError>",
+        "authenticate(request): Effect<AuthResponse, LoginFailedError>",
+        "Uses LocalConfig.getServerUrl() and LocalConfig.getAuthToken()",
+        "Maps HTTP errors to SyncNetworkError",
+        "Maps 401 to SyncAuthError",
+        "packages/local/tests/RemoteClient.test.ts exists",
+        "Test: pull sends correct request format",
+        "Test: push sends correct request format",
+        "Test: authenticate sends credentials",
+        "Test: HTTP error mapped to SyncNetworkError",
+        "Test: 401 response mapped to SyncAuthError",
+        "Minimum 5 test cases using mocked HttpClient layer",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/services/RemoteClient.ts",
+          "packages/local/tests/RemoteClient.test.ts"
+        ],
+        "pattern": "Effect.Service with HttpClient dependency, mock HttpClient for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "3.7.0",
+      "phase": "Local Package",
+      "epic": "Sync Flow",
+      "title": "Implement sync flow",
+      "description": "Create sync function that pulls changes, applies them locally, pushes local changes, handles conflicts. Wraps in transaction for atomicity.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md",
+        "EFFECT_LAYERS.md",
+        "EFFECT_SQL.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/sync.ts exists",
+        "sync(): Effect<void, SyncError, LocalDb | RemoteClient | SqlClient>",
+        "Pull phase: paginate through all changes since cursor",
+        "Apply pulled changes to local DB",
+        "Update last_sync_cursor after pull",
+        "Push phase: send outbox entries in batches of 1000",
+        "Handle conflicts: apply server version, remove from outbox",
+        "Clear accepted from outbox",
+        "Entire sync wrapped in sql.withTransaction",
+        "packages/local/tests/sync.test.ts exists",
+        "Test: sync pulls and applies changes",
+        "Test: sync pushes outbox entries",
+        "Test: sync handles pagination (hasMore=true)",
+        "Test: sync resolves conflicts by applying server version",
+        "Test: sync clears accepted from outbox",
+        "Test: sync updates cursor after pull",
+        "Test: transaction rolls back on error",
+        "Minimum 7 test cases using it.layer with mocked RemoteClient",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/sync.ts",
+          "packages/local/tests/sync.test.ts"
+        ],
+        "pattern": "Effect.gen with while loops for pagination, mock RemoteClient for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "large"
+    },
+    {
+      "id": "3.8.0",
+      "phase": "Local Package",
+      "epic": "Sync Flow",
+      "title": "Implement schema version management",
+      "description": "Create ensureSchema function that checks local schema version, runs migrations if needed, fails if local is newer than CLI supports.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/local/src/migrations.ts exists",
+        "ensureSchema(): Effect<void, SchemaVersionError, LocalDb>",
+        "Reads schema_version from sync_meta",
+        "Compares against EMBEDDED_SCHEMA_VERSION constant",
+        "Runs pending migrations if local < required",
+        "Fails with SchemaVersionError if local > required",
+        "Sets schema_version after successful migration",
+        "packages/local/tests/migrations.test.ts exists",
+        "Test: fresh DB gets schema_version set",
+        "Test: up-to-date DB passes without changes",
+        "Test: older version triggers migration",
+        "Test: newer version fails with SchemaVersionError",
+        "Minimum 4 test cases using it.layer with in-memory SQLite",
+        "bun run typecheck passes",
+        "cd packages/local && bun test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/local/src/migrations.ts",
+          "packages/local/tests/migrations.test.ts"
+        ],
+        "pattern": "Semantic versioning comparison, in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "4.1.0",
+      "phase": "CLI Integration",
+      "epic": "Auth Commands",
+      "title": "Implement subq login command",
+      "description": "Create login command that prompts for email/password, exchanges for token, stores in config, runs initial full sync.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/login.ts exists",
+        "Prompts for email and password (hidden input)",
+        "Gets hostname automatically for deviceName",
+        "Calls RemoteClient.authenticate",
+        "Stores token in LocalConfig",
+        "Runs fullSyncWithProgress after login",
+        "Shows error message on LoginFailedError",
+        "packages/cli/tests/commands/login.test.ts exists",
+        "Test: successful login stores token",
+        "Test: successful login triggers sync",
+        "Test: invalid credentials shows error",
+        "Test: network error shows appropriate message",
+        "Minimum 4 test cases using mocked services",
+        "bun run typecheck passes",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/login.ts",
+          "packages/cli/tests/commands/login.test.ts"
+        ],
+        "pattern": "Use Effect.gen, mock RemoteClient and LocalConfig for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "4.2.0",
+      "phase": "CLI Integration",
+      "epic": "Auth Commands",
+      "title": "Implement subq logout command",
+      "description": "Create logout command that removes token from config and deletes local database.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/logout.ts exists",
+        "Removes auth_token from LocalConfig",
+        "Deletes ~/.subq/data.db file",
+        "Shows confirmation message",
+        "packages/cli/tests/commands/logout.test.ts exists",
+        "Test: logout removes token from config",
+        "Test: logout deletes data.db file",
+        "Test: logout succeeds even if already logged out",
+        "Minimum 3 test cases using temp directory",
+        "bun run typecheck passes",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/logout.ts",
+          "packages/cli/tests/commands/logout.test.ts"
+        ],
+        "pattern": "Simple file operations with Effect FileSystem, use temp dir for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "4.3.0",
+      "phase": "CLI Integration",
+      "epic": "Sync Commands",
+      "title": "Implement subq sync command",
+      "description": "Create sync command for manual synchronization with progress output.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/sync.ts exists",
+        "Requires login (fails with message if no token)",
+        "Shows 'Pulling... N changes' during pull",
+        "Shows 'Pushing... N changes' during push",
+        "Shows 'Done.' on completion",
+        "Shows error message on sync failure",
+        "packages/cli/tests/commands/sync.test.ts exists",
+        "Test: sync requires login token",
+        "Test: sync shows pull progress",
+        "Test: sync shows push progress",
+        "Test: sync shows completion message",
+        "Test: sync shows error on failure",
+        "Minimum 5 test cases using mocked sync service",
+        "bun run typecheck passes",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/sync.ts",
+          "packages/cli/tests/commands/sync.test.ts"
+        ],
+        "pattern": "Use sync flow from @subq/local, mock for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "4.4.0",
+      "phase": "CLI Integration",
+      "epic": "Sync Commands",
+      "title": "Implement subq status command",
+      "description": "Create status command showing pending changes and last sync time.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "packages/cli/src/commands/status.ts exists",
+        "Shows pending change count from sync_outbox",
+        "Shows last sync time from sync_meta",
+        "Shows 'Not logged in' if no token",
+        "packages/cli/tests/commands/status.test.ts exists",
+        "Test: status shows 'Not logged in' without token",
+        "Test: status shows pending count",
+        "Test: status shows last sync time",
+        "Test: status shows '0 pending' when outbox empty",
+        "Minimum 4 test cases using mocked LocalDb",
+        "bun run typecheck passes",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/status.ts",
+          "packages/cli/tests/commands/status.test.ts"
+        ],
+        "pattern": "Query LocalDb for outbox count and sync_meta, mock for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "4.5.0",
+      "phase": "CLI Integration",
+      "epic": "Local Data Operations",
+      "title": "Refactor CLI to use local database",
+      "description": "Update existing CLI commands (log, weight) to write to local database instead of making RPC calls.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "subq log writes to local injection_logs + outbox",
+        "subq weight writes to local weight_logs + outbox",
+        "Commands return immediately (no network call)",
+        "Commands require login (check for token)",
+        "packages/cli/tests/commands/log.test.ts updated",
+        "packages/cli/tests/commands/weight.test.ts updated",
+        "Test: log command writes to local DB",
+        "Test: log command creates outbox entry",
+        "Test: log command requires login",
+        "Test: weight command writes to local DB",
+        "Test: weight command creates outbox entry",
+        "Test: weight command requires login",
+        "Minimum 6 test cases total",
+        "bun run typecheck passes",
+        "bun run test:cli passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/cli/src/commands/log.ts",
+          "packages/cli/src/commands/weight.ts",
+          "packages/cli/tests/commands/log.test.ts",
+          "packages/cli/tests/commands/weight.test.ts"
+        ],
+        "pattern": "Replace RPC calls with LocalDb.writeWithOutbox, use in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "5.1.0",
+      "phase": "TUI Integration",
+      "epic": "Local Data Layer",
+      "title": "Refactor TUI to use local database for reads",
+      "description": "Update TUI to read from local SQLite instead of making RPC calls. Keep existing UI, just change data source.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "TUI reads from local weight_logs, injection_logs, etc.",
+        "All data fetching uses LocalDb service",
+        "No RPC calls for data reads",
+        "TUI still renders correctly with local data",
+        "packages/tui/tests/data-layer.test.ts exists",
+        "Test: TUI data layer reads from local DB",
+        "Test: empty local DB returns empty lists",
+        "Test: local data renders in expected format",
+        "Minimum 3 test cases",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/tui/src/**/*.ts",
+          "packages/tui/tests/data-layer.test.ts"
+        ],
+        "pattern": "Replace RPC client with LocalDb queries, in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "large"
+    },
+    {
+      "id": "5.2.0",
+      "phase": "TUI Integration",
+      "epic": "Local Data Layer",
+      "title": "Refactor TUI to use local database for writes",
+      "description": "Update TUI to write to local SQLite with outbox entries instead of making RPC calls.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "TUI writes to local tables + sync_outbox",
+        "Uses LocalDb.writeWithOutbox for all mutations",
+        "No RPC calls for data writes",
+        "Write operations return immediately",
+        "packages/tui/tests/data-layer.test.ts extended",
+        "Test: TUI write creates local row",
+        "Test: TUI write creates outbox entry",
+        "Test: TUI delete creates soft delete + outbox entry",
+        "Minimum 3 additional test cases",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/tui/src/**/*.ts",
+          "packages/tui/tests/data-layer.test.ts"
+        ],
+        "pattern": "Replace RPC mutations with LocalDb.writeWithOutbox, in-memory SQLite for tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "5.3.0",
+      "phase": "TUI Integration",
+      "epic": "Sync Lifecycle",
+      "title": "Add sync lifecycle to TUI",
+      "description": "Implement sync on launch, background sync every 30s, sync on exit. Handle interrupts gracefully.",
+      "specs": [
+        "local-sync.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Sync runs on TUI startup (with error handling)",
+        "Background sync fiber runs every 30 seconds",
+        "Sync runs on TUI exit with 5s timeout",
+        "Ctrl+C triggers graceful shutdown with sync attempt",
+        "Sync errors logged but don't crash TUI",
+        "packages/tui/tests/sync-lifecycle.test.ts exists",
+        "Test: startup sync is attempted",
+        "Test: background sync scheduled at 30s intervals (use TestClock)",
+        "Test: shutdown sync is attempted",
+        "Test: sync error doesn't crash TUI",
+        "Minimum 4 test cases using TestClock",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/tui/src/main.tsx",
+          "packages/tui/tests/sync-lifecycle.test.ts"
+        ],
+        "pattern": "Effect.forkDaemon for background sync, Effect.onInterrupt for shutdown, TestClock for timing tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "5.4.0",
+      "phase": "TUI Integration",
+      "epic": "Status Bar",
+      "title": "Add sync status bar to TUI",
+      "description": "Display sync status in TUI: syncing, synced (X ago), offline, error.",
+      "specs": [
+        "local-sync.md"
+      ],
+      "acceptance_criteria": [
+        "Status bar shows 'syncing' during sync",
+        "Status bar shows 'synced (X ago)' after successful sync",
+        "Status bar shows 'offline' on network error",
+        "Status bar shows 'error' on sync failure",
+        "Status updates in real-time",
+        "packages/tui/tests/status-bar.test.ts exists",
+        "Test: status shows 'syncing' during sync",
+        "Test: status shows 'synced' after success",
+        "Test: status shows 'offline' on network error",
+        "Test: status shows 'error' on failure",
+        "Minimum 4 test cases",
+        "bun run typecheck passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/tui/src/components/StatusBar.tsx",
+          "packages/tui/tests/status-bar.test.ts"
+        ],
+        "pattern": "Effect Atom for sync status, update from sync callbacks"
+      },
+      "status": "pending",
+      "estimated_complexity": "small"
+    },
+    {
+      "id": "6.1.0",
+      "phase": "Web UI",
+      "epic": "Token Management",
+      "title": "Add CLI tokens list to settings page",
+      "description": "Display list of CLI tokens in web settings: device name, last used date, with revoke button.",
+      "specs": [
+        "local-sync.md",
+        "REACT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Settings page shows 'CLI Devices' section",
+        "Lists all sessions WHERE type = 'cli'",
+        "Shows device_name and last_used_at for each",
+        "Each row has 'Revoke' button",
+        "Empty state when no CLI tokens",
+        "packages/api/tests/settings/cli-tokens.test.ts exists",
+        "Test: list endpoint returns CLI sessions only",
+        "Test: list endpoint excludes web sessions",
+        "Test: empty list when no CLI tokens",
+        "Minimum 3 API test cases",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/routes/settings.tsx",
+          "packages/api/src/routes/settings.ts",
+          "packages/api/tests/settings/cli-tokens.test.ts"
+        ],
+        "pattern": "New RPC endpoint for listing CLI sessions, it.layer for API tests"
+      },
+      "status": "pending",
+      "estimated_complexity": "medium"
+    },
+    {
+      "id": "6.2.0",
+      "phase": "Web UI",
+      "epic": "Token Management",
+      "title": "Implement token revocation",
+      "description": "Add functionality to revoke individual CLI tokens and bulk 'Revoke All CLI Tokens' button.",
+      "specs": [
+        "local-sync.md",
+        "REACT_BEST_PRACTICES.md",
+        "EFFECT_TESTING.md"
+      ],
+      "acceptance_criteria": [
+        "Individual revoke deletes session from database",
+        "'Revoke All CLI Tokens' button in settings",
+        "Confirmation dialog before bulk revoke",
+        "UI updates after revocation",
+        "packages/api/tests/settings/revoke-token.test.ts exists",
+        "Test: revoke single token removes from DB",
+        "Test: revoke non-existent token returns error",
+        "Test: revoke all removes all CLI tokens",
+        "Test: revoke all doesn't affect web sessions",
+        "Test: can't revoke another user's token",
+        "Minimum 5 API test cases using it.layer",
+        "bun run typecheck passes",
+        "bun run test passes"
+      ],
+      "technical_details": {
+        "files": [
+          "packages/web/src/routes/settings.tsx",
+          "packages/api/src/routes/settings.ts",
+          "packages/api/tests/settings/revoke-token.test.ts"
+        ],
+        "pattern": "RPC endpoints for revoke, revokeAll, it.layer for API tests"
+      },
+      "status": "pending",
       "estimated_complexity": "medium"
     }
   ]

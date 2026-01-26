@@ -63,6 +63,7 @@ export const weightLogs = sqliteTable(
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [index('idx_weight_logs_datetime').on(table.datetime), index('idx_weight_logs_user_id').on(table.userId)],
 )
@@ -82,6 +83,7 @@ export const injectionLogs = sqliteTable(
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [
     index('idx_injection_logs_datetime').on(table.datetime),
@@ -105,6 +107,7 @@ export const glp1Inventory = sqliteTable(
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [
     index('idx_glp1_inventory_user_id').on(table.userId),
@@ -128,6 +131,7 @@ export const injectionSchedules = sqliteTable(
     userId: text('user_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [
     index('idx_injection_schedules_user_id').on(table.userId),
@@ -148,6 +152,7 @@ export const schedulePhases = sqliteTable(
     dosage: text('dosage').notNull(), // e.g., "2.5mg", "10 units"
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [index('idx_schedule_phases_schedule_id').on(table.scheduleId)],
 )
@@ -167,6 +172,7 @@ export const userGoals = sqliteTable(
     completedAt: text('completed_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [index('idx_user_goals_user_id').on(table.userId), index('idx_user_goals_is_active').on(table.isActive)],
 )
@@ -183,6 +189,7 @@ export const userSettings = sqliteTable(
     remindersEnabled: integer('reminders_enabled', { mode: 'boolean' }).notNull().default(true),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
+    deletedAt: text('deleted_at'),
   },
   (table) => [index('idx_user_settings_user_id').on(table.userId)],
 )

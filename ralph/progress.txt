@@ -196,3 +196,8 @@
 **Story**: 3.1.0 - Convert StatsPage to use Atom.family for stats atoms
 **Status**: complete
 ---
+
+## Iteration 1 - 2026-01-25 23:37
+**Story**: 1.1.0 - Add deleted_at column to synced tables
+**Status**: complete
+---
