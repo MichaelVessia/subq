@@ -441,3 +441,8 @@
 **Story**: 4.1.0 - Implement subq login command
 **Status**: complete
 ---
+
+## Iteration 30 - 2026-01-26 02:25
+**Story**: 4.2.0 - Implement subq logout command
+**Status**: complete
+---

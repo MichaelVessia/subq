@@ -785,7 +785,7 @@
         ],
         "pattern": "Simple file operations with Effect FileSystem, use temp dir for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

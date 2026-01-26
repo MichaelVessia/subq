@@ -24,6 +24,7 @@ type ConfigKey = 'server_url' | 'auth_token' | 'last_sync_cursor'
 export interface LocalConfigService {
   readonly get: <K extends ConfigKey>(key: K) => Effect.Effect<Option.Option<string>, PlatformError>
   readonly set: <K extends ConfigKey>(key: K, value: string) => Effect.Effect<void, PlatformError>
+  readonly delete: <K extends ConfigKey>(key: K) => Effect.Effect<void, PlatformError>
   readonly getServerUrl: () => Effect.Effect<string, PlatformError>
   readonly getAuthToken: () => Effect.Effect<Option.Option<string>, PlatformError>
 }
@@ -88,6 +89,17 @@ export class LocalConfig extends Context.Tag('@subq/local/LocalConfig')<LocalCon
           yield* writeConfig(newConfig)
         })
 
+      const deleteKey = <K extends ConfigKey>(key: K) =>
+        Effect.gen(function* () {
+          const existingConfig = yield* readConfig
+          if (Option.isNone(existingConfig)) {
+            return
+          }
+          const currentConfig = { ...existingConfig.value }
+          delete currentConfig[key]
+          yield* writeConfig(currentConfig)
+        })
+
       const getServerUrl = () =>
         Effect.gen(function* () {
           // Check environment variable first (useful for testing)
@@ -102,7 +114,7 @@ export class LocalConfig extends Context.Tag('@subq/local/LocalConfig')<LocalCon
 
       const getAuthToken = () => get('auth_token')
 
-      return LocalConfig.of({ get, set, getServerUrl, getAuthToken })
+      return LocalConfig.of({ get, set, delete: deleteKey, getServerUrl, getAuthToken })
     }),
   )
 

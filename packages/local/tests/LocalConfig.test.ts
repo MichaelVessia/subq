@@ -72,6 +72,17 @@ const makeTestLayer = (tempDir: string) =>
           yield* writeConfig(newConfig)
         })
 
+      const deleteKey = <K extends ConfigKey>(key: K) =>
+        Effect.gen(function* () {
+          const existingConfig = yield* readConfig
+          if (Option.isNone(existingConfig)) {
+            return
+          }
+          const currentConfig = { ...existingConfig.value }
+          delete currentConfig[key]
+          yield* writeConfig(currentConfig)
+        })
+
       const getServerUrl = () =>
         Effect.gen(function* () {
           const url = yield* get('server_url')
@@ -80,7 +91,7 @@ const makeTestLayer = (tempDir: string) =>
 
       const getAuthToken = () => get('auth_token')
 
-      return LocalConfig.of({ get, set, getServerUrl, getAuthToken })
+      return LocalConfig.of({ get, set, delete: deleteKey, getServerUrl, getAuthToken })
     }),
   ).pipe(Layer.provide(BunContext.layer))
 
@@ -267,6 +278,79 @@ describe('LocalConfig', () => {
         }).pipe(Effect.provide(layer))
 
         expect(Option.isNone(result)).toBe(true)
+
+        // Cleanup
+        yield* fs.remove(tempDir, { recursive: true })
+      }).pipe(Effect.provide(BunContext.layer)),
+    )
+  })
+
+  describe('delete', () => {
+    it.effect('removes key from config file', () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const tempDir = yield* fs.makeTempDirectory()
+
+        const layer = makeTestLayer(tempDir)
+
+        const result = yield* Effect.gen(function* () {
+          const config = yield* LocalConfig
+          yield* config.set('auth_token', 'test-token-to-delete')
+          yield* config.delete('auth_token')
+          return yield* config.get('auth_token')
+        }).pipe(Effect.provide(layer))
+
+        expect(Option.isNone(result)).toBe(true)
+
+        // Cleanup
+        yield* fs.remove(tempDir, { recursive: true })
+      }).pipe(Effect.provide(BunContext.layer)),
+    )
+
+    it.effect('preserves other keys when deleting one key', () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const tempDir = yield* fs.makeTempDirectory()
+
+        const layer = makeTestLayer(tempDir)
+
+        const result = yield* Effect.gen(function* () {
+          const config = yield* LocalConfig
+          yield* config.set('server_url', 'https://example.com')
+          yield* config.set('auth_token', 'my-token')
+          yield* config.delete('auth_token')
+
+          const serverUrl = yield* config.get('server_url')
+          const authToken = yield* config.get('auth_token')
+          return { serverUrl, authToken }
+        }).pipe(Effect.provide(layer))
+
+        expect(Option.isSome(result.serverUrl)).toBe(true)
+        if (Option.isSome(result.serverUrl)) {
+          expect(result.serverUrl.value).toBe('https://example.com')
+        }
+        expect(Option.isNone(result.authToken)).toBe(true)
+
+        // Cleanup
+        yield* fs.remove(tempDir, { recursive: true })
+      }).pipe(Effect.provide(BunContext.layer)),
+    )
+
+    it.effect('succeeds when config file does not exist', () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem
+        const tempDir = yield* fs.makeTempDirectory()
+
+        const layer = makeTestLayer(tempDir)
+
+        // This should not throw
+        yield* Effect.gen(function* () {
+          const config = yield* LocalConfig
+          yield* config.delete('auth_token')
+        }).pipe(Effect.provide(layer))
+
+        // Verify no error was thrown by checking we got here
+        expect(true).toBe(true)
 
         // Cleanup
         yield* fs.remove(tempDir, { recursive: true })
