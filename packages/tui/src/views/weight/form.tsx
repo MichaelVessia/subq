@@ -1,4 +1,5 @@
 // Weight form for add/edit
+// Uses local database writes with outbox for sync
 
 import { useKeyboard } from '@opentui/react'
 import {
@@ -11,7 +12,7 @@ import {
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { useCallback, useState } from 'react'
-import { rpcCall } from '../../services/api-client'
+import { useCreateWeightLog, useUpdateWeightLog } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 interface WeightFormProps {
@@ -36,6 +37,10 @@ export function WeightForm({ item, onSave, onCancel, onMessage }: WeightFormProp
   const [focusedField, setFocusedField] = useState<Field>('weight')
   const [saving, setSaving] = useState(false)
 
+  // Local write hooks
+  const createWeightLog = useCreateWeightLog({ onError: (msg) => onMessage(msg, 'error') })
+  const updateWeightLog = useUpdateWeightLog({ onError: (msg) => onMessage(msg, 'error') })
+
   const handleSave = useCallback(async () => {
     const weightNum = parseFloat(weight)
     if (!weight || Number.isNaN(weightNum) || weightNum <= 0) {
@@ -47,27 +52,23 @@ export function WeightForm({ item, onSave, onCancel, onMessage }: WeightFormProp
     try {
       if (item) {
         // Update
-        await rpcCall((client) =>
-          client.WeightLogUpdate(
-            new WeightLogUpdate({
-              id: item.id as WeightLogId,
-              weight: weightNum as Weight,
-              datetime: DateTime.unsafeMake(new Date(date)),
-              notes: notes ? Option.some(notes as Notes) : Option.some(null),
-            }),
-          ),
+        await updateWeightLog(
+          new WeightLogUpdate({
+            id: item.id as WeightLogId,
+            weight: weightNum as Weight,
+            datetime: DateTime.unsafeMake(new Date(date)),
+            notes: notes ? Option.some(notes as Notes) : Option.some(null),
+          }),
         )
         onMessage('Weight updated', 'success')
       } else {
         // Create
-        await rpcCall((client) =>
-          client.WeightLogCreate(
-            new WeightLogCreate({
-              weight: weightNum as Weight,
-              datetime: DateTime.unsafeMake(new Date(date)),
-              notes: notes ? Option.some(notes as Notes) : Option.none(),
-            }),
-          ),
+        await createWeightLog(
+          new WeightLogCreate({
+            weight: weightNum as Weight,
+            datetime: DateTime.unsafeMake(new Date(date)),
+            notes: notes ? Option.some(notes as Notes) : Option.none(),
+          }),
         )
         onMessage('Weight added', 'success')
       }
@@ -76,7 +77,7 @@ export function WeightForm({ item, onSave, onCancel, onMessage }: WeightFormProp
       onMessage(`Save failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
     setSaving(false)
-  }, [weight, date, notes, item, onSave, onMessage])
+  }, [weight, date, notes, item, onSave, onMessage, createWeightLog, updateWeightLog])
 
   useKeyboard((key) => {
     if (saving) return

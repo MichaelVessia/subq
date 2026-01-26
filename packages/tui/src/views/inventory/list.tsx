@@ -1,13 +1,19 @@
 // Inventory list view with vim keybinds
+// Reads from local SQLite database via TuiDataLayer
+// Writes use local database with outbox for sync
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
-import { InventoryListParams, type Inventory, type InventoryId } from '@subq/shared'
+import type { Inventory, InventoryId } from '@subq/shared'
 import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
-import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDateOrDash, pad } from '../../lib/format'
-import { rpcCall } from '../../services/api-client'
+import {
+  useDeleteInventory,
+  useInventory,
+  useMarkInventoryFinished,
+  useMarkInventoryOpened,
+} from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide secondary columns (source, form, expiry)
@@ -23,19 +29,19 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
   const { width: termWidth } = useTerminalDimensions()
   const showExtras = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const {
-    data: items,
-    loading,
-    reload: loadItems,
-  } = useAsyncData(() => rpcCall((client) => client.InventoryList(new InventoryListParams({}))), {
-    onError: (msg) => onMessage(msg, 'error'),
-  })
+  // Read from local database instead of RPC
+  const { data: items, loading, reload: loadItems } = useInventory({}, { onError: (msg) => onMessage(msg, 'error') })
 
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [deleteConfirm, setDeleteConfirm] = useState<Inventory | null>(null)
   const [detailView, setDetailView] = useState<Inventory | null>(null)
   const [filterText, setFilterText] = useState('')
   const [isFiltering, setIsFiltering] = useState(false)
+
+  // Local write hooks
+  const deleteInventory = useDeleteInventory({ onError: (msg) => onMessage(msg, 'error') })
+  const markInventoryOpened = useMarkInventoryOpened({ onError: (msg) => onMessage(msg, 'error') })
+  const markInventoryFinished = useMarkInventoryFinished({ onError: (msg) => onMessage(msg, 'error') })
 
   // Filter items
   const allItems = items ?? []
@@ -52,14 +58,14 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
     if (!deleteConfirm) return
 
     try {
-      await rpcCall((client) => client.InventoryDelete({ id: deleteConfirm.id as InventoryId }))
+      await deleteInventory(deleteConfirm.id as InventoryId)
       onMessage('Item deleted', 'success')
       setDeleteConfirm(null)
       loadItems()
     } catch (err) {
       onMessage(`Delete failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
-  }, [deleteConfirm, loadItems, onMessage])
+  }, [deleteConfirm, loadItems, onMessage, deleteInventory])
 
   // Handle mark opened
   const handleMarkOpened = useCallback(async () => {
@@ -67,13 +73,13 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
     if (!selected) return
 
     try {
-      await rpcCall((client) => client.InventoryMarkOpened({ id: selected.id as InventoryId }))
+      await markInventoryOpened(selected.id as InventoryId)
       onMessage('Marked as opened', 'success')
       loadItems()
     } catch (err) {
       onMessage(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
-  }, [filteredItems, selectedIndex, loadItems, onMessage])
+  }, [filteredItems, selectedIndex, loadItems, onMessage, markInventoryOpened])
 
   // Handle mark finished
   const handleMarkFinished = useCallback(async () => {
@@ -81,13 +87,13 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
     if (!selected) return
 
     try {
-      await rpcCall((client) => client.InventoryMarkFinished({ id: selected.id as InventoryId }))
+      await markInventoryFinished(selected.id as InventoryId)
       onMessage('Marked as finished', 'success')
       loadItems()
     } catch (err) {
       onMessage(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
-  }, [filteredItems, selectedIndex, loadItems, onMessage])
+  }, [filteredItems, selectedIndex, loadItems, onMessage, markInventoryFinished])
 
   // Track for 'mo' and 'mf' sequences
   const [pendingM, setPendingM] = useState(false)

@@ -194,7 +194,7 @@ export const ScheduleRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, schedule_id, "order", duration_days, dosage, created_at, updated_at
           FROM schedule_phases
-          WHERE schedule_id = ${scheduleId}
+          WHERE schedule_id = ${scheduleId} AND deleted_at IS NULL
           ORDER BY "order" ASC
         `
         const decoded = yield* Effect.all(rows.map((r) => decodePhaseRow(r)))
@@ -221,14 +221,14 @@ export const ScheduleRepoLive = Layer.effect(
     const list = (userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
-          SELECT 
+          SELECT
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
-            p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order, 
+            p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order,
             p.duration_days as phase_duration_days, p.dosage as phase_dosage,
             p.created_at as phase_created_at, p.updated_at as phase_updated_at
           FROM injection_schedules s
-          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
-          WHERE s.user_id = ${userId}
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id AND p.deleted_at IS NULL
+          WHERE s.user_id = ${userId} AND s.deleted_at IS NULL
           ORDER BY s.start_date DESC, p."order" ASC
         `
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
@@ -239,14 +239,14 @@ export const ScheduleRepoLive = Layer.effect(
     const getActive = (userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
-          SELECT 
+          SELECT
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
             p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order,
             p.duration_days as phase_duration_days, p.dosage as phase_dosage,
             p.created_at as phase_created_at, p.updated_at as phase_updated_at
           FROM injection_schedules s
-          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
-          WHERE s.user_id = ${userId} AND s.is_active = 1
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id AND p.deleted_at IS NULL
+          WHERE s.user_id = ${userId} AND s.is_active = 1 AND s.deleted_at IS NULL
           ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
@@ -261,14 +261,14 @@ export const ScheduleRepoLive = Layer.effect(
     const findById = (id: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
-          SELECT 
+          SELECT
             s.id, s.name, s.drug, s.source, s.frequency, s.start_date, s.is_active, s.notes, s.created_at, s.updated_at,
             p.id as phase_id, p.schedule_id as phase_schedule_id, p."order" as phase_order,
             p.duration_days as phase_duration_days, p.dosage as phase_dosage,
             p.created_at as phase_created_at, p.updated_at as phase_updated_at
           FROM injection_schedules s
-          LEFT JOIN schedule_phases p ON s.id = p.schedule_id
-          WHERE s.id = ${id} AND s.user_id = ${userId}
+          LEFT JOIN schedule_phases p ON s.id = p.schedule_id AND p.deleted_at IS NULL
+          WHERE s.id = ${id} AND s.user_id = ${userId} AND s.deleted_at IS NULL
           ORDER BY p."order" ASC
         `
         if (rows.length === 0) {
@@ -288,7 +288,7 @@ export const ScheduleRepoLive = Layer.effect(
         const startDateStr = DateTime.formatIso(data.startDate)
 
         // Deactivate any existing active schedules for this user
-        yield* sql`UPDATE injection_schedules SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1`
+        yield* sql`UPDATE injection_schedules SET is_active = 0, updated_at = ${now} WHERE user_id = ${userId} AND is_active = 1 AND deleted_at IS NULL`
 
         // Create the schedule
         yield* sql`
@@ -315,7 +315,7 @@ export const ScheduleRepoLive = Layer.effect(
         // First get current values - include user_id check to prevent IDOR
         const current = yield* sql`
           SELECT id, name, drug, source, frequency, start_date, is_active, notes, user_id, created_at, updated_at
-          FROM injection_schedules WHERE id = ${data.id} AND user_id = ${userId}
+          FROM injection_schedules WHERE id = ${data.id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -338,8 +338,8 @@ export const ScheduleRepoLive = Layer.effect(
         // If activating this schedule, deactivate others
         if (newIsActive && curr.is_active !== 1) {
           yield* sql`
-            UPDATE injection_schedules SET is_active = 0, updated_at = ${now} 
-            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id}
+            UPDATE injection_schedules SET is_active = 0, updated_at = ${now}
+            WHERE user_id = ${userId} AND is_active = 1 AND id != ${data.id} AND deleted_at IS NULL
           `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'update', cause })))
         }
 
@@ -384,7 +384,8 @@ export const ScheduleRepoLive = Layer.effect(
 
     const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM injection_schedules WHERE id = ${id} AND user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id FROM injection_schedules WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`
         if (existing.length === 0) {
           return false
         }
@@ -397,7 +398,7 @@ export const ScheduleRepoLive = Layer.effect(
       Effect.gen(function* () {
         const rows = yield* sql`
           SELECT datetime FROM injection_logs
-          WHERE user_id = ${userId} AND drug = ${drug}
+          WHERE user_id = ${userId} AND drug = ${drug} AND deleted_at IS NULL
           ORDER BY datetime DESC
           LIMIT 1
         `

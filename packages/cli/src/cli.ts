@@ -3,15 +3,33 @@ import { Layer } from 'effect'
 import { loginCommand, logoutCommand } from './commands/auth/index.js'
 import { injectionCommand } from './commands/injection/index.js'
 import { inventoryCommand } from './commands/inventory/index.js'
+import { logCommand } from './commands/log.js'
+import { statusCommand } from './commands/status.js'
+import { syncCommand } from './commands/sync.js'
+import { quickWeightCommand } from './commands/weight.js'
 import { weightCommand } from './commands/weight/index.js'
 import { ApiClient } from './services/api-client.js'
 import { CliConfigService } from './services/config.js'
 import { Session } from './services/session.js'
 
+// The sync-based loginCommand is in ./commands/login.ts for local-first sync auth.
+// The web-based loginCommand from ./commands/auth/login.ts is used for legacy web auth.
+// TODO: Once local-first sync is fully integrated, replace with sync-based login.
+
 // Root command
 const rootCommand = Command.make('subq').pipe(
   Command.withDescription('SubQ CLI - manage your health tracking data'),
-  Command.withSubcommands([weightCommand, injectionCommand, inventoryCommand, loginCommand, logoutCommand]),
+  Command.withSubcommands([
+    logCommand,
+    quickWeightCommand,
+    weightCommand,
+    injectionCommand,
+    inventoryCommand,
+    loginCommand,
+    logoutCommand,
+    statusCommand,
+    syncCommand,
+  ]),
 )
 
 // Combined services layer

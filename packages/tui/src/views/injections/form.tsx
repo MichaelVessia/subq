@@ -1,4 +1,5 @@
 // Injection form for add/edit
+// Uses local database for suggestions and writes with outbox for sync
 
 import { useKeyboard } from '@opentui/react'
 import {
@@ -13,8 +14,13 @@ import {
   type Notes,
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
-import { useCallback, useEffect, useState } from 'react'
-import { rpcCall } from '../../services/api-client'
+import { useCallback, useState } from 'react'
+import {
+  useCreateInjectionLog,
+  useDistinctDrugs,
+  useDistinctSites,
+  useUpdateInjectionLog,
+} from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 interface InjectionFormProps {
@@ -42,19 +48,13 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
   const [focusedField, setFocusedField] = useState<Field>('drug')
   const [saving, setSaving] = useState(false)
 
-  // Load suggestions
-  const [drugSuggestions, setDrugSuggestions] = useState<string[]>([])
-  const [siteSuggestions, setSiteSuggestions] = useState<string[]>([])
+  // Load suggestions from local database
+  const { data: drugSuggestions } = useDistinctDrugs()
+  const { data: siteSuggestions } = useDistinctSites()
 
-  useEffect(() => {
-    // Load drug and site suggestions
-    rpcCall((client) => client.InjectionLogGetDrugs())
-      .then((drugs) => setDrugSuggestions([...drugs]))
-      .catch(() => {})
-    rpcCall((client) => client.InjectionLogGetSites())
-      .then((sites) => setSiteSuggestions([...sites]))
-      .catch(() => {})
-  }, [])
+  // Local write hooks
+  const createInjectionLog = useCreateInjectionLog({ onError: (msg) => onMessage(msg, 'error') })
+  const updateInjectionLog = useUpdateInjectionLog({ onError: (msg) => onMessage(msg, 'error') })
 
   const handleSave = useCallback(async () => {
     if (!drug || !dosage) {
@@ -66,35 +66,31 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
     try {
       if (injection) {
         // Update
-        await rpcCall((client) =>
-          client.InjectionLogUpdate(
-            new InjectionLogUpdate({
-              id: injection.id as InjectionLogId,
-              drug: drug as DrugName,
-              dosage: dosage as Dosage,
-              datetime: DateTime.unsafeMake(new Date(date)),
-              injectionSite: site ? Option.some(site as InjectionSite) : Option.some(null),
-              source: source ? Option.some(source as DrugSource) : Option.some(null),
-              notes: notes ? Option.some(notes as Notes) : Option.some(null),
-              scheduleId: Option.none(),
-            }),
-          ),
+        await updateInjectionLog(
+          new InjectionLogUpdate({
+            id: injection.id as InjectionLogId,
+            drug: drug as DrugName,
+            dosage: dosage as Dosage,
+            datetime: DateTime.unsafeMake(new Date(date)),
+            injectionSite: site ? Option.some(site as InjectionSite) : Option.some(null),
+            source: source ? Option.some(source as DrugSource) : Option.some(null),
+            notes: notes ? Option.some(notes as Notes) : Option.some(null),
+            scheduleId: Option.none(),
+          }),
         )
         onMessage('Injection updated', 'success')
       } else {
         // Create
-        await rpcCall((client) =>
-          client.InjectionLogCreate(
-            new InjectionLogCreate({
-              drug: drug as DrugName,
-              dosage: dosage as Dosage,
-              datetime: DateTime.unsafeMake(new Date(date)),
-              injectionSite: site ? Option.some(site as InjectionSite) : Option.none(),
-              source: source ? Option.some(source as DrugSource) : Option.none(),
-              notes: notes ? Option.some(notes as Notes) : Option.none(),
-              scheduleId: Option.none(),
-            }),
-          ),
+        await createInjectionLog(
+          new InjectionLogCreate({
+            drug: drug as DrugName,
+            dosage: dosage as Dosage,
+            datetime: DateTime.unsafeMake(new Date(date)),
+            injectionSite: site ? Option.some(site as InjectionSite) : Option.none(),
+            source: source ? Option.some(source as DrugSource) : Option.none(),
+            notes: notes ? Option.some(notes as Notes) : Option.none(),
+            scheduleId: Option.none(),
+          }),
         )
         onMessage('Injection added', 'success')
       }
@@ -103,7 +99,7 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
       onMessage(`Save failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
     setSaving(false)
-  }, [drug, dosage, date, site, source, notes, injection, onSave, onMessage])
+  }, [drug, dosage, date, site, source, notes, injection, onSave, onMessage, createInjectionLog, updateInjectionLog])
 
   useKeyboard((key) => {
     if (saving) return
@@ -159,7 +155,7 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
           'Drug *',
           drug,
           setDrug,
-          drugSuggestions.length > 0 ? `e.g., ${drugSuggestions[0]}` : 'e.g., Semaglutide',
+          drugSuggestions && drugSuggestions.length > 0 ? `e.g., ${drugSuggestions[0]}` : 'e.g., Semaglutide',
         )}
         {renderField('dosage', 'Dosage *', dosage, setDosage, 'e.g., 0.5mg')}
         {renderField('date', 'Date', date, setDate, 'YYYY-MM-DD')}
@@ -168,7 +164,7 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
           'Site',
           site,
           setSite,
-          siteSuggestions.length > 0 ? `e.g., ${siteSuggestions[0]}` : 'e.g., left abdomen',
+          siteSuggestions && siteSuggestions.length > 0 ? `e.g., ${siteSuggestions[0]}` : 'e.g., left abdomen',
         )}
         {renderField('source', 'Source', source, setSource, 'e.g., Pharmacy name')}
         {renderField('notes', 'Notes', notes, setNotes, 'Optional notes...')}

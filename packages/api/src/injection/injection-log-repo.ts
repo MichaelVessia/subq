@@ -127,7 +127,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
           FROM injection_logs
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
           ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
           ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
           ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
@@ -144,7 +144,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
           FROM injection_logs
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
@@ -180,7 +180,7 @@ export const InjectionLogRepoLive = Layer.effect(
         // First get current values - include user_id check to prevent IDOR
         const current = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
-          FROM injection_logs WHERE id = ${data.id} AND user_id = ${userId}
+          FROM injection_logs WHERE id = ${data.id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -227,7 +227,8 @@ export const InjectionLogRepoLive = Layer.effect(
     const del = (id: string, userId: string) =>
       Effect.gen(function* () {
         // Check if exists and belongs to user
-        const existing = yield* sql`SELECT id FROM injection_logs WHERE id = ${id} AND user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id FROM injection_logs WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`
         if (existing.length === 0) {
           return false
         }
@@ -239,7 +240,7 @@ export const InjectionLogRepoLive = Layer.effect(
     const getUniqueDrugs = (userId: string) =>
       Effect.gen(function* () {
         const rawRows = yield* sql`
-          SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} ORDER BY drug
+          SELECT DISTINCT drug FROM injection_logs WHERE user_id = ${userId} AND deleted_at IS NULL ORDER BY drug
         `
         const rows = yield* decodeDrugRows(rawRows)
         return rows.map((r) => r.drug)
@@ -250,7 +251,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const rawRows = yield* sql`
           SELECT DISTINCT injection_site
           FROM injection_logs
-          WHERE user_id = ${userId} AND injection_site IS NOT NULL
+          WHERE user_id = ${userId} AND injection_site IS NOT NULL AND deleted_at IS NULL
           ORDER BY injection_site
         `
         const rows = yield* decodeSiteRows(rawRows)
@@ -262,7 +263,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const rawRows = yield* sql`
           SELECT injection_site
           FROM injection_logs
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
           ORDER BY datetime DESC
           LIMIT 1
         `
@@ -283,13 +284,13 @@ export const InjectionLogRepoLive = Layer.effect(
           UPDATE injection_logs
           SET schedule_id = ${scheduleId},
               updated_at = ${now}
-          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
+          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId} AND deleted_at IS NULL
         `
 
         // Count how many rows were actually updated (belong to this user)
         const countResult = yield* sql`
           SELECT COUNT(*) as count FROM injection_logs
-          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
+          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId} AND deleted_at IS NULL
         `
         const countRow = yield* decodeCountRow(countResult[0])
         return countRow.count
@@ -300,7 +301,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, datetime, drug, source, dosage, injection_site, notes, schedule_id, created_at, updated_at
           FROM injection_logs
-          WHERE schedule_id = ${scheduleId} AND user_id = ${userId}
+          WHERE schedule_id = ${scheduleId} AND user_id = ${userId} AND deleted_at IS NULL
           ORDER BY datetime ASC
         `
         const results = yield* Effect.all(rows.map(decodeAndTransform))

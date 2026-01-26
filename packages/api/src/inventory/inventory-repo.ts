@@ -88,7 +88,7 @@ export const InventoryRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE user_id = ${userId}
+          WHERE user_id = ${userId} AND deleted_at IS NULL
           ${params.status ? sql`AND status = ${params.status}` : sql``}
           ${params.drug ? sql`AND drug = ${params.drug}` : sql``}
           ORDER BY created_at DESC
@@ -101,7 +101,7 @@ export const InventoryRepoLive = Layer.effect(
         const rows = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
           FROM glp1_inventory
-          WHERE id = ${id} AND user_id = ${userId}
+          WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `
         if (rows.length === 0) return Option.none()
         const decoded = yield* decodeAndTransform(rows[0])
@@ -134,7 +134,7 @@ export const InventoryRepoLive = Layer.effect(
       Effect.gen(function* () {
         const current = yield* sql`
           SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
-          FROM glp1_inventory WHERE id = ${data.id} AND user_id = ${userId}
+          FROM glp1_inventory WHERE id = ${data.id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -183,7 +183,8 @@ export const InventoryRepoLive = Layer.effect(
 
     const del = (id: string, userId: string) =>
       Effect.gen(function* () {
-        const existing = yield* sql`SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}`
+        const existing =
+          yield* sql`SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`
         if (existing.length === 0) {
           return false
         }
@@ -195,7 +196,7 @@ export const InventoryRepoLive = Layer.effect(
     const markFinished = (id: string, userId: string) =>
       Effect.gen(function* () {
         const current = yield* sql`
-          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}
+          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
@@ -223,7 +224,7 @@ export const InventoryRepoLive = Layer.effect(
     const markOpened = (id: string, userId: string) =>
       Effect.gen(function* () {
         const current = yield* sql`
-          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId}
+          SELECT id FROM glp1_inventory WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
