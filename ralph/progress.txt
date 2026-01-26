@@ -391,3 +391,8 @@
 **Story**: 2.5.0 - Implement /sync/pull endpoint
 **Status**: complete
 ---
+
+## Iteration 20 - 2026-01-26 01:21
+**Story**: 2.6.0 - Implement /sync/push endpoint
+**Status**: complete
+---

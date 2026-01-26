@@ -9,11 +9,14 @@ import {
   LoginFailedError,
   type PullRequest,
   type PullResponse,
+  type PushRequest,
+  type PushResponse,
   type SyncChange,
+  type SyncConflict,
   SyncRpcs,
 } from '@subq/shared'
 import { verifyPassword } from 'better-auth/crypto'
-import { Effect, Number as Num, Option, Order, Schema } from 'effect'
+import { Clock, Effect, Number as Num, Option, Order, Schema } from 'effect'
 import { randomUUID } from 'node:crypto'
 
 // ============================================
@@ -275,9 +278,300 @@ export const SyncRpcHandlersLive = SyncRpcs.toLayer(
       return response
     })
 
+    /**
+     * Push local changes to server.
+     * For each change: check if row.updated_at > change.timestamp (conflict detection).
+     * Conflict: reject change, include server version in conflicts array.
+     * No conflict: apply insert/update/delete, add id to accepted array.
+     * Soft delete: set deleted_at instead of DELETE.
+     */
+    const SyncPush = Effect.fn('rpc.sync.push')(function* (request: PushRequest) {
+      const sql = yield* SqlClient.SqlClient
+      const { userId } = yield* CliAuthContext
+      const clock = yield* Clock.Clock
+
+      yield* Effect.logInfo('SyncPush called').pipe(
+        Effect.annotateLogs({
+          rpc: 'SyncPush',
+          userId,
+          changeCount: request.changes.length,
+        }),
+      )
+
+      const accepted: Array<string> = []
+      const conflicts: Array<SyncConflict> = []
+
+      // Get current time for setting updated_at
+      const now = yield* clock.currentTimeMillis
+      const nowIso = new Date(now).toISOString()
+
+      // Process each change within a transaction
+      yield* sql
+        .withTransaction(
+          Effect.forEach(
+            request.changes,
+            (change) =>
+              Effect.gen(function* () {
+                // Validate table name is in allowed list
+                if (!SYNCED_TABLES.includes(change.table as SyncedTable)) {
+                  yield* Effect.logWarning('SyncPush: invalid table name').pipe(
+                    Effect.annotateLogs({ table: change.table, changeId: change.id }),
+                  )
+                  return
+                }
+
+                const table = change.table as SyncedTable
+
+                if (change.operation === 'insert') {
+                  // For insert, check if row already exists
+                  const existingRows = yield* sql`
+                    SELECT id, updated_at FROM ${sql.literal(table)}
+                    WHERE id = ${change.id} AND user_id = ${userId}
+                  `.pipe(Effect.orDie)
+
+                  if (existingRows.length > 0) {
+                    // Row exists, treat as conflict (server version wins)
+                    const serverRow = yield* getServerRow(sql, table, change.id, userId)
+                    if (Option.isSome(serverRow)) {
+                      conflicts.push({
+                        id: change.id,
+                        serverVersion: serverRow.value,
+                      })
+                    }
+                    return
+                  }
+
+                  // Insert new row
+                  yield* insertRow(sql, table, change.payload, userId, nowIso)
+                  accepted.push(change.id)
+                } else if (change.operation === 'update') {
+                  // Check for conflict: server row newer than change timestamp
+                  const serverRows = yield* sql`
+                    SELECT updated_at FROM ${sql.literal(table)}
+                    WHERE id = ${change.id} AND user_id = ${userId}
+                  `.pipe(Effect.orDie)
+
+                  if (serverRows.length === 0) {
+                    // Row doesn't exist, treat as insert
+                    yield* insertRow(sql, table, change.payload, userId, nowIso)
+                    accepted.push(change.id)
+                    return
+                  }
+
+                  const serverUpdatedAt = yield* decodeSyncRow({
+                    ...serverRows[0],
+                    id: change.id,
+                    deleted_at: null,
+                  }).pipe(
+                    Effect.map((r) => new Date(r.updated_at).getTime()),
+                    Effect.orDie,
+                  )
+
+                  if (serverUpdatedAt > change.timestamp) {
+                    // Conflict: server version is newer
+                    const serverRow = yield* getServerRow(sql, table, change.id, userId)
+                    if (Option.isSome(serverRow)) {
+                      conflicts.push({
+                        id: change.id,
+                        serverVersion: serverRow.value,
+                      })
+                    }
+                    return
+                  }
+
+                  // No conflict, apply update
+                  yield* updateRow(sql, table, change.payload, change.id, userId, nowIso)
+                  accepted.push(change.id)
+                } else if (change.operation === 'delete') {
+                  // Check for conflict: server row newer than change timestamp
+                  const serverRows = yield* sql`
+                    SELECT updated_at FROM ${sql.literal(table)}
+                    WHERE id = ${change.id} AND user_id = ${userId}
+                  `.pipe(Effect.orDie)
+
+                  if (serverRows.length === 0) {
+                    // Row doesn't exist, nothing to delete
+                    accepted.push(change.id)
+                    return
+                  }
+
+                  const serverUpdatedAt = yield* decodeSyncRow({
+                    ...serverRows[0],
+                    id: change.id,
+                    deleted_at: null,
+                  }).pipe(
+                    Effect.map((r) => new Date(r.updated_at).getTime()),
+                    Effect.orDie,
+                  )
+
+                  if (serverUpdatedAt > change.timestamp) {
+                    // Conflict: server version is newer
+                    const serverRow = yield* getServerRow(sql, table, change.id, userId)
+                    if (Option.isSome(serverRow)) {
+                      conflicts.push({
+                        id: change.id,
+                        serverVersion: serverRow.value,
+                      })
+                    }
+                    return
+                  }
+
+                  // No conflict, apply soft delete
+                  yield* sql`
+                    UPDATE ${sql.literal(table)}
+                    SET deleted_at = ${nowIso}, updated_at = ${nowIso}
+                    WHERE id = ${change.id} AND user_id = ${userId}
+                  `.pipe(Effect.orDie)
+                  accepted.push(change.id)
+                }
+              }),
+            { discard: true },
+          ),
+        )
+        .pipe(Effect.orDie)
+
+      yield* Effect.logInfo('SyncPush completed').pipe(
+        Effect.annotateLogs({
+          userId,
+          acceptedCount: accepted.length,
+          conflictCount: conflicts.length,
+        }),
+      )
+
+      const response: PushResponse = {
+        accepted,
+        conflicts,
+      }
+
+      return response
+    })
+
     return {
       SyncAuthenticate,
       SyncPull,
+      SyncPush,
     }
   }),
 )
+
+// ============================================
+// Helper Functions for Push Operations
+// ============================================
+
+/**
+ * Get full server row data for conflict response.
+ */
+const getServerRow = (
+  sql: SqlClient.SqlClient,
+  table: SyncedTable,
+  id: string,
+  userId: string,
+): Effect.Effect<Option.Option<Record<string, unknown>>, never, never> =>
+  sql`
+    SELECT * FROM ${sql.literal(table)}
+    WHERE id = ${id} AND user_id = ${userId}
+  `.pipe(
+    Effect.map((rows) => {
+      const firstRow = rows[0]
+      if (firstRow === undefined) {
+        return Option.none()
+      }
+      const payload: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(firstRow)) {
+        payload[key] = value
+      }
+      return Option.some(payload)
+    }),
+    Effect.orDie,
+  )
+
+/**
+ * Insert a new row into a synced table.
+ */
+const insertRow = (
+  sql: SqlClient.SqlClient,
+  table: SyncedTable,
+  payload: Record<string, unknown>,
+  userId: string,
+  nowIso: string,
+): Effect.Effect<void, never, never> => {
+  // Build column list and values based on table
+  // We need to map payload keys to column names (snake_case)
+  const columns: Array<string> = []
+  const values: Array<unknown> = []
+
+  for (const [key, value] of Object.entries(payload)) {
+    // Skip user_id from payload, we'll set it explicitly
+    if (key === 'user_id') continue
+    columns.push(key)
+    values.push(value)
+  }
+
+  // Add user_id, created_at, updated_at
+  columns.push('user_id')
+  values.push(userId)
+
+  // Override timestamps with server time if not already in payload
+  if (!columns.includes('created_at')) {
+    columns.push('created_at')
+    values.push(nowIso)
+  }
+  if (!columns.includes('updated_at')) {
+    columns.push('updated_at')
+    values.push(nowIso)
+  } else {
+    // Update the updated_at to server time
+    const idx = columns.indexOf('updated_at')
+    values[idx] = nowIso
+  }
+
+  const columnsSql = columns.map((c) => `"${c}"`).join(', ')
+  const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ')
+
+  return sql
+    .unsafe(`INSERT INTO "${table}" (${columnsSql}) VALUES (${placeholders})`, values)
+    .pipe(Effect.asVoid, Effect.orDie)
+}
+
+/**
+ * Update an existing row in a synced table.
+ */
+const updateRow = (
+  sql: SqlClient.SqlClient,
+  table: SyncedTable,
+  payload: Record<string, unknown>,
+  id: string,
+  userId: string,
+  nowIso: string,
+): Effect.Effect<void, never, never> => {
+  // Build SET clause from payload
+  const setClauses: Array<string> = []
+  const values: Array<unknown> = []
+  let paramIndex = 1
+
+  for (const [key, value] of Object.entries(payload)) {
+    // Skip id, user_id, created_at from updates
+    if (key === 'id' || key === 'user_id' || key === 'created_at') continue
+    setClauses.push(`"${key}" = $${paramIndex}`)
+    values.push(value)
+    paramIndex++
+  }
+
+  // Always update updated_at to server time
+  setClauses.push(`"updated_at" = $${paramIndex}`)
+  values.push(nowIso)
+  paramIndex++
+
+  // Add WHERE clause params
+  const idParamIndex = paramIndex
+  values.push(id)
+  paramIndex++
+  const userIdParamIndex = paramIndex
+  values.push(userId)
+
+  const setSql = setClauses.join(', ')
+
+  return sql
+    .unsafe(`UPDATE "${table}" SET ${setSql} WHERE id = $${idParamIndex} AND user_id = $${userIdParamIndex}`, values)
+    .pipe(Effect.asVoid, Effect.orDie)
+}

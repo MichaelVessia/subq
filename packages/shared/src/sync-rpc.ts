@@ -1,7 +1,7 @@
 import { Rpc, RpcGroup } from '@effect/rpc'
 import { CliAuthRpcMiddleware } from './cli-auth-middleware.js'
 import { InvalidTokenError, LoginFailedError } from './sync-errors.js'
-import { AuthRequest, AuthResponse, PullRequest, PullResponse } from './sync-schemas.js'
+import { AuthRequest, AuthResponse, PullRequest, PullResponse, PushRequest, PushResponse } from './sync-schemas.js'
 
 // ============================================
 // Public Sync RPCs (no auth required)
@@ -23,6 +23,11 @@ export const SyncProtectedRpcs = RpcGroup.make(
   Rpc.make('SyncPull', {
     payload: PullRequest,
     success: PullResponse,
+    error: InvalidTokenError,
+  }),
+  Rpc.make('SyncPush', {
+    payload: PushRequest,
+    success: PushResponse,
     error: InvalidTokenError,
   }),
 ).middleware(CliAuthRpcMiddleware)
