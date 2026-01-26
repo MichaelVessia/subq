@@ -752,7 +752,7 @@
         ],
         "pattern": "Use Effect.gen, mock RemoteClient and LocalConfig for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

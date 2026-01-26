@@ -90,6 +90,12 @@ export class LocalConfig extends Context.Tag('@subq/local/LocalConfig')<LocalCon
 
       const getServerUrl = () =>
         Effect.gen(function* () {
+          // Check environment variable first (useful for testing)
+          const envUrl = process.env.SUBQ_API_URL
+          if (envUrl !== undefined && envUrl !== '') {
+            return envUrl
+          }
+          // Fall back to config file, then default
           const url = yield* get('server_url')
           return Option.getOrElse(url, () => DEFAULT_SERVER_URL)
         })
