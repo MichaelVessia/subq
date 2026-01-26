@@ -1026,7 +1026,7 @@
         ],
         "pattern": "Effect Atom for sync status, update from sync callbacks"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

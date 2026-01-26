@@ -16,6 +16,7 @@ import { Effect, Fiber, Layer, Option } from 'effect'
 import { App } from './app'
 import { LocalConfig, LocalDb, RemoteClient, sync, ensureSchema } from '@subq/local'
 import { SHUTDOWN_TIMEOUT, SYNC_INTERVAL } from './services/sync-lifecycle'
+import { setSyncStatus, SyncStatus } from './services/sync-status'
 import { theme } from './theme'
 
 // ============================================
@@ -54,13 +55,28 @@ const makeSyncLayer = () => {
 
 /**
  * Run a sync operation with error handling.
- * Errors are logged but don't crash the TUI.
+ * Updates sync status and logs errors but doesn't crash the TUI.
  */
 const runSyncSafe = (context: string) =>
   Effect.gen(function* () {
     yield* Effect.logInfo(`Starting ${context} sync`)
+    setSyncStatus(SyncStatus.syncing())
+
     yield* sync().pipe(
-      Effect.catchAll((error) => Effect.logWarning(`${context} sync failed: ${error._tag} - ${error.message}`)),
+      Effect.tap(() => {
+        setSyncStatus(SyncStatus.synced(new Date()))
+      }),
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          // Set appropriate status based on error type
+          if (error._tag === 'SyncNetworkError') {
+            setSyncStatus(SyncStatus.offline())
+          } else {
+            setSyncStatus(SyncStatus.error(error.message))
+          }
+          yield* Effect.logWarning(`${context} sync failed: ${error._tag} - ${error.message}`)
+        }),
+      ),
     )
     yield* Effect.logInfo(`${context} sync completed`)
   })
