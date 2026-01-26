@@ -57,6 +57,8 @@
       "name": "@subq/local",
       "version": "0.0.0",
       "dependencies": {
+        "@effect/platform": "0.92.1",
+        "@effect/platform-bun": "0.72.0",
         "@effect/sql-sqlite-bun": "0.41.0",
         "@subq/shared": "workspace:*",
         "effect": "3.18.4",

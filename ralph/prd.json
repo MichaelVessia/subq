@@ -475,7 +475,7 @@
         ],
         "pattern": "Effect.Service with FileSystem dependency, use temp dir for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {
