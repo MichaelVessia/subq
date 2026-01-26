@@ -1,5 +1,6 @@
 // Injections list view with vim keybinds
 // Reads from local SQLite database via TuiDataLayer
+// Deletes use local database with outbox for sync
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import type { InjectionLog, InjectionLogId } from '@subq/shared'
@@ -7,8 +8,7 @@ import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
 import { formatDate, pad } from '../../lib/format'
-import { rpcCall } from '../../services/api-client'
-import { useInjectionLogs } from '../../services/use-local-data'
+import { useDeleteInjectionLog, useInjectionLogs } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide the site column
@@ -37,6 +37,9 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
   const [filterText, setFilterText] = useState('')
   const [isFiltering, setIsFiltering] = useState(false)
 
+  // Local delete hook
+  const deleteInjectionLog = useDeleteInjectionLog({ onError: (msg) => onMessage(msg, 'error') })
+
   // Filter injections
   const allInjections = injections ?? []
   const filteredInjections = filterText
@@ -52,14 +55,14 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
     if (!deleteConfirm) return
 
     try {
-      await rpcCall((client) => client.InjectionLogDelete({ id: deleteConfirm.id as InjectionLogId }))
+      await deleteInjectionLog(deleteConfirm.id as InjectionLogId)
       onMessage('Injection deleted', 'success')
       setDeleteConfirm(null)
       loadInjections()
     } catch (err) {
       onMessage(`Delete failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
-  }, [deleteConfirm, loadInjections, onMessage])
+  }, [deleteConfirm, loadInjections, onMessage, deleteInjectionLog])
 
   // Vim keybinds
   useKeyboard((key) => {

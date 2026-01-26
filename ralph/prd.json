@@ -959,7 +959,7 @@
         ],
         "pattern": "Replace RPC mutations with LocalDb.writeWithOutbox, in-memory SQLite for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

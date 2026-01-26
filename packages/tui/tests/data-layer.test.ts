@@ -1,16 +1,22 @@
 /**
- * Tests for TUI Data Layer - verifies reading from local SQLite database
+ * Tests for TUI Data Layer - verifies reading and writing from local SQLite database
  *
  * These tests verify:
  * - TUI data layer reads from local DB
  * - Empty local DB returns empty lists
  * - Local data renders in expected format
+ * - TUI write layer creates local rows
+ * - TUI write layer creates outbox entries
+ * - TUI delete creates soft delete + outbox entry
  */
+import { BunContext } from '@effect/platform-bun'
 import { SqlClient } from '@effect/sql'
 import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
-import { Effect, Layer, Option } from 'effect'
+import { LocalDb } from '@subq/local'
+import { DateTime, Duration, Effect, Layer, Option, TestClock } from 'effect'
 import { TuiDataLayer } from '../src/services/data-layer.js'
+import { TuiWriteLayer } from '../src/services/write-layer.js'
 
 // ============================================
 // Test Database Setup
@@ -96,10 +102,32 @@ const setupTables = Effect.gen(function* () {
       deleted_at TEXT
     )
   `
+
+  // Sync tables for write layer tests
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS sync_outbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `
+
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS sync_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `
 })
 
 const clearTables = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
+  yield* sql`DELETE FROM sync_outbox`
+  yield* sql`DELETE FROM sync_meta`
   yield* sql`DELETE FROM schedule_phases`
   yield* sql`DELETE FROM injection_logs`
   yield* sql`DELETE FROM injection_schedules`
@@ -190,6 +218,27 @@ const makeTestLayer = () =>
     Layer.provideMerge(TuiDataLayer.layer.pipe(Layer.provideMerge(SqliteTestLayer))),
     Layer.fresh,
   )
+
+/**
+ * Create test layer for write layer tests.
+ * Includes TuiWriteLayer, LocalDb, TuiDataLayer, and TestClock.
+ */
+const makeWriteTestLayer = () => {
+  // Start with SQLite and BunContext for LocalDb initialization
+  const baseLayer = SqliteTestLayer.pipe(Layer.provideMerge(BunContext.layer))
+
+  // Build local db layer on top (needs FileSystem, Path for schema init)
+  const localDbLayer = LocalDb.layer.pipe(Layer.provideMerge(baseLayer))
+
+  // Build write layer on top of local db layer
+  const writeLayer = TuiWriteLayer.layer.pipe(Layer.provideMerge(localDbLayer))
+
+  // Build read layer on top of SQLite layer (for verification)
+  const readLayer = TuiDataLayer.layer.pipe(Layer.provideMerge(baseLayer))
+
+  // Provide TestClock for time control
+  return Layer.mergeAll(writeLayer, readLayer, localDbLayer, baseLayer, TestClock.defaultTestClock).pipe(Layer.fresh)
+}
 
 // ============================================
 // Tests
@@ -512,6 +561,499 @@ describe('TuiDataLayer', () => {
           expect(item?.status).toBe('opened')
           expect(item?.createdAt).toBeDefined()
           expect(item?.updatedAt).toBeDefined()
+        }),
+      )
+    })
+  })
+})
+
+// ============================================
+// Write Layer Tests
+// ============================================
+
+describe('TuiWriteLayer', () => {
+  describe('createWeightLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('creates local row and outbox entry', () =>
+        Effect.gen(function* () {
+          // Set test clock to known time
+          yield* TestClock.setTime(1705312800000) // 2024-01-15T10:00:00Z
+
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createWeightLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            weight: 185.5,
+            notes: Option.some('Morning measurement'),
+          })
+
+          // Verify local row was created
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listWeightLogs()
+
+          expect(logs.length).toBe(1)
+          expect(logs[0]?.id).toBe(id)
+          expect(logs[0]?.weight).toBe(185.5)
+          expect(logs[0]?.notes).toBe('Morning measurement')
+
+          // Verify outbox entry was created
+          const localDb = yield* LocalDb
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('weight_logs')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('insert')
+        }),
+      )
+    })
+  })
+
+  describe('updateWeightLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('updates local row and creates outbox entry', () =>
+        Effect.gen(function* () {
+          // Set test clock to known time
+          yield* TestClock.setTime(1705312800000) // 2024-01-15T10:00:00Z
+
+          // First create a weight log
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createWeightLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            weight: 185.5,
+            notes: Option.none(),
+          })
+
+          // Clear outbox to isolate update test
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Advance time
+          yield* TestClock.adjust(Duration.hours(1))
+
+          // Update the weight log
+          yield* writeLayer.updateWeightLog({
+            id,
+            weight: 184.0,
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T11:00:00Z')),
+            notes: Option.some('After gym'),
+          })
+
+          // Verify local row was updated
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listWeightLogs()
+
+          expect(logs.length).toBe(1)
+          expect(logs[0]?.weight).toBe(184.0)
+          expect(logs[0]?.notes).toBe('After gym')
+
+          // Verify outbox entry was created for update
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('weight_logs')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('update')
+        }),
+      )
+    })
+  })
+
+  describe('deleteWeightLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('soft deletes local row and creates outbox entry', () =>
+        Effect.gen(function* () {
+          // Set test clock to known time
+          yield* TestClock.setTime(1705312800000) // 2024-01-15T10:00:00Z
+
+          // First create a weight log
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createWeightLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            weight: 185.5,
+            notes: Option.none(),
+          })
+
+          // Clear outbox to isolate delete test
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Advance time
+          yield* TestClock.adjust(Duration.hours(1))
+
+          // Delete the weight log
+          yield* writeLayer.deleteWeightLog(id)
+
+          // Verify local row is soft deleted (not visible in list)
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listWeightLogs()
+          expect(logs.length).toBe(0)
+
+          // Verify outbox entry was created for delete
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('weight_logs')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('delete')
+        }),
+      )
+    })
+  })
+
+  describe('createInjectionLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('creates local row and outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInjectionLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            drug: 'Semaglutide',
+            dosage: '0.5mg',
+            source: Option.some('Empower'),
+            injectionSite: Option.some('Left abdomen'),
+            notes: Option.none(),
+            scheduleId: Option.none(),
+          })
+
+          // Verify local row was created
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listInjectionLogs()
+
+          expect(logs.length).toBe(1)
+          expect(logs[0]?.id).toBe(id)
+          expect(logs[0]?.drug).toBe('Semaglutide')
+          expect(logs[0]?.dosage).toBe('0.5mg')
+
+          // Verify outbox entry was created
+          const localDb = yield* LocalDb
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.operation).toBe('insert')
+        }),
+      )
+    })
+  })
+
+  describe('updateInjectionLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('updates local row and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // First create an injection log
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInjectionLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            drug: 'Semaglutide',
+            dosage: '0.5mg',
+            source: Option.none(),
+            injectionSite: Option.none(),
+            notes: Option.none(),
+            scheduleId: Option.none(),
+          })
+
+          // Clear outbox to isolate update test
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Advance time and update
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.updateInjectionLog({
+            id,
+            drug: 'Tirzepatide',
+            dosage: '2.5mg',
+            datetime: undefined,
+            source: Option.some('Empower'),
+            injectionSite: Option.some('Left abdomen'),
+            notes: Option.some('Updated notes'),
+            scheduleId: Option.none(),
+          })
+
+          // Verify local row was updated
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listInjectionLogs()
+
+          expect(logs.length).toBe(1)
+          expect(logs[0]?.drug).toBe('Tirzepatide')
+          expect(logs[0]?.dosage).toBe('2.5mg')
+          expect(logs[0]?.source).toBe('Empower')
+          expect(logs[0]?.injectionSite).toBe('Left abdomen')
+          expect(logs[0]?.notes).toBe('Updated notes')
+
+          // Verify outbox entry was created for update
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('injection_logs')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('update')
+        }),
+      )
+    })
+  })
+
+  describe('deleteInjectionLog', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('soft deletes local row and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // First create an injection log
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInjectionLog({
+            datetime: DateTime.unsafeMake(new Date('2024-01-15T10:00:00Z')),
+            drug: 'Semaglutide',
+            dosage: '0.5mg',
+            source: Option.none(),
+            injectionSite: Option.none(),
+            notes: Option.none(),
+            scheduleId: Option.none(),
+          })
+
+          // Clear outbox to isolate delete test
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Advance time and delete
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.deleteInjectionLog(id)
+
+          // Verify local row is soft deleted (not visible in list)
+          const dataLayer = yield* TuiDataLayer
+          const logs = yield* dataLayer.listInjectionLogs()
+          expect(logs.length).toBe(0)
+
+          // Verify outbox entry was created for delete
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('injection_logs')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('delete')
+        }),
+      )
+    })
+  })
+
+  describe('createInventory', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('creates local row and outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInventory({
+            drug: 'Semaglutide',
+            source: 'Empower',
+            form: 'vial',
+            totalAmount: '10mg',
+            status: 'new',
+            beyondUseDate: Option.none(),
+          })
+
+          // Verify local row was created
+          const dataLayer = yield* TuiDataLayer
+          const items = yield* dataLayer.listInventory()
+
+          expect(items.length).toBe(1)
+          expect(items[0]?.id).toBe(id)
+          expect(items[0]?.drug).toBe('Semaglutide')
+          expect(items[0]?.status).toBe('new')
+
+          // Verify outbox entry was created
+          const localDb = yield* LocalDb
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('glp1_inventory')
+          expect(outbox[0]?.operation).toBe('insert')
+        }),
+      )
+    })
+  })
+
+  describe('updateInventory', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('updates local row and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // First create an inventory item
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInventory({
+            drug: 'Semaglutide',
+            source: 'Empower',
+            form: 'vial',
+            totalAmount: '10mg',
+            status: 'new',
+            beyondUseDate: Option.none(),
+          })
+
+          // Clear outbox to isolate update test
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Advance time and update
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.updateInventory({
+            id,
+            drug: 'Tirzepatide',
+            source: 'Hallandale',
+            form: 'pen',
+            totalAmount: '5mg',
+            status: 'opened',
+            beyondUseDate: Option.some(DateTime.unsafeMake(new Date('2024-03-01'))),
+          })
+
+          // Verify local row was updated
+          const dataLayer = yield* TuiDataLayer
+          const items = yield* dataLayer.listInventory()
+
+          expect(items.length).toBe(1)
+          expect(items[0]?.drug).toBe('Tirzepatide')
+          expect(items[0]?.source).toBe('Hallandale')
+          expect(items[0]?.form).toBe('pen')
+          expect(items[0]?.totalAmount).toBe('5mg')
+          expect(items[0]?.status).toBe('opened')
+
+          // Verify outbox entry was created for update
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.table).toBe('glp1_inventory')
+          expect(outbox[0]?.id).toBe(id)
+          expect(outbox[0]?.operation).toBe('update')
+        }),
+      )
+    })
+  })
+
+  describe('markInventoryOpened', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('updates status and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // Create inventory item
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInventory({
+            drug: 'Semaglutide',
+            source: 'Empower',
+            form: 'vial',
+            totalAmount: '10mg',
+            status: 'new',
+            beyondUseDate: Option.none(),
+          })
+
+          // Clear outbox
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Mark as opened
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.markInventoryOpened(id)
+
+          // Verify status was updated
+          const dataLayer = yield* TuiDataLayer
+          const items = yield* dataLayer.listInventory()
+
+          expect(items.length).toBe(1)
+          expect(items[0]?.status).toBe('opened')
+
+          // Verify outbox entry was created
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.operation).toBe('update')
+          const payload = outbox[0]?.payload as Record<string, unknown> | undefined
+          expect(payload?.status).toBe('opened')
+        }),
+      )
+    })
+  })
+
+  describe('markInventoryFinished', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('updates status to finished and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // Create inventory item
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInventory({
+            drug: 'Semaglutide',
+            source: 'Empower',
+            form: 'vial',
+            totalAmount: '10mg',
+            status: 'opened',
+            beyondUseDate: Option.none(),
+          })
+
+          // Clear outbox
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Mark as finished
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.markInventoryFinished(id)
+
+          // Verify status was updated
+          const dataLayer = yield* TuiDataLayer
+          const items = yield* dataLayer.listInventory()
+
+          expect(items.length).toBe(1)
+          expect(items[0]?.status).toBe('finished')
+
+          // Verify outbox entry was created
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.operation).toBe('update')
+          const payload = outbox[0]?.payload as Record<string, unknown> | undefined
+          expect(payload?.status).toBe('finished')
+        }),
+      )
+    })
+  })
+
+  describe('deleteInventory', () => {
+    it.layer(makeWriteTestLayer())((it) => {
+      it.effect('soft deletes and creates outbox entry', () =>
+        Effect.gen(function* () {
+          yield* TestClock.setTime(1705312800000)
+
+          // Create inventory item
+          const writeLayer = yield* TuiWriteLayer
+          const { id } = yield* writeLayer.createInventory({
+            drug: 'Semaglutide',
+            source: 'Empower',
+            form: 'vial',
+            totalAmount: '10mg',
+            status: 'new',
+            beyondUseDate: Option.none(),
+          })
+
+          // Clear outbox
+          const localDb = yield* LocalDb
+          yield* localDb.clearOutbox([id])
+
+          // Delete inventory
+          yield* TestClock.adjust(Duration.hours(1))
+          yield* writeLayer.deleteInventory(id)
+
+          // Verify item is soft deleted (not in list)
+          const dataLayer = yield* TuiDataLayer
+          const items = yield* dataLayer.listInventory()
+          expect(items.length).toBe(0)
+
+          // Verify outbox entry was created for delete
+          const outbox = yield* localDb.getOutbox({ limit: 10 })
+
+          expect(outbox.length).toBe(1)
+          expect(outbox[0]?.operation).toBe('delete')
         }),
       )
     })

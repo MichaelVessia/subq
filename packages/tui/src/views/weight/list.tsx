@@ -1,5 +1,6 @@
 // Weight list view with vim keybinds
 // Reads from local SQLite database via TuiDataLayer
+// Deletes use local database with outbox for sync
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import type { WeightLog, WeightLogId } from '@subq/shared'
@@ -7,8 +8,7 @@ import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
 import { formatDate, pad } from '../../lib/format'
-import { rpcCall } from '../../services/api-client'
-import { useWeightLogs } from '../../services/use-local-data'
+import { useDeleteWeightLog, useWeightLogs } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide the notes column
@@ -31,6 +31,9 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
   const [deleteConfirm, setDeleteConfirm] = useState<WeightLog | null>(null)
   const [detailView, setDetailView] = useState<WeightLog | null>(null)
 
+  // Local delete hook
+  const deleteWeightLog = useDeleteWeightLog({ onError: (msg) => onMessage(msg, 'error') })
+
   const allItems = items ?? []
 
   // Handle delete
@@ -38,14 +41,14 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
     if (!deleteConfirm) return
 
     try {
-      await rpcCall((client) => client.WeightLogDelete({ id: deleteConfirm.id as WeightLogId }))
+      await deleteWeightLog(deleteConfirm.id as WeightLogId)
       onMessage('Entry deleted', 'success')
       setDeleteConfirm(null)
       loadItems()
     } catch (err) {
       onMessage(`Delete failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
-  }, [deleteConfirm, loadItems, onMessage])
+  }, [deleteConfirm, loadItems, onMessage, deleteWeightLog])
 
   // Vim keybinds
   useKeyboard((key) => {

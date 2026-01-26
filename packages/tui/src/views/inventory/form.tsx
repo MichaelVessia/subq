@@ -1,4 +1,5 @@
 // Inventory form for add/edit
+// Uses local database writes with outbox for sync
 
 import { useKeyboard } from '@opentui/react'
 import {
@@ -14,7 +15,7 @@ import {
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { useCallback, useState } from 'react'
-import { rpcCall } from '../../services/api-client'
+import { useCreateInventory, useUpdateInventory } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 interface InventoryFormProps {
@@ -40,6 +41,10 @@ export function InventoryForm({ item, onSave, onCancel, onMessage }: InventoryFo
   const [focusedField, setFocusedField] = useState<Field>('drug')
   const [saving, setSaving] = useState(false)
 
+  // Local write hooks
+  const createInventory = useCreateInventory({ onError: (msg) => onMessage(msg, 'error') })
+  const updateInventory = useUpdateInventory({ onError: (msg) => onMessage(msg, 'error') })
+
   const handleSave = useCallback(async () => {
     if (!drug || !source || !totalAmount) {
       onMessage('Drug, source, and total amount are required', 'error')
@@ -50,35 +55,31 @@ export function InventoryForm({ item, onSave, onCancel, onMessage }: InventoryFo
     try {
       if (item) {
         // Update
-        await rpcCall((client) =>
-          client.InventoryUpdate(
-            new InventoryUpdate({
-              id: item.id as InventoryId,
-              drug: drug as DrugName,
-              source: source as DrugSource,
-              form: form as InventoryFormType,
-              totalAmount: totalAmount as TotalAmount,
-              status: status as InventoryStatus,
-              beyondUseDate: beyondUseDate
-                ? Option.some(DateTime.unsafeMake(new Date(beyondUseDate)))
-                : Option.some(null),
-            }),
-          ),
+        await updateInventory(
+          new InventoryUpdate({
+            id: item.id as InventoryId,
+            drug: drug as DrugName,
+            source: source as DrugSource,
+            form: form as InventoryFormType,
+            totalAmount: totalAmount as TotalAmount,
+            status: status as InventoryStatus,
+            beyondUseDate: beyondUseDate
+              ? Option.some(DateTime.unsafeMake(new Date(beyondUseDate)))
+              : Option.some(null),
+          }),
         )
         onMessage('Inventory updated', 'success')
       } else {
         // Create
-        await rpcCall((client) =>
-          client.InventoryCreate(
-            new InventoryCreate({
-              drug: drug as DrugName,
-              source: source as DrugSource,
-              form: form as InventoryFormType,
-              totalAmount: totalAmount as TotalAmount,
-              status: status as InventoryStatus,
-              beyondUseDate: beyondUseDate ? Option.some(DateTime.unsafeMake(new Date(beyondUseDate))) : Option.none(),
-            }),
-          ),
+        await createInventory(
+          new InventoryCreate({
+            drug: drug as DrugName,
+            source: source as DrugSource,
+            form: form as InventoryFormType,
+            totalAmount: totalAmount as TotalAmount,
+            status: status as InventoryStatus,
+            beyondUseDate: beyondUseDate ? Option.some(DateTime.unsafeMake(new Date(beyondUseDate))) : Option.none(),
+          }),
         )
         onMessage('Inventory added', 'success')
       }
@@ -87,7 +88,19 @@ export function InventoryForm({ item, onSave, onCancel, onMessage }: InventoryFo
       onMessage(`Save failed: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
     }
     setSaving(false)
-  }, [drug, source, form, totalAmount, status, beyondUseDate, item, onSave, onMessage])
+  }, [
+    drug,
+    source,
+    form,
+    totalAmount,
+    status,
+    beyondUseDate,
+    item,
+    onSave,
+    onMessage,
+    createInventory,
+    updateInventory,
+  ])
 
   useKeyboard((key) => {
     if (saving) return

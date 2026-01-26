@@ -466,3 +466,13 @@
 **Story**: 5.1.0 - Refactor TUI to use local database for reads
 **Status**: complete
 ---
+
+## Iteration 35 - 2026-01-26 03:06
+**Story**: 5.2.0 - Refactor TUI to use local database for writes
+**Status**: complete
+---
+
+## Iteration 36 - 2026-01-26 03:10
+**Story**: 5.2.0 - Refactor TUI to use local database for writes
+**Status**: complete
+---
