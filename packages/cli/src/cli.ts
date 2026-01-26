@@ -3,8 +3,10 @@ import { Layer } from 'effect'
 import { loginCommand, logoutCommand } from './commands/auth/index.js'
 import { injectionCommand } from './commands/injection/index.js'
 import { inventoryCommand } from './commands/inventory/index.js'
+import { logCommand } from './commands/log.js'
 import { statusCommand } from './commands/status.js'
 import { syncCommand } from './commands/sync.js'
+import { quickWeightCommand } from './commands/weight.js'
 import { weightCommand } from './commands/weight/index.js'
 import { ApiClient } from './services/api-client.js'
 import { CliConfigService } from './services/config.js'
@@ -18,6 +20,8 @@ import { Session } from './services/session.js'
 const rootCommand = Command.make('subq').pipe(
   Command.withDescription('SubQ CLI - manage your health tracking data'),
   Command.withSubcommands([
+    logCommand,
+    quickWeightCommand,
     weightCommand,
     injectionCommand,
     inventoryCommand,

@@ -895,7 +895,7 @@
         ],
         "pattern": "Replace RPC calls with LocalDb.writeWithOutbox, use in-memory SQLite for tests"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "medium"
     },
     {

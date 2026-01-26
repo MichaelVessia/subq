@@ -456,3 +456,8 @@
 **Story**: 4.4.0 - Implement subq status command
 **Status**: complete
 ---
+
+## Iteration 33 - 2026-01-26 02:44
+**Story**: 4.5.0 - Refactor CLI to use local database
+**Status**: complete
+---

@@ -17,3 +17,10 @@ export class MissingArgumentError extends Schema.TaggedError<MissingArgumentErro
 export class InvalidSessionError extends Schema.TaggedError<InvalidSessionError>()('InvalidSessionError', {
   message: Schema.String,
 }) {}
+
+/**
+ * Error when user is not logged in
+ */
+export class NotLoggedInError extends Schema.TaggedError<NotLoggedInError>()('NotLoggedInError', {
+  message: Schema.String,
+}) {}
