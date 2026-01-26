@@ -461,3 +461,8 @@
 **Story**: 4.5.0 - Refactor CLI to use local database
 **Status**: complete
 ---
+
+## Iteration 34 - 2026-01-26 02:54
+**Story**: 5.1.0 - Refactor TUI to use local database for reads
+**Status**: complete
+---

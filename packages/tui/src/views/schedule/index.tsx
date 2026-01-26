@@ -1,13 +1,15 @@
 // Schedule view - displays injection schedules with titration phases
+// Reads from local SQLite database via TuiDataLayer
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
-import type { InjectionSchedule, SchedulePhaseView, ScheduleView as ScheduleViewType } from '@subq/shared'
+import type { InjectionSchedule, SchedulePhase } from '@subq/shared'
 import { InjectionScheduleId } from '@subq/shared'
 import { DateTime } from 'effect'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { formatDate } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
+import { useSchedules } from '../../services/use-local-data'
 import { theme, mocha } from '../../theme'
 
 // Width threshold below which we show one schedule at a time (paged view)
@@ -29,38 +31,32 @@ function formatFrequency(freq: string): string {
   return map[freq] ?? freq
 }
 
-// Calculate total duration
-function formatDuration(schedule: ScheduleViewType): string {
-  if (schedule.endDate === null) return 'Indefinite'
-  const start = DateTime.toDate(schedule.startDate)
-  const end = DateTime.toDate(schedule.endDate)
-  const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  return `${days} days total`
+// Calculate total duration from phases
+function formatDuration(schedule: InjectionSchedule): string {
+  const totalDays = schedule.phases.reduce((sum, phase) => sum + (phase.durationDays ?? 0), 0)
+  const hasIndefinitePhase = schedule.phases.some((p) => p.durationDays === null)
+  if (hasIndefinitePhase) return 'Indefinite'
+  if (totalDays === 0) return ''
+  return `${totalDays} days total`
 }
 
-// Get phase status symbol
-function getPhaseSymbol(phase: SchedulePhaseView): string {
-  if (phase.status === 'completed') return '✓'
-  if (phase.status === 'current') return `${phase.completedInjections}`
-  return '○'
+// Get phase symbol (simplified without completion status)
+function getPhaseSymbol(phase: SchedulePhase, index: number): string {
+  return `${index + 1}`
 }
 
-// Get phase status color
-function getPhaseColor(phase: SchedulePhaseView): string {
-  if (phase.status === 'completed') return mocha.green
-  if (phase.status === 'current') return mocha.blue
+// Get phase color (simplified without completion status)
+function getPhaseColor(_phase: SchedulePhase): string {
   return theme.textMuted
 }
 
-// Get phase background color
-function getPhaseBg(phase: SchedulePhaseView): string {
-  if (phase.status === 'completed') return '#2a3d2a' // dark green tint
-  if (phase.status === 'current') return '#2a2d3d' // dark blue tint
+// Get phase background color (simplified)
+function getPhaseBg(_phase: SchedulePhase): string {
   return theme.bgSurface
 }
 
 // Format phase duration
-function formatPhaseDuration(phase: SchedulePhaseView): string {
+function formatPhaseDuration(phase: SchedulePhase): string {
   if (phase.durationDays === null) return '(ongoing)'
   return `for ${phase.durationDays} days`
 }
@@ -75,47 +71,28 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
   const { width: termWidth } = useTerminalDimensions()
   const paged = termWidth < PAGED_WIDTH_THRESHOLD
 
-  const [schedules, setSchedules] = useState<readonly InjectionSchedule[]>([])
-  const [scheduleViews, setScheduleViews] = useState<Map<string, ScheduleViewType>>(new Map())
+  // Read from local database instead of RPC
+  const {
+    data: rawSchedules,
+    loading,
+    reload: loadSchedules,
+  } = useSchedules({ onError: (msg) => onMessage(msg, 'error') })
+
+  // Sort: active first, then by start date desc
+  const schedules = useMemo(() => {
+    if (!rawSchedules) return []
+    return [...rawSchedules].sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+      return DateTime.toDate(b.startDate).getTime() - DateTime.toDate(a.startDate).getTime()
+    })
+  }, [rawSchedules])
+
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<InjectionSchedule | null>(null)
   const [activateConfirm, setActivateConfirm] = useState<InjectionSchedule | null>(null)
 
-  const loadSchedules = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await rpcCall((client) => client.ScheduleList())
-      // Sort: active first, then by start date desc
-      const sorted = [...result].sort((a, b) => {
-        if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
-        return DateTime.toDate(b.startDate).getTime() - DateTime.toDate(a.startDate).getTime()
-      })
-      setSchedules(sorted)
-
-      // Load views for all schedules
-      const views = new Map<string, ScheduleViewType>()
-      for (const schedule of sorted) {
-        try {
-          const view = await rpcCall((client) => client.ScheduleGetView({ id: schedule.id as InjectionScheduleId }))
-          if (view) views.set(schedule.id, view)
-        } catch {
-          // Skip failed views
-        }
-      }
-      setScheduleViews(views)
-    } catch (err) {
-      onMessage(`Failed to load: ${err instanceof Error ? err.message : 'Unknown'}`, 'error')
-    }
-    setLoading(false)
-  }, [onMessage])
-
-  useEffect(() => {
-    loadSchedules()
-  }, [loadSchedules])
-
-  // Handle delete
+  // Handle delete (still uses RPC for writes)
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return
     try {
@@ -128,7 +105,7 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
     }
   }, [deleteConfirm, loadSchedules, onMessage])
 
-  // Handle activate
+  // Handle activate (still uses RPC for writes)
   const handleActivate = useCallback(async () => {
     if (!activateConfirm) return
     try {
@@ -215,10 +192,9 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
   }
 
   // Render a single schedule card
-  const renderScheduleCard = (schedule: InjectionSchedule, idx: number, forceExpanded = false) => {
+  const renderScheduleCard = (schedule: InjectionSchedule, idx: number) => {
     const isSelected = idx === selectedIndex
-    const isExpanded = forceExpanded || expandedId === schedule.id
-    const view = scheduleViews.get(schedule.id)
+    const isExpanded = expandedId === schedule.id
 
     return (
       <box
@@ -247,14 +223,14 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
 
         <text fg={theme.textSubtle}>
           {paged
-            ? `${formatFrequency(schedule.frequency)} · ${view ? formatDuration(view) : ''}`
-            : `Started ${formatDate(schedule.startDate)} · ${formatFrequency(schedule.frequency)}${view ? ` · ${formatDuration(view)}` : ''}`}
+            ? `${formatFrequency(schedule.frequency)} · ${formatDuration(schedule)}`
+            : `Started ${formatDate(schedule.startDate)} · ${formatFrequency(schedule.frequency)} · ${formatDuration(schedule)}`}
         </text>
 
-        {/* Phases - always show summary, expand for details */}
-        {view && (
+        {/* Phases - always show summary */}
+        {schedule.phases.length > 0 && (
           <box style={{ flexDirection: 'column', marginTop: 1 }}>
-            {view.phases.map((phase) => (
+            {schedule.phases.map((phase, phaseIdx) => (
               <box
                 key={phase.id}
                 style={{
@@ -269,7 +245,7 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
                 {/* Single text element to avoid TUI overlap bugs */}
                 <box>
                   <text fg={getPhaseColor(phase)}>
-                    {`${getPhaseSymbol(phase).padStart(2)}  ${phase.dosage}  ${formatPhaseDuration(phase)}`}
+                    {`${getPhaseSymbol(phase, phaseIdx).padStart(2)}  ${phase.dosage}  ${formatPhaseDuration(phase)}`}
                   </text>
                 </box>
               </box>
@@ -278,16 +254,13 @@ export function ScheduleView({ onMessage }: ScheduleViewProps) {
         )}
 
         {/* Expanded details - hide in paged mode to avoid overflow */}
-        {isExpanded && view && !paged && (
+        {isExpanded && !paged && (
           <box style={{ flexDirection: 'column', marginTop: 1 }}>
             <box>
               <text fg={theme.border}>{'─'.repeat(Math.min(40, termWidth - 6))}</text>
             </box>
             <box>
-              <text fg={theme.textSubtle}>
-                Progress: {view.totalCompletedInjections}
-                {view.totalExpectedInjections !== null ? ` / ${view.totalExpectedInjections}` : ' (indefinite)'}
-              </text>
+              <text fg={theme.textSubtle}>Phases: {schedule.phases.length}</text>
             </box>
             {schedule.notes && (
               <box>

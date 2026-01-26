@@ -1,13 +1,14 @@
 // Injections list view with vim keybinds
+// Reads from local SQLite database via TuiDataLayer
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
-import { InjectionLogListParams, Limit, type InjectionLog, type InjectionLogId } from '@subq/shared'
+import type { InjectionLog, InjectionLogId } from '@subq/shared'
 import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
-import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
+import { useInjectionLogs } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide the site column
@@ -23,14 +24,12 @@ export function InjectionListView({ onNew, onEdit, onMessage }: InjectionListVie
   const { width: termWidth } = useTerminalDimensions()
   const showSite = termWidth >= COMPACT_WIDTH_THRESHOLD
 
+  // Read from local database instead of RPC
   const {
     data: injections,
     loading,
     reload: loadInjections,
-  } = useAsyncData(
-    () => rpcCall((client) => client.InjectionLogList(new InjectionLogListParams({ limit: Limit.make(100) }))),
-    { onError: (msg) => onMessage(msg, 'error') },
-  )
+  } = useInjectionLogs({ onError: (msg) => onMessage(msg, 'error') })
 
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [deleteConfirm, setDeleteConfirm] = useState<InjectionLog | null>(null)

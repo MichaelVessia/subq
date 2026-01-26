@@ -1,13 +1,14 @@
 // Weight list view with vim keybinds
+// Reads from local SQLite database via TuiDataLayer
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
-import { WeightLogListParams, type WeightLog, type WeightLogId } from '@subq/shared'
+import type { WeightLog, WeightLogId } from '@subq/shared'
 import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
-import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDate, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
+import { useWeightLogs } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide the notes column
@@ -23,13 +24,8 @@ export function WeightListView({ onNew, onEdit, onMessage }: WeightListViewProps
   const { width: termWidth } = useTerminalDimensions()
   const showNotes = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const {
-    data: items,
-    loading,
-    reload: loadItems,
-  } = useAsyncData(() => rpcCall((client) => client.WeightLogList(new WeightLogListParams({}))), {
-    onError: (msg) => onMessage(msg, 'error'),
-  })
+  // Read from local database instead of RPC
+  const { data: items, loading, reload: loadItems } = useWeightLogs({ onError: (msg) => onMessage(msg, 'error') })
 
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [deleteConfirm, setDeleteConfirm] = useState<WeightLog | null>(null)

@@ -1,4 +1,5 @@
 // Injection form for add/edit
+// Uses local database for suggestions, RPC for writes
 
 import { useKeyboard } from '@opentui/react'
 import {
@@ -13,8 +14,9 @@ import {
   type Notes,
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { rpcCall } from '../../services/api-client'
+import { useDistinctDrugs, useDistinctSites } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 interface InjectionFormProps {
@@ -42,19 +44,9 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
   const [focusedField, setFocusedField] = useState<Field>('drug')
   const [saving, setSaving] = useState(false)
 
-  // Load suggestions
-  const [drugSuggestions, setDrugSuggestions] = useState<string[]>([])
-  const [siteSuggestions, setSiteSuggestions] = useState<string[]>([])
-
-  useEffect(() => {
-    // Load drug and site suggestions
-    rpcCall((client) => client.InjectionLogGetDrugs())
-      .then((drugs) => setDrugSuggestions([...drugs]))
-      .catch(() => {})
-    rpcCall((client) => client.InjectionLogGetSites())
-      .then((sites) => setSiteSuggestions([...sites]))
-      .catch(() => {})
-  }, [])
+  // Load suggestions from local database
+  const { data: drugSuggestions } = useDistinctDrugs()
+  const { data: siteSuggestions } = useDistinctSites()
 
   const handleSave = useCallback(async () => {
     if (!drug || !dosage) {
@@ -159,7 +151,7 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
           'Drug *',
           drug,
           setDrug,
-          drugSuggestions.length > 0 ? `e.g., ${drugSuggestions[0]}` : 'e.g., Semaglutide',
+          drugSuggestions && drugSuggestions.length > 0 ? `e.g., ${drugSuggestions[0]}` : 'e.g., Semaglutide',
         )}
         {renderField('dosage', 'Dosage *', dosage, setDosage, 'e.g., 0.5mg')}
         {renderField('date', 'Date', date, setDate, 'YYYY-MM-DD')}
@@ -168,7 +160,7 @@ export function InjectionForm({ injection, onSave, onCancel, onMessage }: Inject
           'Site',
           site,
           setSite,
-          siteSuggestions.length > 0 ? `e.g., ${siteSuggestions[0]}` : 'e.g., left abdomen',
+          siteSuggestions && siteSuggestions.length > 0 ? `e.g., ${siteSuggestions[0]}` : 'e.g., left abdomen',
         )}
         {renderField('source', 'Source', source, setSource, 'e.g., Pharmacy name')}
         {renderField('notes', 'Notes', notes, setNotes, 'Optional notes...')}

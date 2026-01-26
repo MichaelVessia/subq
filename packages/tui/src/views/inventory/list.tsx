@@ -1,13 +1,14 @@
 // Inventory list view with vim keybinds
+// Reads from local SQLite database via TuiDataLayer
 
 import { useKeyboard, useTerminalDimensions } from '@opentui/react'
-import { InventoryListParams, type Inventory, type InventoryId } from '@subq/shared'
+import type { Inventory, InventoryId } from '@subq/shared'
 import { useCallback, useState } from 'react'
 import { ConfirmModal } from '../../components/confirm-modal'
 import { DetailModal } from '../../components/detail-modal'
-import { useAsyncData } from '../../hooks/use-async-data'
 import { formatDateOrDash, pad } from '../../lib/format'
 import { rpcCall } from '../../services/api-client'
+import { useInventory } from '../../services/use-local-data'
 import { theme } from '../../theme'
 
 // Width threshold below which we hide secondary columns (source, form, expiry)
@@ -23,13 +24,8 @@ export function InventoryListView({ onNew, onEdit, onMessage }: InventoryListVie
   const { width: termWidth } = useTerminalDimensions()
   const showExtras = termWidth >= COMPACT_WIDTH_THRESHOLD
 
-  const {
-    data: items,
-    loading,
-    reload: loadItems,
-  } = useAsyncData(() => rpcCall((client) => client.InventoryList(new InventoryListParams({}))), {
-    onError: (msg) => onMessage(msg, 'error'),
-  })
+  // Read from local database instead of RPC
+  const { data: items, loading, reload: loadItems } = useInventory({}, { onError: (msg) => onMessage(msg, 'error') })
 
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [deleteConfirm, setDeleteConfirm] = useState<Inventory | null>(null)
