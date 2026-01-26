@@ -434,7 +434,7 @@
         ],
         "pattern": "Follow packages/shared structure"
       },
-      "status": "pending",
+      "status": "complete",
       "estimated_complexity": "small"
     },
     {

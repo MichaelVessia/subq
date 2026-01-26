@@ -53,6 +53,19 @@
         "typescript": "^5.6.2",
       },
     },
+    "packages/local": {
+      "name": "@subq/local",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/sql-sqlite-bun": "0.41.0",
+        "@subq/shared": "workspace:*",
+        "effect": "3.18.4",
+      },
+      "devDependencies": {
+        "@codeforbreakfast/bun-test-effect": "^0.4.1",
+        "typescript": "^5.6.2",
+      },
+    },
     "packages/shared": {
       "name": "@subq/shared",
       "version": "0.0.0",
@@ -612,6 +625,8 @@
     "@subq/api": ["@subq/api@workspace:packages/api"],
 
     "@subq/cli": ["@subq/cli@workspace:packages/cli"],
+
+    "@subq/local": ["@subq/local@workspace:packages/local"],
 
     "@subq/shared": ["@subq/shared@workspace:packages/shared"],
 
@@ -1356,6 +1371,8 @@
     "@parcel/watcher/detect-libc": ["detect-libc@1.0.3", "", { "bin": { "detect-libc": "./bin/detect-libc.js" } }, "sha512-pGjwhsmsp4kL2RTz08wcOlGN83otlqHeD/Z5T8GXZB+/YcpQ/dgo+lbU8ZsGxV0HIvqqxo9l7mqYwyYMD9bKDg=="],
 
     "@reduxjs/toolkit/immer": ["immer@11.0.1", "", {}, "sha512-naDCyggtcBWANtIrjQEajhhBEuL9b0Zg4zmlWK2CzS6xCWSE39/vvf4LqnMjUAWHBhot4m9MHCM/Z+mfWhUkiA=="],
+
+    "@subq/local/@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@0.41.0", "", { "dependencies": { "@opentelemetry/semantic-conventions": "^1.33.0" }, "peerDependencies": { "@effect/experimental": "^0.51.0", "@effect/platform": "^0.87.0", "@effect/sql": "^0.40.0", "effect": "^3.16.9" } }, "sha512-DFztaxrMlX8W4TGdxt9TPRSyhi69U/9RFJGUpL+MIrHD7ECY3o/oc5J3PU42uq8kfE+Wgn8aTbdWY+Rd8X/s9w=="],
 
     "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.7.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" }, "bundled": true }, "sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg=="],
 

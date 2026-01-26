@@ -41,12 +41,12 @@ const WeightStatsRow = Schema.Struct({
 })
 const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
 
-// Schema for parsing points from JSON
+// Schema for parsing points from JSON string
 const WeightPointJson = Schema.Struct({
   datetime: Schema.String,
   weight: Schema.Number,
 })
-const decodeWeightPointsJson = Schema.decodeUnknown(Schema.Array(WeightPointJson))
+const decodeWeightPointsJson = Schema.decodeUnknown(Schema.parseJson(Schema.Array(WeightPointJson)))
 
 // Weight trend row schema - Schema.Date decodes ISO8601 string to Date
 const WeightTrendRow = Schema.Struct({
@@ -248,7 +248,7 @@ export const StatsServiceLive = Layer.effect(
         }
 
         // Parse points from JSON
-        const pointsRaw = yield* decodeWeightPointsJson(JSON.parse(decoded.points_json))
+        const pointsRaw = yield* decodeWeightPointsJson(decoded.points_json)
         const points: { date: Date; weight: number }[] = pointsRaw.map((p) => ({
           date: new Date(p.datetime),
           weight: p.weight,

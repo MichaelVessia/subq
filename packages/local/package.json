@@ -1,0 +1,22 @@
+{
+  "name": "@subq/local",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/sql-sqlite-bun": "0.41.0",
+    "@subq/shared": "workspace:*",
+    "effect": "3.18.4"
+  },
+  "devDependencies": {
+    "@codeforbreakfast/bun-test-effect": "^0.4.1",
+    "typescript": "^5.6.2"
+  }
+}

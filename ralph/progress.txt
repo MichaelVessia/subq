@@ -396,3 +396,8 @@
 **Story**: 2.6.0 - Implement /sync/push endpoint
 **Status**: complete
 ---
+
+## Iteration 21 - 2026-01-26 01:26
+**Story**: 3.1.0 - Create @subq/local package structure
+**Status**: complete
+---
