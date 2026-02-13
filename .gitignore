@@ -32,3 +32,5 @@ packages/web/test-results/
 .tmp
 prod.db
 result
+.sidecar/
+.todos/
