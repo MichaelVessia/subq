@@ -3,7 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { loginTestUser, logout, runCli, runCliJson } from './helpers/cli-runner.js'
+import { loginTestUser, logout, runCli, runCliJson, type CliResult } from './helpers/cli-runner.js'
 
 // Test configuration
 const TEST_PORT = 3002
@@ -26,6 +26,31 @@ const testEnv = {
   DATABASE_PATH: TEST_DB_PATH,
   BETTER_AUTH_SECRET: 'test-secret-for-cli-integration-tests-min-32-chars',
   BETTER_AUTH_URL: `http://localhost:${TEST_PORT}`,
+}
+
+const createCliContext = (homeName: string) => {
+  const home = join(TEST_HOME, homeName)
+  return {
+    home,
+    run: (args: string[]) => runCli(args, { home }),
+    runJson: <T>(args: string[]) => runCliJson<T>(args, { home }),
+    login: () => loginTestUser({ home }),
+    logout: () => logout({ home }),
+  }
+}
+
+const authCli = createCliContext('auth')
+const weightCli = createCliContext('weight')
+const injectionCli = createCliContext('injection')
+const inventoryCli = createCliContext('inventory')
+const helpCli = createCliContext('help')
+const unauthCli = createCliContext('unauthenticated')
+
+async function requireLogin(scope: string, login: () => Promise<CliResult>): Promise<void> {
+  const result = await login()
+  if (result.exitCode !== 0) {
+    throw new Error(`Login failed in ${scope}: ${result.stderr || result.stdout}`)
+  }
 }
 
 let serverProcess: ChildProcess | null = null
@@ -85,7 +110,15 @@ async function startServer(): Promise<void> {
   console.log(`  API_DIR: ${API_DIR}`)
   console.log(`  DATABASE_PATH: ${TEST_DB_PATH}`)
 
-  await mkdir(TEST_HOME, { recursive: true })
+  await Promise.all([
+    mkdir(TEST_HOME, { recursive: true }),
+    mkdir(authCli.home, { recursive: true }),
+    mkdir(weightCli.home, { recursive: true }),
+    mkdir(injectionCli.home, { recursive: true }),
+    mkdir(inventoryCli.home, { recursive: true }),
+    mkdir(helpCli.home, { recursive: true }),
+    mkdir(unauthCli.home, { recursive: true }),
+  ])
 
   // Write test environment for CLI runner
   const envFile = join(PROJECT_ROOT, '.tmp/cli-test-env.json')
@@ -161,6 +194,10 @@ describe('CLI Integration Tests', () => {
   }, 10000)
 
   describe('Auth Commands', () => {
+    const runCli = authCli.run
+    const loginTestUser = authCli.login
+    const logout = authCli.logout
+
     afterAll(async () => {
       await logout()
     })
@@ -190,8 +227,13 @@ describe('CLI Integration Tests', () => {
   })
 
   describe('Weight Commands', () => {
+    const runCli = weightCli.run
+    const runCliJson = weightCli.runJson
+    const loginTestUser = weightCli.login
+    const logout = weightCli.logout
+
     beforeAll(async () => {
-      await loginTestUser()
+      await requireLogin('Weight Commands', loginTestUser)
     })
 
     afterAll(async () => {
@@ -297,8 +339,13 @@ describe('CLI Integration Tests', () => {
   })
 
   describe('Injection Commands', () => {
+    const runCli = injectionCli.run
+    const runCliJson = injectionCli.runJson
+    const loginTestUser = injectionCli.login
+    const logout = injectionCli.logout
+
     beforeAll(async () => {
-      await loginTestUser()
+      await requireLogin('Injection Commands', loginTestUser)
     })
 
     afterAll(async () => {
@@ -418,8 +465,13 @@ describe('CLI Integration Tests', () => {
   })
 
   describe('Inventory Commands', () => {
+    const runCli = inventoryCli.run
+    const runCliJson = inventoryCli.runJson
+    const loginTestUser = inventoryCli.login
+    const logout = inventoryCli.logout
+
     beforeAll(async () => {
-      await loginTestUser()
+      await requireLogin('Inventory Commands', loginTestUser)
     })
 
     afterAll(async () => {
@@ -541,6 +593,8 @@ describe('CLI Integration Tests', () => {
   })
 
   describe('Help and Version', () => {
+    const runCli = helpCli.run
+
     it('--help shows usage', async () => {
       const result = await runCli(['--help'])
       expect(result.exitCode).toBe(0)
@@ -592,6 +646,9 @@ describe('CLI Integration Tests', () => {
   })
 
   describe('Unauthenticated Access', () => {
+    const runCli = unauthCli.run
+    const logout = unauthCli.logout
+
     beforeAll(async () => {
       await logout()
     })

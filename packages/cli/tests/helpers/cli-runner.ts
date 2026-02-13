@@ -9,6 +9,10 @@ export interface CliResult {
   exitCode: number
 }
 
+export interface RunCliOptions {
+  readonly home?: string
+}
+
 // Load test environment from file written by global setup
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = join(__dirname, '../../../..')
@@ -23,7 +27,7 @@ async function getTestEnv(): Promise<Record<string, string>> {
 /**
  * Run a CLI command and capture output
  */
-export async function runCli(args: string[]): Promise<CliResult> {
+export async function runCli(args: string[], options: RunCliOptions = {}): Promise<CliResult> {
   const testEnv = await getTestEnv()
 
   return new Promise((resolve, reject) => {
@@ -31,7 +35,7 @@ export async function runCli(args: string[]): Promise<CliResult> {
       env: {
         ...process.env,
         SUBQ_API_URL: testEnv.SUBQ_API_URL,
-        HOME: testEnv.HOME,
+        HOME: options.home ?? testEnv.HOME,
         // Disable color output for easier parsing
         NO_COLOR: '1',
         FORCE_COLOR: '0',
@@ -67,7 +71,7 @@ export async function runCli(args: string[]): Promise<CliResult> {
  * Automatically adds --format json if not already present.
  * Inserts it after the subcommand but before any positional arguments.
  */
-export async function runCliJson<T>(args: string[]): Promise<T> {
+export async function runCliJson<T>(args: string[], options: RunCliOptions = {}): Promise<T> {
   // Add --format json if not already present
   const hasFormat = args.some((arg) => arg === '--format' || arg === '-f')
 
@@ -97,7 +101,7 @@ export async function runCliJson<T>(args: string[]): Promise<T> {
     argsWithFormat = [...args.slice(0, insertIdx), '--format', 'json', ...args.slice(insertIdx)]
   }
 
-  const result = await runCli(argsWithFormat)
+  const result = await runCli(argsWithFormat, options)
   if (result.exitCode !== 0) {
     throw new Error(`CLI exited with code ${result.exitCode}: ${result.stderr || result.stdout}`)
   }
@@ -111,13 +115,13 @@ export async function runCliJson<T>(args: string[]): Promise<T> {
 /**
  * Login with test user credentials
  */
-export async function loginTestUser(): Promise<CliResult> {
-  return runCli(['login', '--email', 'cli-test@example.com', '--password', 'testpassword123'])
+export async function loginTestUser(options: RunCliOptions = {}): Promise<CliResult> {
+  return runCli(['login', '--email', 'cli-test@example.com', '--password', 'testpassword123'], options)
 }
 
 /**
  * Logout current session
  */
-export async function logout(): Promise<CliResult> {
-  return runCli(['logout'])
+export async function logout(options: RunCliOptions = {}): Promise<CliResult> {
+  return runCli(['logout'], options)
 }
