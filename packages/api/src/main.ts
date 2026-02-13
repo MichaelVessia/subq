@@ -1,7 +1,12 @@
 import { FileSystem, HttpMiddleware, HttpRouter, HttpServerRequest, HttpServerResponse, Path } from '@effect/platform'
 import { BunContext, BunHttpServer, BunRuntime } from '@effect/platform-bun'
 import { RpcSerialization, RpcServer } from '@effect/rpc'
-import { AppRpcs } from '@subq/shared'
+import {
+  AppRpcs,
+  SESSION_COOKIE_CACHE_MAX_AGE_SECONDS,
+  SESSION_EXPIRES_IN_SECONDS,
+  SESSION_UPDATE_AGE_SECONDS,
+} from '@subq/shared'
 import { bearer } from 'better-auth/plugins'
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
@@ -77,12 +82,12 @@ const AuthLive = Layer.unwrapEffect(
         enabled: true,
       },
       session: {
-        expiresIn: 60 * 60 * 24 * 30, // 30 days
-        updateAge: 60 * 60 * 24, // Refresh if session older than 1 day
+        expiresIn: SESSION_EXPIRES_IN_SECONDS,
+        updateAge: SESSION_UPDATE_AGE_SECONDS,
         // Cache session in signed cookie to avoid DB lookup on every request
         cookieCache: {
           enabled: true,
-          maxAge: 60 * 5, // 5 minutes
+          maxAge: SESSION_COOKIE_CACHE_MAX_AGE_SECONDS,
         },
       },
       advanced: {

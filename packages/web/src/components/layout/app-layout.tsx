@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
+import { SESSION_REFRESH_INTERVAL_MS } from '@subq/shared'
 import { Settings } from 'lucide-react'
 import { type ReactNode, useEffect, useRef } from 'react'
 import { signOut, useSession } from '../../auth.js'
@@ -44,7 +45,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // This hits /api/auth/get-session which returns Set-Cookie headers
   useEffect(() => {
     if (!session) return
-    const interval = setInterval(() => refetch(), 5 * 60 * 1000) // 5 minutes
+    const interval = setInterval(() => refetch(), SESSION_REFRESH_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [session, refetch])
 
