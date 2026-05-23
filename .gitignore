@@ -33,7 +33,6 @@ packages/web/test-results/
 prod.db
 result
 .sidecar/
-.todos/
 .grove/
 .scratch/
 .fallow/
@@ -46,4 +45,3 @@ result
 .sidecar-pr
 .sidecar-start.sh
 .sidecar-base
-.td-root
