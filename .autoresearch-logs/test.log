@@ -1,0 +1,171 @@
+$ bun test packages/api/tests
+bun test v1.3.5 (1e86cebd)
+
+packages/api/tests/property-tests.test.ts:
+(pass) Branded Type Property Tests > Weight > accepts any positive number (property test) [56.00ms]
+(pass) Branded Type Property Tests > Weight > rejects zero [17.00ms]
+(pass) Branded Type Property Tests > Weight > rejects negative numbers [29.00ms]
+(pass) Branded Type Property Tests > Limit > accepts any positive integer (property test) [25.00ms]
+(pass) Branded Type Property Tests > Limit > rejects zero [14.00ms]
+(pass) Branded Type Property Tests > Limit > rejects negative integers [10.00ms]
+(pass) Branded Type Property Tests > Limit > rejects non-integers [8.00ms]
+(pass) Branded Type Property Tests > Offset > accepts any non-negative integer (property test) [7.00ms]
+(pass) Branded Type Property Tests > Offset > accepts zero [11.00ms]
+(pass) Branded Type Property Tests > Offset > rejects negative integers [5.00ms]
+(pass) Branded Type Property Tests > Offset > rejects non-integers [4.00ms]
+(pass) Branded Type Property Tests > Count > accepts any non-negative integer (property test) [5.00ms]
+(pass) Branded Type Property Tests > Count > accepts zero [3.00ms]
+(pass) Branded Type Property Tests > Count > rejects negative integers [3.00ms]
+(pass) Branded Type Property Tests > DaysBetween > accepts any non-negative number (property test) [4.00ms]
+(pass) Branded Type Property Tests > DaysBetween > accepts zero [3.00ms]
+(pass) Branded Type Property Tests > DaysBetween > accepts fractional days [3.00ms]
+(pass) Branded Type Property Tests > DaysBetween > rejects negative numbers [4.00ms]
+(pass) Branded Type Property Tests > DayOfWeek > accepts integers 0-6 (property test) [11.00ms]
+(pass) Branded Type Property Tests > DayOfWeek > rejects 7 [6.00ms]
+(pass) Branded Type Property Tests > DayOfWeek > rejects negative [7.00ms]
+(pass) Branded Type Property Tests > PhaseOrder > accepts any positive integer (property test) [7.00ms]
+(pass) Branded Type Property Tests > PhaseOrder > rejects zero [6.00ms]
+(pass) Branded Type Property Tests > PhaseOrder > rejects negative integers [4.00ms]
+(pass) Branded Type Property Tests > PhaseDurationDays > accepts any positive integer (property test) [3.00ms]
+(pass) Branded Type Property Tests > PhaseDurationDays > rejects zero [3.00ms]
+(pass) Branded Type Property Tests > PhaseDurationDays > rejects negative integers [3.00ms]
+(pass) Branded Type Property Tests > InjectionsPerWeek > accepts any non-negative number (property test) [4.00ms]
+(pass) Branded Type Property Tests > InjectionsPerWeek > accepts zero [4.00ms]
+(pass) Branded Type Property Tests > InjectionsPerWeek > accepts fractional values [7.00ms]
+(pass) Branded Type Property Tests > InjectionsPerWeek > rejects negative numbers [3.00ms]
+(pass) frequencyToDays Property Tests > returns positive integers for all frequency variants (property test) [7.00ms]
+(pass) frequencyToDays Property Tests > daily returns 1 [6.00ms]
+(pass) frequencyToDays Property Tests > every_3_days returns 3 [7.00ms]
+(pass) frequencyToDays Property Tests > weekly returns 7 [4.00ms]
+(pass) frequencyToDays Property Tests > every_2_weeks returns 14 [3.00ms]
+(pass) frequencyToDays Property Tests > monthly returns 30 [3.00ms]
+(pass) frequencyToDays Property Tests > all variants map to correct day counts (property test) [4.00ms]
+(pass) frequencyToDays Property Tests > unknown frequency defaults to 7 [3.00ms]
+
+packages/api/tests/schedule-rpc-handlers.test.ts:
+
+packages/api/tests/stats-service.test.ts:
+(pass) StatsService > getWeightStats > returns null when no data [3.00ms]
+(pass) StatsService > getWeightStats > calculates weight stats correctly [3.00ms]
+(pass) StatsService > getWeightStats > only includes data for the specified user [2.00ms]
+(pass) StatsService > getWeightTrend > returns trend points sorted by date [4.00ms]
+(pass) StatsService > getInjectionSiteStats > groups injection sites correctly [3.00ms]
+(pass) StatsService > getDosageHistory > extracts dosage values from strings [3.00ms]
+(pass) StatsService > getInjectionFrequency > returns null when no data [5.00ms]
+(pass) StatsService > getInjectionFrequency > calculates frequency stats correctly [40.00ms]
+(pass) StatsService > getDrugBreakdown > groups drugs correctly [5.00ms]
+(pass) StatsService > getInjectionByDayOfWeek > groups by day of week correctly in UTC [7.00ms]
+(pass) StatsService > getInjectionByDayOfWeek > respects timezone parameter for day of week calculation [9.00ms]
+(pass) StatsService > getInjectionFrequency timezone handling > respects timezone for most frequent day of week [5.00ms]
+
+packages/api/tests/goal-repo.test.ts:
+(pass) GoalRepo > create > creates a goal [3.00ms]
+(pass) GoalRepo > update > updates a goal with apostrophe in notes (SQL injection safe) [3.00ms]
+(pass) GoalRepo > update > updates goal weight [2.00ms]
+(pass) GoalRepo > update > handles null values correctly [2.00ms]
+(pass) GoalRepo > update > deactivates other goals when activating [4.00ms]
+
+packages/api/tests/auth-session-config.test.ts:
+(pass) auth session timing config > refreshes session before cookie cache expires
+(pass) auth session timing config > cookie cache max age is shorter than session lifetime
+(pass) auth session timing config > session update age is shorter than session lifetime
+
+packages/api/tests/weight-log-repo.test.ts:
+(pass) WeightLogRepo > create > creates a weight log entry with all fields [2.00ms]
+(pass) WeightLogRepo > create > creates a weight log entry without notes [1.00ms]
+(pass) WeightLogRepo > findById > finds existing entry by id [2.00ms]
+(pass) WeightLogRepo > findById > returns none for non-existent id [1.00ms]
+(pass) WeightLogRepo > findById > does not find entry belonging to different user [1.00ms]
+(pass) WeightLogRepo > list > lists weight logs with pagination [5.00ms]
+(pass) WeightLogRepo > list > filters by date range [4.00ms]
+(pass) WeightLogRepo > list > only returns entries for the specified user [5.00ms]
+(pass) WeightLogRepo > update > updates weight and notes [3.00ms]
+(pass) WeightLogRepo > update > fails for non-existent entry [1.00ms]
+(pass) WeightLogRepo > update > cannot update entry belonging to different user [1.00ms]
+(pass) WeightLogRepo > delete > deletes existing entry [2.00ms]
+(pass) WeightLogRepo > delete > returns false for non-existent entry
+(pass) WeightLogRepo > delete > cannot delete entry belonging to different user [1.00ms]
+
+packages/api/tests/inventory-repo.test.ts:
+(pass) InventoryRepo > create > creates inventory item with all fields [3.00ms]
+(pass) InventoryRepo > create > creates inventory item without beyondUseDate [3.00ms]
+(pass) InventoryRepo > findById > finds existing item [4.00ms]
+(pass) InventoryRepo > findById > returns none for non-existent id [2.00ms]
+(pass) InventoryRepo > findById > does not find item belonging to different user [2.00ms]
+(pass) InventoryRepo > list > lists all items for user [3.00ms]
+(pass) InventoryRepo > list > filters by status [2.00ms]
+(pass) InventoryRepo > list > filters by drug [1.00ms]
+(pass) InventoryRepo > list > only returns items for the specified user [1.00ms]
+(pass) InventoryRepo > update > updates inventory fields [3.00ms]
+(pass) InventoryRepo > update > fails for non-existent item [1.00ms]
+(pass) InventoryRepo > update > cannot update item belonging to different user [1.00ms]
+(pass) InventoryRepo > delete > deletes existing item [2.00ms]
+(pass) InventoryRepo > delete > returns false for non-existent item [1.00ms]
+(pass) InventoryRepo > delete > cannot delete item belonging to different user
+(pass) InventoryRepo > markOpened > marks item as opened [1.00ms]
+(pass) InventoryRepo > markOpened > fails for non-existent item [1.00ms]
+(pass) InventoryRepo > markOpened > cannot mark item belonging to different user [1.00ms]
+(pass) InventoryRepo > markFinished > marks item as finished [2.00ms]
+(pass) InventoryRepo > markFinished > fails for non-existent item [1.00ms]
+(pass) InventoryRepo > markFinished > cannot mark item belonging to different user [1.00ms]
+(pass) InventoryRepo > inventory lifecycle > tracks full lifecycle: new -> opened -> finished [2.00ms]
+
+packages/api/tests/data-export-service.test.ts:
+(pass) DataExportService > exportData > exports empty data when user has no records [3.00ms]
+(pass) DataExportService > exportData > exports weight logs for user [2.00ms]
+(pass) DataExportService > exportData > exports user settings [1.00ms]
+(pass) DataExportService > importData > imports data and clears existing [5.00ms]
+(pass) DataExportService > importData > preserves other user data during import [2.00ms]
+
+packages/api/tests/injection-log-repo.test.ts:
+(pass) InjectionLogRepo > create > creates an injection log with all fields [1.00ms]
+(pass) InjectionLogRepo > create > creates an injection log with minimal fields [1.00ms]
+(pass) InjectionLogRepo > findById > finds existing entry by id [2.00ms]
+(pass) InjectionLogRepo > findById > returns none for non-existent id [1.00ms]
+(pass) InjectionLogRepo > findById > does not find entry belonging to different user [1.00ms]
+(pass) InjectionLogRepo > list > lists injection logs with pagination [3.00ms]
+(pass) InjectionLogRepo > list > filters by drug [2.00ms]
+(pass) InjectionLogRepo > list > filters by date range [2.00ms]
+(pass) InjectionLogRepo > list > only returns entries for the specified user [1.00ms]
+(pass) InjectionLogRepo > update > updates injection log fields [2.00ms]
+(pass) InjectionLogRepo > update > fails for non-existent entry
+(pass) InjectionLogRepo > update > cannot update entry belonging to different user [1.00ms]
+(pass) InjectionLogRepo > delete > deletes existing entry [2.00ms]
+(pass) InjectionLogRepo > delete > returns false for non-existent entry
+(pass) InjectionLogRepo > delete > cannot delete entry belonging to different user [1.00ms]
+(pass) InjectionLogRepo > getUniqueDrugs > returns unique drug names for user [1.00ms]
+(pass) InjectionLogRepo > getUniqueSites > returns unique injection sites for user [1.00ms]
+(pass) InjectionLogRepo > getLastSite > returns most recent injection site [1.00ms]
+(pass) InjectionLogRepo > getLastSite > returns null when no injections exist [1.00ms]
+(pass) InjectionLogRepo > listBySchedule > returns injections for a specific schedule [2.00ms]
+(pass) InjectionLogRepo > bulkAssignSchedule > assigns schedule to multiple injections [2.00ms]
+(pass) InjectionLogRepo > bulkAssignSchedule > does not assign injections belonging to different user [1.00ms]
+
+packages/api/tests/schedule-repo.test.ts:
+(pass) ScheduleRepo > create > creates a schedule with phases [3.00ms]
+(pass) ScheduleRepo > create > deactivates existing schedules when creating new one [2.00ms]
+(pass) ScheduleRepo > getActive > returns none when no active schedule [1.00ms]
+(pass) ScheduleRepo > getActive > returns the active schedule [1.00ms]
+(pass) ScheduleRepo > getActive > only returns active schedule for the specified user
+(pass) ScheduleRepo > findById > returns none for non-existent id [1.00ms]
+(pass) ScheduleRepo > findById > finds schedule by id with phases [2.00ms]
+(pass) ScheduleRepo > findById > does not find schedule belonging to different user [1.00ms]
+(pass) ScheduleRepo > update > updates schedule fields [3.00ms]
+(pass) ScheduleRepo > update > updates phases when provided [2.00ms]
+(pass) ScheduleRepo > update > activating schedule deactivates others [3.00ms]
+(pass) ScheduleRepo > update > fails for non-existent schedule
+(pass) ScheduleRepo > update > cannot update schedule belonging to different user [1.00ms]
+(pass) ScheduleRepo > delete > deletes existing schedule [2.00ms]
+(pass) ScheduleRepo > delete > returns false for non-existent schedule [1.00ms]
+(pass) ScheduleRepo > delete > cannot delete schedule belonging to different user
+(pass) ScheduleRepo > getLastInjectionDate > returns none when no injections exist [1.00ms]
+(pass) ScheduleRepo > getLastInjectionDate > returns most recent injection date for drug [1.00ms]
+(pass) ScheduleRepo > getLastInjectionDate > only considers injections for the specified user [1.00ms]
+(pass) ScheduleRepo > list > returns schedules sorted by start date descending [4.00ms]
+(pass) ScheduleRepo > list > only returns schedules for the specified user [1.00ms]
+(pass) ScheduleRepo > list > includes phases with schedules [1.00ms]
+
+ 144 pass
+ 0 fail
+ 284 expect() calls
+Ran 144 tests across 10 files. [1.91s]

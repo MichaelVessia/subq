@@ -1,0 +1,3 @@
+$ oxlint packages/
+Found 0 warnings and 0 errors.
+Finished in 40ms on 163 files using 16 threads.

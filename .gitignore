@@ -35,6 +35,9 @@ result
 .sidecar/
 .todos/
 .grove/
+.scratch/
+.fallow/
+.lefthook-local.yml
 
 # Sidecar worktree state files
 .sidecar-agent
