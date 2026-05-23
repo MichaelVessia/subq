@@ -25,7 +25,7 @@ The script runs real checks/gates and prints `METRIC failing_checks=<n>`. It mus
 ## Files in Scope
 
 - `package.json`, `bun.lock` — dependency/tooling migration and scripts.
-- `tsconfig*.json`, package tsconfigs — Effect v4 / tsgo / language-service settings.
+- `tsconfig*.json`, package tsconfigs — Effect v4 / tsgo settings.
 - `packages/**` — code/test migration from Effect v3 to v4.
 - `scripts/**` — validate runner, hooks, repo automation workspace if needed.
 - `rules/**`, `rule-tests/**`, `sgconfig.yml` — ast-grep rules and tests.

@@ -8,8 +8,7 @@ Target context: `subq` currently uses Effect 3 (`effect@3.18.4`), Bun's native t
 | Area | floai source | What to copy | subq adaptation notes | Priority |
 | --- | --- | --- | --- | --- |
 | Vendored Effect reference | `repos/effect-smol/`, `package.json` `vendor:update:effect-smol`, `AGENTS.md` Effect section | Use `effect-smol` as read-only API/source reference; tell agents to start at `repos/effect-smol/LLMS.md`, `ai-docs/`, then source. | subq already has `repos/effect`/`repos/effect-atom` subtrees. Either add `repos/effect-smol` or replace old Effect subtree. Add refresh script + editor excludes + “do not import from repos” guidance. | P0 |
-| Effect v4 toolchain | `package.json`, `tsconfig.base.json` | `effect@^4 beta`, matching `@effect/*@4 beta`, `@effect/language-service`, `@effect/tsgo`, `@typescript/native-preview`, `postinstall: effect-language-service patch && effect-tsgo patch`, `tsgo --noEmit`. | Migration is invasive: api/shared/web packages depend on Effect 3 platform/rpc/sql packages. Do after reference + tests are ready. | P0/P1 |
-| Effect language-service strictness | `tsconfig.base.json` plugin config | Turn nearly all Effect diagnostics into `error`: floating effects, missing error/context, global `Date`/`fetch`/`process.env`, unsafe assertions, service pattern issues, etc. | Current subq only warns one diagnostic. Copy gradually; some web/browser code needs scoped overrides. | P1 |
+| Effect v4 toolchain | `package.json`, `tsconfig.base.json` | `effect@^4 beta`, matching `@effect/*@4 beta`, `@effect/tsgo`, `@typescript/native-preview`, `postinstall: effect-tsgo patch`, `tsgo --noEmit`. | Migration is invasive: api/shared/web packages depend on Effect 3 platform/rpc/sql packages. Do after reference + tests are ready. | P0/P1 |
 | @effect/vitest harness | `vitest.base.ts`, root/workspace `vitest.config.ts`, `package.json` test scripts | Replace Bun native tests with Vitest + `@effect/vitest` (`it.effect`, `it.layer`, `assert.*`). Shared base config supports markdown raw imports and faster thread pool. | subq tests use `@codeforbreakfast/bun-test-effect` and `expect`. Migration needed before enabling `no-bare-bun-test` and Effect test ast-grep rules. | P1 |
 | Ast-grep Effect rules | `sgconfig.yml`, `rules/effect/*`, `rules/shared/*`, `rule-tests/*` | Static rules for Effect idioms and safety. Best rules: no raw `fetch`, `fs`, `console`, `throw`, `try/catch`, `runPromise`, bare `new Error`, unsafe JSON/casts, manual `_tag`, non-`Effect.fn` helpers, bad Effect tests. | Adjust globs from `apps/**` to `packages/**`; likely start on `packages/api` + `packages/shared`, then evaluate `packages/web`. Keep rule tests. | P1 |
 | Fallow dependency audit | `fallow.toml`, `package.json` `fallow`, validate leg | Unused dependency/import-graph audit with `repos/**` ignored and real entry points declared. | subq has `knip`; fallow can complement/replace. Need entries for API main, web app entry, scripts, Vite config, maybe Drizzle scripts. | P1 |
@@ -49,7 +48,7 @@ General style / analyzability:
 1. Low-risk foundation: add `repos/effect-smol` or replace old Effect subtree; update AGENTS/editor excludes; add refresh script.
 2. Test foundation: migrate API/shared tests to Vitest + `@effect/vitest`; add root/workspace Vitest configs.
 3. Validation foundation: add `validate` runner, PR CI, fallow, and ast-grep in report-only/zero-violation mode.
-4. Strictness ratchet: enable Effect language-service diagnostics and stricter oxlint/Ultracite rules.
+4. Strictness ratchet: enable stricter oxlint/Ultracite rules.
 5. Agent back-pressure: add Claude/Codex hooks and lefthook validate gate.
 6. Optional automation: PR-title checks and release/smoke niceties.
 

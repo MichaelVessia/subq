@@ -12,7 +12,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
 
-# Install dependencies from lockfile (skip prepare script which needs effect-language-service)
+# Install dependencies from lockfile
 RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy source

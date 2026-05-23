@@ -26,16 +26,6 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-    "erasableSyntaxOnly": true,
-    "plugins": [
-      {
-        "name": "@effect/language-service",
-        "reportSuggestionsAsWarningsInTsc": true,
-        "pipeableMinArgCount": 2,
-        "diagnosticSeverity": {
-          "schemaUnionOfLiterals": "warning"
-        }
-      }
-    ]
+    "erasableSyntaxOnly": true
   }
 }

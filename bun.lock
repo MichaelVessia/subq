@@ -5,7 +5,6 @@
     "": {
       "name": "subq",
       "devDependencies": {
-        "@effect/language-service": "latest",
         "@effect/vitest": "4.0.0-beta.70",
         "@types/bun": "^1.2.20",
         "@vitest/coverage-v8": "4.1.7",
@@ -135,8 +134,6 @@
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
     "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.70", "", { "peerDependencies": { "effect": "^4.0.0-beta.70", "react": "^19.2.4", "scheduler": "*" } }, "sha512-G8fZHLBclfD9mZZY+9ltvJMZOMy4cJPa0wGoQcpevcvlpJoXlrugAosQ0ggiQ//HtVUsJ7K1ri9i28WX+d/a1Q=="],
-
-    "@effect/language-service": ["@effect/language-service@0.60.0", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-elJDWHG5Naq3OkilPt9ZRn56JfSA3MhXUIlDx9RWJeScHm96kZ+HkZ3eFBxqROzXwD6Q2DTtFctFwOM0+QLZEA=="],
 
     "@effect/opentelemetry": ["@effect/opentelemetry@4.0.0-beta.70", "", { "peerDependencies": { "@opentelemetry/api": "^1.9", "@opentelemetry/api-logs": ">=0.203.0 <0.300.0", "@opentelemetry/resources": "^2.0.0", "@opentelemetry/sdk-logs": ">=0.203.0 <0.300.0", "@opentelemetry/sdk-metrics": "^2.0.0", "@opentelemetry/sdk-trace-base": "^2.0.0", "@opentelemetry/sdk-trace-node": "^2.0.0", "@opentelemetry/sdk-trace-web": "^2.0.0", "@opentelemetry/semantic-conventions": "^1.33.0", "effect": "^4.0.0-beta.70" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/api-logs", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-tqM7XXdZJWXt3LWA9a5ulO0CikRipkwyYKlhm4247VvmXbRKP8kPENXmCaJIBopY4PgO13XDgdIKLcSFtiOFDQ=="],
 

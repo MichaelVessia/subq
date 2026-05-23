@@ -65,7 +65,7 @@ for (const path of paths) {
   const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
   for (const [name, version] of Object.entries(deps)) {
     if (name === 'effect' && !String(version).includes('4.')) bad.push(path + ' ' + name + '@' + version);
-    if (name.startsWith('@effect/') && !['@effect/language-service', '@effect/tsgo'].includes(name) && !String(version).includes('4.')) bad.push(path + ' ' + name + '@' + version);
+    if (name.startsWith('@effect/') && name !== '@effect/tsgo' && !String(version).includes('4.')) bad.push(path + ' ' + name + '@' + version);
   }
 }
 if (bad.length) { console.error(bad.join('\n')); process.exit(1); }
