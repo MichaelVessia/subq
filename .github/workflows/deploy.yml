@@ -57,7 +57,7 @@ jobs:
         run: |
           docker run -d -p 8080:8080 --name subq-test \
             -e DATABASE_PATH=/app/data/test.db \
-            -e BETTER_AUTH_SECRET=test-secret-for-ci \
+            -e BETTER_AUTH_SECRET=test-secret-for-ci-must-be-at-least-32-chars \
             -e BETTER_AUTH_URL=http://localhost:8080 \
             -e REMINDER_SECRET=test-reminder-secret \
             -e RESEND_API_KEY=re_test_key \

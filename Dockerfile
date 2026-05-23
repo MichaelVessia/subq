@@ -6,15 +6,16 @@ WORKDIR /app
 # Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++
 
-# Copy package files (no lockfile - let bun resolve fresh)
-COPY package.json ./
+# Copy package files and lockfile for reproducible dependency resolution
+COPY package.json bun.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
 COPY packages/cli/package.json ./packages/cli/
+COPY packages/tui/package.json ./packages/tui/
 
-# Install dependencies (skip prepare script which needs effect-language-service)
-RUN bun install --ignore-scripts
+# Install dependencies from lockfile (skip prepare script which needs effect-language-service)
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy source
 COPY packages/shared ./packages/shared
