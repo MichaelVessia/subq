@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   Dosage,
   DrugName,
@@ -18,7 +18,7 @@ import {
   type SchedulePhaseCreate,
   SchedulePhaseId,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schemas
@@ -40,7 +40,7 @@ const ScheduleRow = Schema.Struct({
 const DatetimeRow = Schema.Struct({
   datetime: Schema.String,
 })
-const decodeDatetimeRow = Schema.decodeUnknown(DatetimeRow)
+const decodeDatetimeRow = Schema.decodeUnknownEffect(DatetimeRow)
 
 const PhaseRow = Schema.Struct({
   id: Schema.String,
@@ -75,9 +75,9 @@ const ScheduleWithPhaseRow = Schema.Struct({
   phase_updated_at: Schema.NullOr(Schema.String),
 })
 
-const decodeScheduleRow = Schema.decodeUnknown(ScheduleRow)
-const decodePhaseRow = Schema.decodeUnknown(PhaseRow)
-const decodeScheduleWithPhaseRow = Schema.decodeUnknown(ScheduleWithPhaseRow)
+const decodeScheduleRow = Schema.decodeUnknownEffect(ScheduleRow)
+const decodePhaseRow = Schema.decodeUnknownEffect(PhaseRow)
+const decodeScheduleWithPhaseRow = Schema.decodeUnknownEffect(ScheduleWithPhaseRow)
 
 const phaseRowToDomain = (row: typeof PhaseRow.Type): SchedulePhase =>
   new SchedulePhase({
@@ -86,8 +86,8 @@ const phaseRowToDomain = (row: typeof PhaseRow.Type): SchedulePhase =>
     order: row.order as PhaseOrder,
     durationDays: row.duration_days as PhaseDurationDays | null,
     dosage: Dosage.make(row.dosage),
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 const scheduleRowToDomain = (row: typeof ScheduleRow.Type, phases: SchedulePhase[]): InjectionSchedule =>
@@ -97,12 +97,12 @@ const scheduleRowToDomain = (row: typeof ScheduleRow.Type, phases: SchedulePhase
     drug: DrugName.make(row.drug),
     source: row.source ? DrugSource.make(row.source) : null,
     frequency: row.frequency as Frequency,
-    startDate: DateTime.unsafeMake(row.start_date),
+    startDate: DateTime.makeUnsafe(row.start_date),
     isActive: row.is_active === 1,
     notes: row.notes ? Notes.make(row.notes) : null,
     phases,
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 // Helper to group joined rows into schedules with phases (avoids N+1 queries)
@@ -138,8 +138,8 @@ const groupSchedulesWithPhases = (rows: Array<typeof ScheduleWithPhaseRow.Type>)
           order: (row.phase_order ?? 0) as PhaseOrder,
           durationDays: row.phase_duration_days as PhaseDurationDays | null,
           dosage: Dosage.make(row.phase_dosage),
-          createdAt: DateTime.unsafeMake(row.phase_created_at),
-          updatedAt: DateTime.unsafeMake(row.phase_updated_at),
+          createdAt: DateTime.makeUnsafe(row.phase_created_at),
+          updatedAt: DateTime.makeUnsafe(row.phase_updated_at),
         }),
       )
     }
@@ -154,7 +154,7 @@ const generateUuid = () => crypto.randomUUID()
 // Repository Service Definition
 // ============================================
 
-export class ScheduleRepo extends Effect.Tag('ScheduleRepo')<
+export class ScheduleRepo extends Context.Service<
   ScheduleRepo,
   {
     readonly list: (userId: string) => Effect.Effect<InjectionSchedule[], ScheduleDatabaseError>
@@ -177,7 +177,7 @@ export class ScheduleRepo extends Effect.Tag('ScheduleRepo')<
       drug: string,
     ) => Effect.Effect<Option.Option<DateTime.Utc>, ScheduleDatabaseError>
   }
->() {}
+>()('ScheduleRepo') {}
 
 // ============================================
 // Repository Implementation
@@ -204,7 +204,7 @@ export const ScheduleRepoLive = Layer.effect(
     // Helper to create phases for a schedule
     const createPhases = (scheduleId: string, phases: readonly SchedulePhaseCreate[]) =>
       Effect.gen(function* () {
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         for (const phase of phases) {
           const phaseId = generateUuid()
           yield* sql`
@@ -254,7 +254,7 @@ export const ScheduleRepoLive = Layer.effect(
         }
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
         const schedules = groupSchedulesWithPhases(decoded)
-        return Option.fromNullable(schedules[0])
+        return Option.fromNullishOr(schedules[0])
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     // Single query to fetch schedule by ID with phases using LEFT JOIN
@@ -276,7 +276,7 @@ export const ScheduleRepoLive = Layer.effect(
         }
         const decoded = yield* Effect.all(rows.map((r) => decodeScheduleWithPhaseRow(r)))
         const schedules = groupSchedulesWithPhases(decoded)
-        return Option.fromNullable(schedules[0])
+        return Option.fromNullishOr(schedules[0])
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     const create = (data: InjectionScheduleCreate, userId: string) =>
@@ -284,7 +284,7 @@ export const ScheduleRepoLive = Layer.effect(
         const id = generateUuid()
         const source = Option.isSome(data.source) ? data.source.value : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         const startDateStr = DateTime.formatIso(data.startDate)
 
         // Deactivate any existing active schedules for this user
@@ -319,7 +319,7 @@ export const ScheduleRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* ScheduleNotFoundError.make({ id: data.id })
+          return yield* Effect.fail(ScheduleNotFoundError.make({ id: data.id }))
         }
 
         const curr = yield* decodeScheduleRow(current[0]).pipe(
@@ -333,7 +333,7 @@ export const ScheduleRepoLive = Layer.effect(
         const newStartDate = data.startDate ? DateTime.formatIso(data.startDate) : curr.start_date
         const newIsActive = data.isActive ?? curr.is_active === 1
         const newNotes = data.notes !== undefined ? data.notes : curr.notes
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         // If activating this schedule, deactivate others
         if (newIsActive && curr.is_active !== 1) {
@@ -406,7 +406,7 @@ export const ScheduleRepoLive = Layer.effect(
           return Option.none()
         }
         const decoded = yield* decodeDatetimeRow(row)
-        return Option.some(DateTime.unsafeMake(decoded.datetime))
+        return Option.some(DateTime.makeUnsafe(decoded.datetime))
       }).pipe(Effect.mapError((cause) => ScheduleDatabaseError.make({ operation: 'query', cause })))
 
     return {

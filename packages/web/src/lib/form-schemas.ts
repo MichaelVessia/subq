@@ -6,6 +6,10 @@
  */
 import { Schema } from 'effect'
 
+const nonEmpty = (message: string) => Schema.isNonEmpty({ message })
+const fieldFilter = <A>(predicate: (value: A) => boolean, message: string) =>
+  Schema.makeFilter<A>((value) => predicate(value), { message })
+
 // ============================================
 // Weight Log Form Schema
 // ============================================
@@ -15,46 +19,31 @@ import { Schema } from 'effect'
  * Validates string inputs from HTML form fields.
  */
 class WeightLogFormSchema extends Schema.Class<WeightLogFormSchema>('WeightLogFormSchema')({
-  datetime: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Date & time is required' }),
-    Schema.filter(
-      (s) => {
-        const date = new Date(s)
-        return !Number.isNaN(date.getTime())
-      },
-      { message: () => 'Invalid date' },
-    ),
-    Schema.filter(
-      (s) => {
-        const date = new Date(s)
-        return date <= new Date()
-      },
-      { message: () => 'Cannot log future weights' },
-    ),
+  datetime: Schema.String.check(
+    nonEmpty('Date & time is required'),
+    fieldFilter((s: string) => {
+      const date = new Date(s)
+      return !Number.isNaN(date.getTime())
+    }, 'Invalid date'),
+    fieldFilter((s: string) => {
+      const date = new Date(s)
+      return date <= new Date()
+    }, 'Cannot log future weights'),
   ),
-  weight: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Weight is required' }),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return !Number.isNaN(num)
-      },
-      { message: () => 'Must be a number' },
-    ),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return num > 0
-      },
-      { message: () => 'Must be greater than 0' },
-    ),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return num <= 1000
-      },
-      { message: () => 'Please enter a realistic weight' },
-    ),
+  weight: Schema.String.check(
+    nonEmpty('Weight is required'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return !Number.isNaN(num)
+    }, 'Must be a number'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return num > 0
+    }, 'Must be greater than 0'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return num <= 1000
+    }, 'Please enter a realistic weight'),
   ),
   notes: Schema.String,
 }) {}
@@ -65,7 +54,7 @@ export type WeightLogFormInput = typeof WeightLogFormSchema.Type
  * Creates a Standard Schema V1 resolver for React Hook Form.
  * Use with: resolver: standardSchemaResolver(weightLogFormStandardSchema)
  */
-export const weightLogFormStandardSchema = Schema.standardSchemaV1(WeightLogFormSchema)
+export const weightLogFormStandardSchema = Schema.toStandardSchemaV1(WeightLogFormSchema)
 
 // ============================================
 // Inventory Form Schema
@@ -76,18 +65,18 @@ export const weightLogFormStandardSchema = Schema.standardSchemaV1(WeightLogForm
  * Validates string inputs from HTML form fields.
  */
 class InventoryFormSchema extends Schema.Class<InventoryFormSchema>('InventoryFormSchema')({
-  form: Schema.Literal('vial', 'pen'),
-  drug: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Medication is required' })),
-  source: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Pharmacy source is required' })),
-  totalAmount: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Total amount is required' })),
-  status: Schema.Literal('new', 'opened', 'finished'),
+  form: Schema.Literals(['vial', 'pen'] as const),
+  drug: Schema.String.check(nonEmpty('Medication is required')),
+  source: Schema.String.check(nonEmpty('Pharmacy source is required')),
+  totalAmount: Schema.String.check(nonEmpty('Total amount is required')),
+  status: Schema.Literals(['new', 'opened', 'finished'] as const),
   beyondUseDate: Schema.String, // Optional, empty string means no date
   quantity: Schema.String, // Only used for create, number of items to create
 }) {}
 
 export type InventoryFormInput = typeof InventoryFormSchema.Type
 
-export const inventoryFormStandardSchema = Schema.standardSchemaV1(InventoryFormSchema)
+export const inventoryFormStandardSchema = Schema.toStandardSchemaV1(InventoryFormSchema)
 
 // ============================================
 // Injection Log Form Schema
@@ -100,33 +89,25 @@ const dosagePattern = /^\d+(\.\d+)?\s*(mg|mcg|ml|units?|iu)$/i
  * Validates string inputs from HTML form fields.
  */
 class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>('InjectionLogFormSchema')({
-  datetime: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Date & time is required' }),
-    Schema.filter(
-      (s) => {
-        const date = new Date(s)
-        return !Number.isNaN(date.getTime())
-      },
-      { message: () => 'Invalid date' },
-    ),
-    Schema.filter(
-      (s) => {
-        const date = new Date(s)
-        return date <= new Date()
-      },
-      { message: () => 'Cannot log future injections' },
-    ),
+  datetime: Schema.String.check(
+    nonEmpty('Date & time is required'),
+    fieldFilter((s: string) => {
+      const date = new Date(s)
+      return !Number.isNaN(date.getTime())
+    }, 'Invalid date'),
+    fieldFilter((s: string) => {
+      const date = new Date(s)
+      return date <= new Date()
+    }, 'Cannot log future injections'),
   ),
-  drug: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Medication is required' }),
-    Schema.filter((s) => s.trim().length >= 2, { message: () => 'Enter a valid medication name' }),
+  drug: Schema.String.check(
+    nonEmpty('Medication is required'),
+    fieldFilter((s: string) => s.trim().length >= 2, 'Enter a valid medication name'),
   ),
   source: Schema.String, // Optional
-  dosage: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Dosage is required' }),
-    Schema.filter((s) => dosagePattern.test(s.trim()), {
-      message: () => 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)',
-    }),
+  dosage: Schema.String.check(
+    nonEmpty('Dosage is required'),
+    fieldFilter((s: string) => dosagePattern.test(s.trim()), 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)'),
   ),
   injectionSite: Schema.String, // Optional
   notes: Schema.String, // Optional
@@ -136,7 +117,7 @@ class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>('Injec
 
 export type InjectionLogFormInput = typeof InjectionLogFormSchema.Type
 
-export const injectionLogFormStandardSchema = Schema.standardSchemaV1(InjectionLogFormSchema)
+export const injectionLogFormStandardSchema = Schema.toStandardSchemaV1(InjectionLogFormSchema)
 
 // ============================================
 // Goal Form Schema
@@ -147,29 +128,20 @@ export const injectionLogFormStandardSchema = Schema.standardSchemaV1(InjectionL
  * Validates string inputs from HTML form fields.
  */
 export class GoalFormSchema extends Schema.Class<GoalFormSchema>('GoalFormSchema')({
-  goalWeight: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Goal weight is required' }),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return !Number.isNaN(num)
-      },
-      { message: () => 'Must be a number' },
-    ),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return num > 0
-      },
-      { message: () => 'Must be greater than 0' },
-    ),
-    Schema.filter(
-      (s) => {
-        const num = Number.parseFloat(s)
-        return num <= 1000
-      },
-      { message: () => 'Please enter a realistic weight' },
-    ),
+  goalWeight: Schema.String.check(
+    nonEmpty('Goal weight is required'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return !Number.isNaN(num)
+    }, 'Must be a number'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return num > 0
+    }, 'Must be greater than 0'),
+    fieldFilter((s: string) => {
+      const num = Number.parseFloat(s)
+      return num <= 1000
+    }, 'Please enter a realistic weight'),
   ),
   startDate: Schema.String, // Optional, empty string means no date
   targetDate: Schema.String, // Optional, empty string means no date
@@ -178,7 +150,7 @@ export class GoalFormSchema extends Schema.Class<GoalFormSchema>('GoalFormSchema
 
 export type GoalFormInput = typeof GoalFormSchema.Type
 
-export const goalFormStandardSchema = Schema.standardSchemaV1(GoalFormSchema)
+export const goalFormStandardSchema = Schema.toStandardSchemaV1(GoalFormSchema)
 
 // ============================================
 // Schedule Form Schemas
@@ -190,20 +162,15 @@ export const goalFormStandardSchema = Schema.standardSchemaV1(GoalFormSchema)
  * Handles conditional validation: durationDays is optional if isIndefinite is true.
  */
 export const SchedulePhaseSchema = Schema.Struct({
-  order: Schema.Number.pipe(
-    Schema.int({ message: () => 'Phase order must be a whole number' }),
-    Schema.positive({ message: () => 'Phase order must be positive' }),
-  ),
+  order: Schema.Int.check(Schema.isGreaterThan(0, { message: 'Phase order must be positive' })),
   durationDays: Schema.String, // Empty string when indefinite
-  dosage: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Dosage is required' }),
-    Schema.filter((s) => dosagePattern.test(s.trim()), {
-      message: () => 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)',
-    }),
+  dosage: Schema.String.check(
+    nonEmpty('Dosage is required'),
+    fieldFilter((s: string) => dosagePattern.test(s.trim()), 'Enter dosage with unit (e.g., 2.5mg, 0.5ml)'),
   ),
   isIndefinite: Schema.Boolean,
-}).pipe(
-  Schema.filter(
+}).check(
+  Schema.makeFilter(
     (phase) => {
       // If indefinite, durationDays can be empty
       if (phase.isIndefinite) return true
@@ -211,33 +178,30 @@ export const SchedulePhaseSchema = Schema.Struct({
       const parsed = Number.parseInt(phase.durationDays, 10)
       return !Number.isNaN(parsed) && parsed > 0
     },
-    { message: () => 'Duration is required for non-indefinite phases' },
+    { message: 'Duration is required for non-indefinite phases' },
   ),
 )
 
-const frequencyLiteral = Schema.Literal('daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly')
+const frequencyLiteral = Schema.Literals(['daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly'] as const)
 
 /**
  * Schema for schedule form inputs.
  * Validates string inputs from HTML form fields.
  */
 export class ScheduleFormSchema extends Schema.Class<ScheduleFormSchema>('ScheduleFormSchema')({
-  name: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Schedule name is required' })),
-  drug: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Medication is required' })),
+  name: Schema.String.check(nonEmpty('Schedule name is required')),
+  drug: Schema.String.check(nonEmpty('Medication is required')),
   frequency: frequencyLiteral,
-  startDate: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'Start date is required' }),
-    Schema.filter(
-      (s) => {
-        const date = new Date(s)
-        return !Number.isNaN(date.getTime())
-      },
-      { message: () => 'Invalid date' },
-    ),
+  startDate: Schema.String.check(
+    nonEmpty('Start date is required'),
+    fieldFilter((s: string) => {
+      const date = new Date(s)
+      return !Number.isNaN(date.getTime())
+    }, 'Invalid date'),
   ),
   notes: Schema.String, // Optional
-  phases: Schema.NonEmptyArray(SchedulePhaseSchema).pipe(
-    Schema.filter(
+  phases: Schema.NonEmptyArray(SchedulePhaseSchema).check(
+    Schema.makeFilter(
       (phases) => {
         // Only the last phase can be indefinite
         for (let i = 0; i < phases.length - 1; i++) {
@@ -245,14 +209,14 @@ export class ScheduleFormSchema extends Schema.Class<ScheduleFormSchema>('Schedu
         }
         return true
       },
-      { message: () => 'Only the last phase can be indefinite' },
+      { message: 'Only the last phase can be indefinite' },
     ),
   ),
 }) {}
 
 export type ScheduleFormInput = typeof ScheduleFormSchema.Type
 
-export const scheduleFormStandardSchema = Schema.standardSchemaV1(ScheduleFormSchema)
+export const scheduleFormStandardSchema = Schema.toStandardSchemaV1(ScheduleFormSchema)
 
 // ============================================
 // Change Password Form Schema
@@ -265,16 +229,17 @@ const MIN_PASSWORD_LENGTH = 8
  * Validates password fields and ensures confirmPassword matches newPassword.
  */
 export const ChangePasswordFormSchema = Schema.Struct({
-  currentPassword: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Current password is required' })),
-  newPassword: Schema.String.pipe(
-    Schema.nonEmptyString({ message: () => 'New password is required' }),
-    Schema.filter((s) => s.length >= MIN_PASSWORD_LENGTH, {
-      message: () => `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-    }),
+  currentPassword: Schema.String.check(nonEmpty('Current password is required')),
+  newPassword: Schema.String.check(
+    nonEmpty('New password is required'),
+    fieldFilter(
+      (s: string) => s.length >= MIN_PASSWORD_LENGTH,
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+    ),
   ),
-  confirmPassword: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Please confirm your password' })),
-}).pipe(Schema.filter((form) => form.confirmPassword === form.newPassword, { message: () => 'Passwords do not match' }))
+  confirmPassword: Schema.String.check(nonEmpty('Please confirm your password')),
+}).check(Schema.makeFilter((form) => form.confirmPassword === form.newPassword, { message: 'Passwords do not match' }))
 
 export type ChangePasswordFormInput = typeof ChangePasswordFormSchema.Type
 
-export const changePasswordFormStandardSchema = Schema.standardSchemaV1(ChangePasswordFormSchema)
+export const changePasswordFormStandardSchema = Schema.toStandardSchemaV1(ChangePasswordFormSchema)

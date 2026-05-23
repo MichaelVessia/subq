@@ -1,6 +1,6 @@
 import { Limit, Notes, Offset, Weight, WeightLogId } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { WeightLogRepo, WeightLogRepoLive } from '../src/weight/weight-log-repo.js'
 import { insertWeightLog, makeInitializedTestLayer } from './helpers/test-db.js'
 
@@ -14,7 +14,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(185.5),
               notes: Option.some(Notes.make('Morning weigh-in')),
             },
@@ -34,7 +34,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(180),
               notes: Option.none(),
             },
@@ -55,7 +55,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(180),
               notes: Option.none(),
             },
@@ -103,7 +103,7 @@ describe('WeightLogRepo', () => {
           for (let i = 0; i < 5; i++) {
             yield* repo.create(
               {
-                datetime: DateTime.unsafeMake(`2024-01-${15 + i}T10:00:00Z`),
+                datetime: DateTime.makeUnsafe(`2024-01-${15 + i}T10:00:00Z`),
                 weight: Weight.make(180 + i),
                 notes: Option.none(),
               },
@@ -129,7 +129,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-10T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-10T10:00:00Z'),
               weight: Weight.make(180),
               notes: Option.none(),
             },
@@ -137,7 +137,7 @@ describe('WeightLogRepo', () => {
           )
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(181),
               notes: Option.none(),
             },
@@ -145,7 +145,7 @@ describe('WeightLogRepo', () => {
           )
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-20T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-20T10:00:00Z'),
               weight: Weight.make(182),
               notes: Option.none(),
             },
@@ -156,8 +156,8 @@ describe('WeightLogRepo', () => {
             {
               limit: Limit.make(50),
               offset: Offset.make(0),
-              startDate: DateTime.unsafeMake('2024-01-12T00:00:00Z'),
-              endDate: DateTime.unsafeMake('2024-01-18T00:00:00Z'),
+              startDate: DateTime.makeUnsafe('2024-01-12T00:00:00Z'),
+              endDate: DateTime.makeUnsafe('2024-01-18T00:00:00Z'),
             },
             'user-123',
           )
@@ -192,7 +192,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(185),
               notes: Option.none(),
             },
@@ -227,11 +227,11 @@ describe('WeightLogRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('WeightLogNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('WeightLogNotFoundError')
           }
         }),
       )
@@ -252,11 +252,11 @@ describe('WeightLogRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('WeightLogNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('WeightLogNotFoundError')
           }
         }),
       )
@@ -270,7 +270,7 @@ describe('WeightLogRepo', () => {
           const repo = yield* WeightLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               weight: Weight.make(185),
               notes: Option.none(),
             },

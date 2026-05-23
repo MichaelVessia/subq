@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   DataExport,
   DataExportError,
@@ -29,19 +29,19 @@ import {
   WeightLog,
   WeightLogId,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Schema } from 'effect'
 
 // ============================================
 // Service Definition
 // ============================================
 
-export class DataExportService extends Effect.Tag('DataExportService')<
+export class DataExportService extends Context.Service<
   DataExportService,
   {
     readonly exportData: (userId: string) => Effect.Effect<DataExport, DataExportError>
     readonly importData: (userId: string, data: DataExport) => Effect.Effect<DataImportResult, DataImportError>
   }
->() {}
+>()('DataExportService') {}
 
 // ============================================
 // Row Schemas for Direct SQL Queries
@@ -73,9 +73,9 @@ const InventoryRow = Schema.Struct({
   id: Schema.String,
   drug: Schema.String,
   source: Schema.String,
-  form: Schema.Literal('vial', 'pen'),
+  form: Schema.Literals(['vial', 'pen'] as const),
   total_amount: Schema.String,
-  status: Schema.Literal('new', 'opened', 'finished'),
+  status: Schema.Literals(['new', 'opened', 'finished'] as const),
   beyond_use_date: Schema.NullOr(Schema.String),
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -118,7 +118,7 @@ const GoalRow = Schema.Struct({
 })
 
 const SettingsRow = Schema.Struct({
-  weight_unit: Schema.Literal('lbs', 'kg'),
+  weight_unit: Schema.Literals(['lbs', 'kg'] as const),
 })
 
 // ============================================
@@ -140,16 +140,16 @@ export const DataExportServiceLive = Layer.effect(
         `
         const weightLogs = yield* Effect.all(
           weightLogRows.map((row) =>
-            Schema.decodeUnknown(WeightLogRow)(row).pipe(
+            Schema.decodeUnknownEffect(WeightLogRow)(row).pipe(
               Effect.map(
                 (r) =>
                   new WeightLog({
                     id: WeightLogId.make(r.id),
-                    datetime: DateTime.unsafeMake(r.datetime),
+                    datetime: DateTime.makeUnsafe(r.datetime),
                     weight: Weight.make(r.weight),
                     notes: r.notes ? Notes.make(r.notes) : null,
-                    createdAt: DateTime.unsafeMake(r.created_at),
-                    updatedAt: DateTime.unsafeMake(r.updated_at),
+                    createdAt: DateTime.makeUnsafe(r.created_at),
+                    updatedAt: DateTime.makeUnsafe(r.updated_at),
                   }),
               ),
             ),
@@ -164,20 +164,20 @@ export const DataExportServiceLive = Layer.effect(
         `
         const injectionLogs = yield* Effect.all(
           injectionLogRows.map((row) =>
-            Schema.decodeUnknown(InjectionLogRow)(row).pipe(
+            Schema.decodeUnknownEffect(InjectionLogRow)(row).pipe(
               Effect.map(
                 (r) =>
                   new InjectionLog({
                     id: InjectionLogId.make(r.id),
-                    datetime: DateTime.unsafeMake(r.datetime),
+                    datetime: DateTime.makeUnsafe(r.datetime),
                     drug: DrugName.make(r.drug),
                     source: r.source ? DrugSource.make(r.source) : null,
                     dosage: Dosage.make(r.dosage),
                     injectionSite: r.injection_site ? InjectionSite.make(r.injection_site) : null,
                     notes: r.notes ? Notes.make(r.notes) : null,
                     scheduleId: r.schedule_id ? InjectionScheduleId.make(r.schedule_id) : null,
-                    createdAt: DateTime.unsafeMake(r.created_at),
-                    updatedAt: DateTime.unsafeMake(r.updated_at),
+                    createdAt: DateTime.makeUnsafe(r.created_at),
+                    updatedAt: DateTime.makeUnsafe(r.updated_at),
                   }),
               ),
             ),
@@ -192,7 +192,7 @@ export const DataExportServiceLive = Layer.effect(
         `
         const inventory = yield* Effect.all(
           inventoryRows.map((row) =>
-            Schema.decodeUnknown(InventoryRow)(row).pipe(
+            Schema.decodeUnknownEffect(InventoryRow)(row).pipe(
               Effect.map(
                 (r) =>
                   new Inventory({
@@ -202,9 +202,9 @@ export const DataExportServiceLive = Layer.effect(
                     form: r.form,
                     totalAmount: TotalAmount.make(r.total_amount),
                     status: r.status,
-                    beyondUseDate: r.beyond_use_date ? DateTime.unsafeMake(r.beyond_use_date) : null,
-                    createdAt: DateTime.unsafeMake(r.created_at),
-                    updatedAt: DateTime.unsafeMake(r.updated_at),
+                    beyondUseDate: r.beyond_use_date ? DateTime.makeUnsafe(r.beyond_use_date) : null,
+                    createdAt: DateTime.makeUnsafe(r.created_at),
+                    updatedAt: DateTime.makeUnsafe(r.updated_at),
                   }),
               ),
             ),
@@ -220,7 +220,7 @@ export const DataExportServiceLive = Layer.effect(
         const schedules = yield* Effect.all(
           scheduleRows.map((row) =>
             Effect.gen(function* () {
-              const r = yield* Schema.decodeUnknown(ScheduleRow)(row)
+              const r = yield* Schema.decodeUnknownEffect(ScheduleRow)(row)
 
               // Fetch phases for this schedule
               const phaseRows = yield* sql`
@@ -230,7 +230,7 @@ export const DataExportServiceLive = Layer.effect(
               `
               const phases = yield* Effect.all(
                 phaseRows.map((pr) =>
-                  Schema.decodeUnknown(PhaseRow)(pr).pipe(
+                  Schema.decodeUnknownEffect(PhaseRow)(pr).pipe(
                     Effect.map(
                       (p) =>
                         new SchedulePhase({
@@ -239,8 +239,8 @@ export const DataExportServiceLive = Layer.effect(
                           order: p.order as PhaseOrder,
                           durationDays: p.duration_days as PhaseDurationDays | null,
                           dosage: Dosage.make(p.dosage),
-                          createdAt: DateTime.unsafeMake(p.created_at),
-                          updatedAt: DateTime.unsafeMake(p.updated_at),
+                          createdAt: DateTime.makeUnsafe(p.created_at),
+                          updatedAt: DateTime.makeUnsafe(p.updated_at),
                         }),
                     ),
                   ),
@@ -253,12 +253,12 @@ export const DataExportServiceLive = Layer.effect(
                 drug: DrugName.make(r.drug),
                 source: r.source ? DrugSource.make(r.source) : null,
                 frequency: r.frequency as Frequency,
-                startDate: DateTime.unsafeMake(r.start_date),
+                startDate: DateTime.makeUnsafe(r.start_date),
                 isActive: r.is_active === 1,
                 notes: r.notes ? Notes.make(r.notes) : null,
                 phases,
-                createdAt: DateTime.unsafeMake(r.created_at),
-                updatedAt: DateTime.unsafeMake(r.updated_at),
+                createdAt: DateTime.makeUnsafe(r.created_at),
+                updatedAt: DateTime.makeUnsafe(r.updated_at),
               })
             }),
           ),
@@ -272,20 +272,20 @@ export const DataExportServiceLive = Layer.effect(
         `
         const goals = yield* Effect.all(
           goalRows.map((row) =>
-            Schema.decodeUnknown(GoalRow)(row).pipe(
+            Schema.decodeUnknownEffect(GoalRow)(row).pipe(
               Effect.map(
                 (r) =>
                   new UserGoal({
                     id: GoalId.make(r.id),
                     goalWeight: Weight.make(r.goal_weight),
                     startingWeight: Weight.make(r.starting_weight),
-                    startingDate: DateTime.unsafeMake(r.starting_date),
-                    targetDate: r.target_date ? DateTime.unsafeMake(r.target_date) : null,
+                    startingDate: DateTime.makeUnsafe(r.starting_date),
+                    targetDate: r.target_date ? DateTime.makeUnsafe(r.target_date) : null,
                     notes: r.notes ? Notes.make(r.notes) : null,
                     isActive: r.is_active === 1,
-                    completedAt: r.completed_at ? DateTime.unsafeMake(r.completed_at) : null,
-                    createdAt: DateTime.unsafeMake(r.created_at),
-                    updatedAt: DateTime.unsafeMake(r.updated_at),
+                    completedAt: r.completed_at ? DateTime.makeUnsafe(r.completed_at) : null,
+                    createdAt: DateTime.makeUnsafe(r.created_at),
+                    updatedAt: DateTime.makeUnsafe(r.updated_at),
                   }),
               ),
             ),
@@ -298,14 +298,14 @@ export const DataExportServiceLive = Layer.effect(
         `
         const settings =
           settingsRows.length > 0
-            ? yield* Schema.decodeUnknown(SettingsRow)(settingsRows[0]).pipe(
+            ? yield* Schema.decodeUnknownEffect(SettingsRow)(settingsRows[0]).pipe(
                 Effect.map((r) => new ExportedSettings({ weightUnit: r.weight_unit })),
               )
             : null
 
         return new DataExport({
           version: '1.0.0',
-          exportedAt: DateTime.unsafeNow(),
+          exportedAt: DateTime.nowUnsafe(),
           data: {
             weightLogs,
             injectionLogs,

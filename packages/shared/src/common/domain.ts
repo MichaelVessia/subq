@@ -13,11 +13,11 @@ export type UserId = typeof UserId.Type
 // ============================================
 
 /** Limit for pagination (positive integer) */
-export const Limit = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('Limit'))
+export const Limit = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.brand('Limit'))
 export type Limit = typeof Limit.Type
 
 /** Offset for pagination (non-negative integer) */
-export const Offset = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Offset'))
+export const Offset = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.brand('Offset'))
 export type Offset = typeof Offset.Type
 
 // ============================================
@@ -33,15 +33,15 @@ export type Notes = typeof Notes.Type
 // ============================================
 
 /** Non-negative count */
-export const Count = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Count'))
+export const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.brand('Count'))
 export type Count = typeof Count.Type
 
 /** Days between events (non-negative) */
-export const DaysBetween = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('DaysBetween'))
+export const DaysBetween = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.brand('DaysBetween'))
 export type DaysBetween = typeof DaysBetween.Type
 
 /** Day of week (0=Sunday, 6=Saturday) */
-export const DayOfWeek = Schema.Number.pipe(Schema.int(), Schema.between(0, 6), Schema.brand('DayOfWeek'))
+export const DayOfWeek = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 6 })).pipe(Schema.brand('DayOfWeek'))
 export type DayOfWeek = typeof DayOfWeek.Type
 
 // ============================================
@@ -49,11 +49,11 @@ export type DayOfWeek = typeof DayOfWeek.Type
 // ============================================
 
 /** Drug/compound name */
-export const DrugName = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('DrugName'))
+export const DrugName = Schema.NonEmptyString.pipe(Schema.brand('DrugName'))
 export type DrugName = typeof DrugName.Type
 
 /** Drug source/manufacturer */
-export const DrugSource = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('DrugSource'))
+export const DrugSource = Schema.NonEmptyString.pipe(Schema.brand('DrugSource'))
 export type DrugSource = typeof DrugSource.Type
 
 // ============================================
@@ -61,7 +61,7 @@ export type DrugSource = typeof DrugSource.Type
 // ============================================
 
 /** Dosage amount as string (e.g., "0.5ml", "100mg") */
-export const Dosage = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('Dosage'))
+export const Dosage = Schema.NonEmptyString.pipe(Schema.brand('Dosage'))
 export type Dosage = typeof Dosage.Type
 
 /** Numeric dosage value for calculations */

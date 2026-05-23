@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   DrugName,
   DrugSource,
@@ -11,7 +11,7 @@ import {
   type InventoryUpdate,
   TotalAmount,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -21,15 +21,15 @@ const InventoryRow = Schema.Struct({
   id: Schema.String,
   drug: Schema.String,
   source: Schema.String,
-  form: Schema.Literal('vial', 'pen'),
+  form: Schema.Literals(['vial', 'pen'] as const),
   total_amount: Schema.String,
-  status: Schema.Literal('new', 'opened', 'finished'),
+  status: Schema.Literals(['new', 'opened', 'finished'] as const),
   beyond_use_date: Schema.NullOr(Schema.String),
   created_at: Schema.String,
   updated_at: Schema.String,
 })
 
-const decodeRow = Schema.decodeUnknown(InventoryRow)
+const decodeRow = Schema.decodeUnknownEffect(InventoryRow)
 
 const rowToDomain = (row: typeof InventoryRow.Type): Inventory =>
   new Inventory({
@@ -39,9 +39,9 @@ const rowToDomain = (row: typeof InventoryRow.Type): Inventory =>
     form: row.form,
     totalAmount: TotalAmount.make(row.total_amount),
     status: row.status,
-    beyondUseDate: row.beyond_use_date ? DateTime.unsafeMake(row.beyond_use_date) : null,
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    beyondUseDate: row.beyond_use_date ? DateTime.makeUnsafe(row.beyond_use_date) : null,
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDomain)
@@ -52,7 +52,7 @@ const generateUuid = () => crypto.randomUUID()
 // Repository Service Definition
 // ============================================
 
-export class InventoryRepo extends Effect.Tag('InventoryRepo')<
+export class InventoryRepo extends Context.Service<
   InventoryRepo,
   {
     readonly list: (params: InventoryListParams, userId: string) => Effect.Effect<Inventory[], InventoryDatabaseError>
@@ -72,7 +72,7 @@ export class InventoryRepo extends Effect.Tag('InventoryRepo')<
       userId: string,
     ) => Effect.Effect<Inventory, InventoryNotFoundError | InventoryDatabaseError>
   }
->() {}
+>()('InventoryRepo') {}
 
 // ============================================
 // Repository Implementation
@@ -115,7 +115,7 @@ export const InventoryRepoLive = Layer.effect(
         const beyondUseDate = Option.isSome(data.beyondUseDate)
           ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0]
           : null
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         yield* sql`
           INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
@@ -138,7 +138,7 @@ export const InventoryRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* InventoryNotFoundError.make({ id: data.id })
+          return yield* Effect.fail(InventoryNotFoundError.make({ id: data.id }))
         }
 
         const curr = yield* decodeRow(current[0]).pipe(
@@ -156,7 +156,7 @@ export const InventoryRepoLive = Layer.effect(
             ? DateTime.formatIso(data.beyondUseDate.value).split('T')[0]
             : null
           : curr.beyond_use_date
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         yield* sql`
           UPDATE glp1_inventory
@@ -199,10 +199,10 @@ export const InventoryRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* InventoryNotFoundError.make({ id })
+          return yield* Effect.fail(InventoryNotFoundError.make({ id }))
         }
 
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'finished', updated_at = ${now}
@@ -227,10 +227,10 @@ export const InventoryRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => InventoryDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* InventoryNotFoundError.make({ id })
+          return yield* Effect.fail(InventoryNotFoundError.make({ id }))
         }
 
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         yield* sql`
           UPDATE glp1_inventory
           SET status = 'opened', updated_at = ${now}

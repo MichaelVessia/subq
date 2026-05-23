@@ -1,4 +1,5 @@
-import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import type { Inventory, InventoryCreate, InventoryId, InventoryUpdate } from '@subq/shared'
 import type { DateTime } from 'effect'
 import { MoreHorizontal } from 'lucide-react'

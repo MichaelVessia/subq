@@ -1,12 +1,13 @@
-import { FetchHttpClient } from '@effect/platform'
-import { RpcClient, RpcSerialization } from '@effect/rpc'
-import { Atom, AtomRpc } from '@effect-atom/atom-react'
+import { Atom, AtomRpc } from 'effect/unstable/reactivity'
+import { FetchHttpClient } from 'effect/unstable/http'
+import { RpcClient, RpcSerialization } from 'effect/unstable/rpc'
 import {
   AppRpcs,
   InjectionLogListParams,
   type InjectionScheduleId,
   InventoryListParams,
   Limit,
+  Offset,
   StatsParams,
   WeightLogListParams,
 } from '@subq/shared'
@@ -21,8 +22,8 @@ const FetchWithCredentials = FetchHttpClient.layer.pipe(
 // In local dev, API runs on different port
 const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
 
-// Use AtomRpc.Tag for automatic atom integration
-export class ApiClient extends AtomRpc.Tag<ApiClient>()('@subq/ApiClient', {
+// Use AtomRpc.Service for automatic atom integration
+export class ApiClient extends AtomRpc.Service<ApiClient>()('@subq/ApiClient', {
   group: AppRpcs,
   protocol: RpcClient.layerProtocolHttp({
     url: `${apiUrl}/rpc`,
@@ -42,7 +43,7 @@ export const ReactivityKeys = {
 } as const
 
 // Helper to convert optional Date to DateTime.Utc
-const toDateTimeUtc = (date?: Date) => (date ? DateTime.unsafeMake(date) : undefined)
+const toDateTimeUtc = (date?: Date) => (date ? DateTime.makeUnsafe(date) : undefined)
 
 /**
  * Creates a stable string key from optional start/end dates for use with Atom.family.
@@ -60,8 +61,8 @@ export const dateRangeKey = (startDate: Date | undefined, endDate: Date | undefi
  */
 const parseDateRangeKey = (key: string): [Date | undefined, Date | undefined] => {
   const [startStr, endStr] = key.split('|')
-  const start = startStr ? Option.fromNullable(new Date(startStr)).pipe(Option.getOrUndefined) : undefined
-  const end = endStr ? Option.fromNullable(new Date(endStr)).pipe(Option.getOrUndefined) : undefined
+  const start = startStr ? Option.fromNullishOr(new Date(startStr)).pipe(Option.getOrUndefined) : undefined
+  const end = endStr ? Option.fromNullishOr(new Date(endStr)).pipe(Option.getOrUndefined) : undefined
   return [start, end]
 }
 
@@ -73,6 +74,7 @@ export const createWeightLogListAtom = (startDate?: Date, endDate?: Date) =>
       startDate: toDateTimeUtc(startDate),
       endDate: toDateTimeUtc(endDate),
       limit: Limit.make(10000),
+      offset: Offset.make(0),
     }),
     { reactivityKeys: [ReactivityKeys.weightLogs] },
   )
@@ -84,6 +86,7 @@ export const createInjectionLogListAtom = (startDate?: Date, endDate?: Date) =>
       startDate: toDateTimeUtc(startDate),
       endDate: toDateTimeUtc(endDate),
       limit: Limit.make(10000),
+      offset: Offset.make(0),
     }),
     { reactivityKeys: [ReactivityKeys.injectionLogs] },
   )
@@ -122,6 +125,7 @@ export const InjectionLogListAtomFamily = Atom.family((key: string) => {
       startDate: toDateTimeUtc(start),
       endDate: toDateTimeUtc(end),
       limit: Limit.make(10000),
+      offset: Offset.make(0),
     }),
     { reactivityKeys: [ReactivityKeys.injectionLogs] },
   )

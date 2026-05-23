@@ -1,6 +1,6 @@
-import { FileSystem, HttpMiddleware, HttpRouter, HttpServerRequest, HttpServerResponse, Path } from '@effect/platform'
-import { BunContext, BunHttpServer, BunRuntime } from '@effect/platform-bun'
-import { RpcSerialization, RpcServer } from '@effect/rpc'
+import { HttpMiddleware, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/unstable/http'
+import { BunHttpServer, BunRuntime, BunServices } from '@effect/platform-bun'
+import { RpcSerialization, RpcServer } from 'effect/unstable/rpc'
 import {
   AppRpcs,
   SESSION_COOKIE_CACHE_MAX_AGE_SECONDS,
@@ -11,7 +11,7 @@ import { bearer } from 'better-auth/plugins'
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import { Config, Effect, Layer, Logger, LogLevel, Redacted } from 'effect'
+import { Config, Effect, FileSystem, Layer, Path, Redacted } from 'effect'
 import { dirname, join } from 'node:path'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
@@ -51,7 +51,7 @@ const runMigrations = () => {
 runMigrations()
 
 // Auth configuration layer - creates better-auth instance with SQLite
-const AuthLive = Layer.unwrapEffect(
+const AuthLive = Layer.unwrap(
   Effect.gen(function* () {
     yield* Effect.logInfo('Initializing auth service...')
 
@@ -136,11 +136,12 @@ const corsMiddleware = HttpMiddleware.cors({
 })
 
 // Auth routes layer - adds auth routes to the default router
-const AuthRoutesLive = HttpRouter.Default.use((router) =>
+const AuthRoutesLive = Layer.effectDiscard(
   Effect.gen(function* () {
     yield* Effect.logInfo('Setting up auth routes...')
+    const router = yield* HttpRouter.HttpRouter
     const { auth } = yield* AuthService
-    yield* router.all('/api/auth/*', toEffectHandler(auth))
+    yield* router.add('*', '/api/auth/*', toEffectHandler(auth))
     yield* Effect.logInfo('Auth routes configured')
   }),
 )
@@ -171,18 +172,20 @@ const MIME_TYPES: Record<string, string> = {
 }
 
 // Production routes: health check, reminders API, static files
-const ProductionRoutesLive = HttpRouter.Default.use((router) =>
+const ProductionRoutesLive = Layer.effectDiscard(
   Effect.gen(function* () {
+    const router = yield* HttpRouter.HttpRouter
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const reminderService = yield* ReminderService
     const emailService = yield* EmailService
 
     // Health check endpoint
-    yield* router.get('/health', Effect.succeed(HttpServerResponse.text('ok')))
+    yield* router.add('GET', '/health', Effect.succeed(HttpServerResponse.text('ok')))
 
     // Reminders endpoint (called by GitHub Actions)
-    yield* router.post(
+    yield* router.add(
+      'POST',
       '/api/reminders/send',
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
@@ -224,7 +227,7 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
 
         return yield* HttpServerResponse.json(result)
       }).pipe(
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.gen(function* () {
             yield* Effect.logError('Reminder request failed', { error: String(error) })
             return yield* HttpServerResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -234,7 +237,8 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
     )
 
     // Static file serving (catch-all, must be last)
-    yield* router.get(
+    yield* router.add(
+      'GET',
       '/*',
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
@@ -281,7 +285,7 @@ const ProductionRoutesLive = HttpRouter.Default.use((router) =>
         }
 
         return HttpServerResponse.text('Not Found', { status: 404 })
-      }).pipe(Effect.catchAll(() => Effect.succeed(HttpServerResponse.text('Not Found', { status: 404 })))),
+      }).pipe(Effect.catch(() => Effect.succeed(HttpServerResponse.text('Not Found', { status: 404 })))),
     )
   }),
 )
@@ -311,17 +315,16 @@ const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
 const port = Number(process.env.PORT) || 3001
 
 // HTTP server with all dependencies
-const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
+const HttpLive = HttpRouter.serve(AllRoutesLive, { middleware: corsMiddleware }).pipe(
   Layer.provide(RpcLiveWithDeps),
-  Layer.provide(AllRoutesLive),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(BunHttpServer.layer({ port })),
   // Provide auth service
   Layer.provide(AuthLive),
   // Provide reminder services
   Layer.provide(ReminderServicesLive),
-  // Provide Bun context for FileSystem and Path (used by static file serving)
-  Layer.provide(BunContext.layer),
+  // Provide Bun services for FileSystem and Path (used by static file serving)
+  Layer.provide(BunServices.layer),
   Layer.tap(() => Effect.logInfo(`HTTP server layer configured on port ${port}`)),
 )
 
@@ -329,11 +332,12 @@ const HttpLive = HttpRouter.Default.serve(corsMiddleware).pipe(
 // The type system doesn't see this, so we use a type cast.
 BunRuntime.runMain(
   Layer.launch(HttpLive.pipe(Layer.provide(TracerLayer))).pipe(
-    Logger.withMinimumLogLevel(LogLevel.Info),
     Effect.tap(() => Effect.logInfo('Application startup complete')),
-    Effect.catchAll((error) =>
+    Effect.catch((error) =>
       Effect.gen(function* () {
-        yield* Effect.logError('Application startup failed', { error: error.message })
+        yield* Effect.logError('Application startup failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
         yield* Effect.logError('Error details', { error: String(error) })
         return yield* Effect.fail(error)
       }),

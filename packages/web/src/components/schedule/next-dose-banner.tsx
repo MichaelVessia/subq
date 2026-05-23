@@ -1,4 +1,5 @@
-import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import {
   Dosage,
   DrugName,
@@ -60,7 +61,7 @@ export function NextDoseBanner({ onLogDose, onQuickLogSuccess }: NextDoseBannerP
     try {
       await createLog({
         payload: new InjectionLogCreate({
-          datetime: DateTime.unsafeNow(),
+          datetime: DateTime.nowUnsafe(),
           drug: DrugName.make(nextDose.drug),
           source: Option.none(),
           dosage: Dosage.make(nextDose.dosage),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { DataExport, ExportedSettings, Notes, Weight, WeightLog, WeightLogId } from '@subq/shared'
 import { DateTime, Effect } from 'effect'
 import { DataExportService, DataExportServiceLive } from '../src/data-export/data-export-service.js'
@@ -73,16 +73,16 @@ describe('DataExportService', () => {
           // Create import data
           const importData = new DataExport({
             version: '1.0.0',
-            exportedAt: DateTime.unsafeNow(),
+            exportedAt: DateTime.nowUnsafe(),
             data: {
               weightLogs: [
                 new WeightLog({
                   id: WeightLogId.make('imported-1'),
-                  datetime: DateTime.unsafeMake('2024-02-01T00:00:00Z'),
+                  datetime: DateTime.makeUnsafe('2024-02-01T00:00:00Z'),
                   weight: Weight.make(190),
                   notes: Notes.make('imported log'),
-                  createdAt: DateTime.unsafeNow(),
-                  updatedAt: DateTime.unsafeNow(),
+                  createdAt: DateTime.nowUnsafe(),
+                  updatedAt: DateTime.nowUnsafe(),
                 }),
               ],
               injectionLogs: [],
@@ -118,16 +118,16 @@ describe('DataExportService', () => {
           // Import data for user-123
           const importData = new DataExport({
             version: '1.0.0',
-            exportedAt: DateTime.unsafeNow(),
+            exportedAt: DateTime.nowUnsafe(),
             data: {
               weightLogs: [
                 new WeightLog({
                   id: WeightLogId.make('user123-log'),
-                  datetime: DateTime.unsafeMake('2024-02-01T00:00:00Z'),
+                  datetime: DateTime.makeUnsafe('2024-02-01T00:00:00Z'),
                   weight: Weight.make(190),
                   notes: null,
-                  createdAt: DateTime.unsafeNow(),
-                  updatedAt: DateTime.unsafeNow(),
+                  createdAt: DateTime.nowUnsafe(),
+                  updatedAt: DateTime.nowUnsafe(),
                 }),
               ],
               injectionLogs: [],

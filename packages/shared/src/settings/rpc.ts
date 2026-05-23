@@ -1,12 +1,12 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 
 // ============================================
 // Settings Errors (defined inline like Goals)
 // ============================================
 
-export class SettingsDatabaseError extends Schema.TaggedError<SettingsDatabaseError>()('SettingsDatabaseError', {
-  operation: Schema.Literal('insert', 'update', 'query'),
+export class SettingsDatabaseError extends Schema.TaggedClass<SettingsDatabaseError>()('SettingsDatabaseError', {
+  operation: Schema.Literals(['insert', 'update', 'query'] as const),
   cause: Schema.Defect,
 }) {}
 
@@ -16,14 +16,14 @@ export class SettingsDatabaseError extends Schema.TaggedError<SettingsDatabaseEr
 
 export class UserSettings extends Schema.Class<UserSettings>('UserSettings')({
   id: Schema.String,
-  weightUnit: Schema.Literal('lbs', 'kg'),
+  weightUnit: Schema.Literals(['lbs', 'kg'] as const),
   remindersEnabled: Schema.Boolean,
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
 }) {}
 
 export class UserSettingsUpdate extends Schema.Class<UserSettingsUpdate>('UserSettingsUpdate')({
-  weightUnit: Schema.optional(Schema.Literal('lbs', 'kg')),
+  weightUnit: Schema.optional(Schema.Literals(['lbs', 'kg'] as const)),
   remindersEnabled: Schema.optional(Schema.Boolean),
 }) {}
 

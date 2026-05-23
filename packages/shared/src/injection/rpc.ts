@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 import {
   InjectionLogDatabaseError,
@@ -34,7 +34,7 @@ export const InjectionRpcs = RpcGroup.make(
   Rpc.make('InjectionLogUpdate', {
     payload: InjectionLogUpdate,
     success: InjectionLog,
-    error: Schema.Union(InjectionLogNotFoundError, InjectionLogDatabaseError),
+    error: Schema.Union([InjectionLogNotFoundError, InjectionLogDatabaseError]),
   }),
   Rpc.make('InjectionLogDelete', {
     payload: InjectionLogDelete,

@@ -7,7 +7,7 @@ export const DataExportRpcHandlersLive = DataExportRpcs.toLayer(
     const service = yield* DataExportService
 
     const UserDataExport = Effect.fn('rpc.data-export.export')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('UserDataExport called').pipe(
         Effect.annotateLogs({ rpc: 'UserDataExport', userId: user.id }),
       )
@@ -26,7 +26,7 @@ export const DataExportRpcHandlersLive = DataExportRpcs.toLayer(
     })
 
     const UserDataImport = Effect.fn('rpc.data-export.import')(function* (data: DataExportType) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('UserDataImport called').pipe(
         Effect.annotateLogs({
           rpc: 'UserDataImport',

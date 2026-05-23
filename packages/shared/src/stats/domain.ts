@@ -139,7 +139,7 @@ export class InjectionDayOfWeekStats extends Schema.Class<InjectionDayOfWeekStat
 // Stats Domain Errors
 // ============================================
 
-export class StatsDatabaseError extends Schema.TaggedError<StatsDatabaseError>()('StatsDatabaseError', {
+export class StatsDatabaseError extends Schema.TaggedClass<StatsDatabaseError>()('StatsDatabaseError', {
   operation: Schema.String,
   cause: Schema.Defect,
 }) {}

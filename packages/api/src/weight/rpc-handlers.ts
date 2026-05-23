@@ -15,7 +15,7 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     const goalService = yield* GoalService
 
     const WeightLogList = Effect.fn('rpc.weight.list')(function* (params: WeightLogListParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('WeightLogList called').pipe(
         Effect.annotateLogs({
           rpc: 'WeightLogList',
@@ -32,7 +32,7 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogGet = Effect.fn('rpc.weight.get')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('WeightLogGet called').pipe(Effect.annotateLogs({ rpc: 'WeightLogGet', id }))
       const result = yield* repo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('WeightLogGet completed').pipe(
@@ -42,7 +42,7 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogCreate = Effect.fn('rpc.weight.create')(function* (data: WeightLogCreate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('WeightLogCreate called').pipe(
         Effect.annotateLogs({
           rpc: 'WeightLogCreate',
@@ -62,7 +62,7 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogUpdate = Effect.fn('rpc.weight.update')(function* (data: WeightLogUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('WeightLogUpdate called').pipe(Effect.annotateLogs({ rpc: 'WeightLogUpdate', id: data.id }))
       const result = yield* repo.update(data, user.id)
 
@@ -76,7 +76,7 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
     })
 
     const WeightLogDelete = Effect.fn('rpc.weight.delete')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('WeightLogDelete called').pipe(Effect.annotateLogs({ rpc: 'WeightLogDelete', id }))
       const result = yield* repo.delete(id, user.id)
 

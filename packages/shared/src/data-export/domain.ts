@@ -25,7 +25,7 @@ export type DataExportVersion = typeof DataExportVersion.Type
  * Excludes ID since it's user-specific.
  */
 export class ExportedSettings extends Schema.Class<ExportedSettings>('ExportedSettings')({
-  weightUnit: Schema.Literal('lbs', 'kg'),
+  weightUnit: Schema.Literals(['lbs', 'kg'] as const),
 }) {}
 
 // ============================================
@@ -73,12 +73,12 @@ export class DataImportResult extends Schema.Class<DataImportResult>('DataImport
 // Errors
 // ============================================
 
-export class DataExportError extends Schema.TaggedError<DataExportError>()('DataExportError', {
+export class DataExportError extends Schema.TaggedClass<DataExportError>()('DataExportError', {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect),
 }) {}
 
-export class DataImportError extends Schema.TaggedError<DataImportError>()('DataImportError', {
+export class DataImportError extends Schema.TaggedClass<DataImportError>()('DataImportError', {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect),
 }) {}

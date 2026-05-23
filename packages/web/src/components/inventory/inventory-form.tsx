@@ -88,8 +88,8 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           totalAmount: TotalAmount.make(data.totalAmount),
           status: data.status,
           beyondUseDate: data.beyondUseDate
-            ? Option.some(DateTime.unsafeMake(new Date(data.beyondUseDate)))
-            : Option.some(null),
+            ? Option.some(DateTime.makeUnsafe(new Date(data.beyondUseDate)))
+            : Option.none(),
         }),
       )
     } else {
@@ -102,7 +102,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
           totalAmount: TotalAmount.make(data.totalAmount),
           status: data.status,
           beyondUseDate: data.beyondUseDate
-            ? Option.some(DateTime.unsafeMake(new Date(data.beyondUseDate)))
+            ? Option.some(DateTime.makeUnsafe(new Date(data.beyondUseDate)))
             : Option.none(),
         }),
         quantity,

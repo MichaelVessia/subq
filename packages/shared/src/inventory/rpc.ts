@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 import {
   Inventory,
@@ -35,7 +35,7 @@ export const InventoryRpcs = RpcGroup.make(
   Rpc.make('InventoryUpdate', {
     payload: InventoryUpdate,
     success: Inventory,
-    error: Schema.Union(InventoryNotFoundError, InventoryDatabaseError),
+    error: Schema.Union([InventoryNotFoundError, InventoryDatabaseError]),
   }),
   Rpc.make('InventoryDelete', {
     payload: InventoryDelete,
@@ -45,11 +45,11 @@ export const InventoryRpcs = RpcGroup.make(
   Rpc.make('InventoryMarkFinished', {
     payload: InventoryMarkFinished,
     success: Inventory,
-    error: Schema.Union(InventoryNotFoundError, InventoryDatabaseError),
+    error: Schema.Union([InventoryNotFoundError, InventoryDatabaseError]),
   }),
   Rpc.make('InventoryMarkOpened', {
     payload: InventoryMarkOpened,
     success: Inventory,
-    error: Schema.Union(InventoryNotFoundError, InventoryDatabaseError),
+    error: Schema.Union([InventoryNotFoundError, InventoryDatabaseError]),
   }),
 )

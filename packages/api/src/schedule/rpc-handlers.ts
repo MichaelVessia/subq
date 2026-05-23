@@ -44,7 +44,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     const injectionLogRepo = yield* InjectionLogRepo
 
     const ScheduleList = Effect.fn('rpc.schedule.list')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('ScheduleList called').pipe(Effect.annotateLogs({ rpc: 'ScheduleList', userId: user.id }))
       const result = yield* scheduleRepo.list(user.id)
       yield* Effect.logDebug('ScheduleList completed').pipe(
@@ -54,7 +54,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleGetActive = Effect.fn('rpc.schedule.getActive')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('ScheduleGetActive called').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleGetActive', userId: user.id }),
       )
@@ -66,7 +66,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleGet = Effect.fn('rpc.schedule.get')(function* ({ id }: { id: InjectionScheduleId }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('ScheduleGet called').pipe(Effect.annotateLogs({ rpc: 'ScheduleGet', id }))
       const result = yield* scheduleRepo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('ScheduleGet completed').pipe(
@@ -76,7 +76,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleCreate = Effect.fn('rpc.schedule.create')(function* (data: InjectionScheduleCreate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('ScheduleCreate called').pipe(
         Effect.annotateLogs({
           rpc: 'ScheduleCreate',
@@ -95,7 +95,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleUpdate = Effect.fn('rpc.schedule.update')(function* (data: InjectionScheduleUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('ScheduleUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleUpdate', id: data.id, isActive: data.isActive }),
       )
@@ -107,7 +107,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleDelete = Effect.fn('rpc.schedule.delete')(function* ({ id }: { id: InjectionScheduleId }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('ScheduleDelete called').pipe(Effect.annotateLogs({ rpc: 'ScheduleDelete', id }))
       const result = yield* scheduleRepo.delete(id, user.id)
       yield* Effect.logInfo('ScheduleDelete completed').pipe(
@@ -117,7 +117,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleGetNextDose = Effect.fn('rpc.schedule.getNextDose')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('ScheduleGetNextDose called').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleGetNextDose', userId: user.id }),
       )
@@ -142,7 +142,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
       // Get last injection for this drug
       const lastInjectionOpt = yield* scheduleRepo.getLastInjectionDate(user.id, schedule.drug)
-      const now = DateTime.unsafeNow()
+      const now = DateTime.nowUnsafe()
 
       // Determine current phase based on days since start
       const startDate = schedule.startDate
@@ -182,10 +182,10 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
 
       if (Option.isNone(lastInjectionOpt)) {
         // No injections yet, suggest today or start date (whichever is later)
-        suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
+        suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
       } else {
         const lastInjection = lastInjectionOpt.value
-        suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+        suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
       }
 
       const daysUntilDue = Math.round((DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay)
@@ -215,7 +215,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
     })
 
     const ScheduleGetView = Effect.fn('rpc.schedule.getView')(function* ({ id }: { id: InjectionScheduleId }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('ScheduleGetView called').pipe(
         Effect.annotateLogs({ rpc: 'ScheduleGetView', id, userId: user.id }),
       )
@@ -237,11 +237,11 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
       // Calculate phase boundaries and assign injections
       const intervalDays = frequencyToDays(schedule.frequency)
       let cumulativeDays = 0
-      const now = DateTime.unsafeNow()
+      const now = DateTime.nowUnsafe()
       const msPerDay = 1000 * 60 * 60 * 24
 
       const phaseViews: SchedulePhaseView[] = schedule.phases.map((phase) => {
-        const phaseStartDate = DateTime.unsafeMake(
+        const phaseStartDate = DateTime.makeUnsafe(
           DateTime.toEpochMillis(schedule.startDate) + cumulativeDays * msPerDay,
         )
 
@@ -249,16 +249,16 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         const isIndefinite = phase.durationDays === null
         const phaseEndDate = isIndefinite
           ? null
-          : DateTime.unsafeMake(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
+          : DateTime.makeUnsafe(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
 
         // Determine phase status
         let status: 'completed' | 'current' | 'upcoming'
         if (isIndefinite) {
           // Indefinite phase is current if we've reached it, never completed
-          status = DateTime.greaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
-        } else if (phaseEndDate && DateTime.greaterThan(now, phaseEndDate)) {
+          status = DateTime.isGreaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
+        } else if (phaseEndDate && DateTime.isGreaterThan(now, phaseEndDate)) {
           status = 'completed'
-        } else if (DateTime.greaterThanOrEqualTo(now, phaseStartDate)) {
+        } else if (DateTime.isGreaterThanOrEqualTo(now, phaseStartDate)) {
           status = 'current'
         } else {
           status = 'upcoming'
@@ -272,12 +272,12 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         const phaseInjections = injections.filter((inj) => {
           const injDate = inj.datetime // already DateTime.Utc
           if (isIndefinite) {
-            return DateTime.greaterThanOrEqualTo(injDate, phaseStartDate)
+            return DateTime.isGreaterThanOrEqualTo(injDate, phaseStartDate)
           }
           return (
             phaseEndDate &&
-            DateTime.greaterThanOrEqualTo(injDate, phaseStartDate) &&
-            DateTime.lessThanOrEqualTo(injDate, phaseEndDate)
+            DateTime.isGreaterThanOrEqualTo(injDate, phaseStartDate) &&
+            DateTime.isLessThanOrEqualTo(injDate, phaseEndDate)
           )
         })
 
@@ -313,7 +313,7 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         ? null
         : (() => {
             const totalDays = schedule.phases.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
-            return DateTime.unsafeMake(DateTime.toEpochMillis(schedule.startDate) + (totalDays - 1) * msPerDay)
+            return DateTime.makeUnsafe(DateTime.toEpochMillis(schedule.startDate) + (totalDays - 1) * msPerDay)
           })()
 
       // Total expected is null if any phase is indefinite

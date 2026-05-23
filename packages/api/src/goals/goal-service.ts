@@ -1,6 +1,6 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import { GoalDatabaseError, GoalProgress, type PaceStatus, PercentComplete, type UserGoal, Weight } from '@subq/shared'
-import { Cache, DateTime, Duration, Effect, Layer, Option, Schema } from 'effect'
+import { Context, Cache, DateTime, Duration, Effect, Layer, Option, Schema } from 'effect'
 import { GoalRepo } from './goal-repo.js'
 
 // ============================================
@@ -12,13 +12,13 @@ const WeightRow = Schema.Struct({
   weight: Schema.Number,
 })
 
-const decodeWeightRow = Schema.decodeUnknown(WeightRow)
+const decodeWeightRow = Schema.decodeUnknownEffect(WeightRow)
 
 // ============================================
 // Goal Service Definition
 // ============================================
 
-export class GoalService extends Effect.Tag('GoalService')<
+export class GoalService extends Context.Service<
   GoalService,
   {
     /** Get current weight for goal progress calculation */
@@ -43,7 +43,7 @@ export class GoalService extends Effect.Tag('GoalService')<
     /** Invalidate goal progress cache for a user (call after weight mutations) */
     readonly invalidateCache: (userId: string) => Effect.Effect<void>
   }
->() {}
+>()('GoalService') {}
 
 // ============================================
 // Constants
@@ -144,17 +144,17 @@ export const GoalServiceLive = Layer.effect(
       const remainingLbs = currentWeight - goal.goalWeight
       if (remainingLbs <= 0) {
         // Already at or below goal
-        return DateTime.unsafeNow()
+        return DateTime.nowUnsafe()
       }
 
       const weeksToGoal = remainingLbs / Math.abs(rateOfChange)
       const msToGoal = weeksToGoal * MS_PER_WEEK
-      const now = DateTime.unsafeNow()
-      const projectedDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) + msToGoal)
+      const now = DateTime.nowUnsafe()
+      const projectedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(now) + msToGoal)
 
       // Cap at 5 years
-      const maxDate = DateTime.unsafeMake(DateTime.toEpochMillis(now) + MAX_PROJECTION_YEARS * 365 * MS_PER_DAY)
-      if (DateTime.greaterThan(projectedDate, maxDate)) {
+      const maxDate = DateTime.makeUnsafe(DateTime.toEpochMillis(now) + MAX_PROJECTION_YEARS * 365 * MS_PER_DAY)
+      if (DateTime.isGreaterThan(projectedDate, maxDate)) {
         return null // Too far out to be meaningful
       }
 
@@ -178,7 +178,7 @@ export const GoalServiceLive = Layer.effect(
         return 'ahead' // Already at goal
       }
 
-      const now = DateTime.unsafeNow()
+      const now = DateTime.nowUnsafe()
       const msRemaining = DateTime.toEpochMillis(goal.targetDate) - DateTime.toEpochMillis(now)
       if (msRemaining <= 0) {
         return 'behind' // Target date passed
@@ -227,7 +227,7 @@ export const GoalServiceLive = Layer.effect(
           const decoded = yield* decodeWeightRow(row).pipe(
             Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
           )
-          points.push({ date: DateTime.unsafeMake(decoded.datetime), weight: decoded.weight })
+          points.push({ date: DateTime.makeUnsafe(decoded.datetime), weight: decoded.weight })
         }
 
         const rateOfChange = computeRateOfChange(points)
@@ -240,7 +240,7 @@ export const GoalServiceLive = Layer.effect(
         const projectedDate = calculateProjectedDate(goal, currentWeight, rateOfChange)
         const paceStatus = calculatePaceStatus(goal, currentWeight, rateOfChange)
 
-        const now = DateTime.unsafeNow()
+        const now = DateTime.nowUnsafe()
         const daysOnPlan = Math.floor(
           (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(goal.startingDate)) / MS_PER_DAY,
         )
@@ -269,10 +269,10 @@ export const GoalServiceLive = Layer.effect(
     })
 
     // Cached getGoalProgress
-    const getGoalProgress = (userId: string) => goalProgressCache.get(userId)
+    const getGoalProgress = (userId: string) => Cache.get(goalProgressCache, userId)
 
     // Cache invalidation
-    const invalidateCache = (userId: string) => goalProgressCache.invalidate(userId)
+    const invalidateCache = (userId: string) => Cache.invalidate(goalProgressCache, userId)
 
     return {
       getCurrentWeight,

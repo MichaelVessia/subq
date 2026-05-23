@@ -1,4 +1,5 @@
-import { Result, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomValue } from '@effect/atom-react'
 import {
   Count,
   type DosageHistoryStats,

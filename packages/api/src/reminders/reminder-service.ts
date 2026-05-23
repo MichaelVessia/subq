@@ -1,5 +1,5 @@
-import { SqlClient } from '@effect/sql'
-import { Data, DateTime, Effect, Layer, Schema } from 'effect'
+import { SqlClient } from 'effect/unstable/sql'
+import { Context, Data, DateTime, Effect, Layer, Schema } from 'effect'
 
 // ============================================
 // Types
@@ -38,7 +38,7 @@ const UserScheduleRow = Schema.Struct({
   last_injection_site: Schema.NullOr(Schema.String),
 })
 
-const decodeUserScheduleRow = Schema.decodeUnknown(UserScheduleRow)
+const decodeUserScheduleRow = Schema.decodeUnknownEffect(UserScheduleRow)
 
 // Frequency to days mapping
 const frequencyToDays = (frequency: string): number => {
@@ -62,13 +62,13 @@ const frequencyToDays = (frequency: string): number => {
 // Service Definition
 // ============================================
 
-export class ReminderService extends Effect.Tag('ReminderService')<
+export class ReminderService extends Context.Service<
   ReminderService,
   {
     readonly getUsersDueToday: () => Effect.Effect<UserDueForReminder[], ReminderServiceError>
     readonly getAllUsersWithActiveSchedule: () => Effect.Effect<UserDueForReminder[], ReminderServiceError>
   }
->() {}
+>()('ReminderService') {}
 
 // ============================================
 // Service Implementation
@@ -130,7 +130,7 @@ export const ReminderServiceLive = Layer.effect(
           )
         `
 
-        const now = DateTime.unsafeNow()
+        const now = DateTime.nowUnsafe()
         const msPerDay = 1000 * 60 * 60 * 24
         const usersDue: UserDueForReminder[] = []
 
@@ -143,11 +143,11 @@ export const ReminderServiceLive = Layer.effect(
 
           if (!decoded.last_injection_date) {
             // No injections yet - due on start date or today (whichever is later)
-            const startDate = DateTime.unsafeMake(decoded.start_date)
-            suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
+            const startDate = DateTime.makeUnsafe(decoded.start_date)
+            suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
           } else {
-            const lastInjection = DateTime.unsafeMake(decoded.last_injection_date)
-            suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+            const lastInjection = DateTime.makeUnsafe(decoded.last_injection_date)
+            suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
             daysSinceLastInjection = Math.round(
               (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
             )
@@ -231,7 +231,7 @@ export const ReminderServiceLive = Layer.effect(
           )
         `
 
-        const now = DateTime.unsafeNow()
+        const now = DateTime.nowUnsafe()
         const msPerDay = 1000 * 60 * 60 * 24
         const users: UserDueForReminder[] = []
 
@@ -243,11 +243,11 @@ export const ReminderServiceLive = Layer.effect(
           let suggestedDate: DateTime.Utc
 
           if (!decoded.last_injection_date) {
-            const startDate = DateTime.unsafeMake(decoded.start_date)
-            suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
+            const startDate = DateTime.makeUnsafe(decoded.start_date)
+            suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
           } else {
-            const lastInjection = DateTime.unsafeMake(decoded.last_injection_date)
-            suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+            const lastInjection = DateTime.makeUnsafe(decoded.last_injection_date)
+            suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
             daysSinceLastInjection = Math.round(
               (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
             )

@@ -14,7 +14,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     const repo = yield* InjectionLogRepo
 
     const InjectionLogList = Effect.fn('rpc.injection.list')(function* (params: InjectionLogListParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InjectionLogList called').pipe(
         Effect.annotateLogs({
           rpc: 'InjectionLogList',
@@ -32,7 +32,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogGet = Effect.fn('rpc.injection.get')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InjectionLogGet called').pipe(Effect.annotateLogs({ rpc: 'InjectionLogGet', id }))
       const result = yield* repo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('InjectionLogGet completed').pipe(
@@ -42,7 +42,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogCreate = Effect.fn('rpc.injection.create')(function* (data: InjectionLogCreate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InjectionLogCreate called').pipe(
         Effect.annotateLogs({
           rpc: 'InjectionLogCreate',
@@ -60,7 +60,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogUpdate = Effect.fn('rpc.injection.update')(function* (data: InjectionLogUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InjectionLogUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogUpdate', id: data.id }),
       )
@@ -72,7 +72,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogDelete = Effect.fn('rpc.injection.delete')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InjectionLogDelete called').pipe(Effect.annotateLogs({ rpc: 'InjectionLogDelete', id }))
       const result = yield* repo.delete(id, user.id)
       yield* Effect.logInfo('InjectionLogDelete completed').pipe(
@@ -82,7 +82,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogGetDrugs = Effect.fn('rpc.injection.getDrugs')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InjectionLogGetDrugs called').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogGetDrugs', userId: user.id }),
       )
@@ -94,7 +94,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogGetSites = Effect.fn('rpc.injection.getSites')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InjectionLogGetSites called').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogGetSites', userId: user.id }),
       )
@@ -106,7 +106,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     })
 
     const InjectionLogGetLastSite = Effect.fn('rpc.injection.getLastSite')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InjectionLogGetLastSite called').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogGetLastSite', userId: user.id }),
       )
@@ -120,7 +120,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
     const InjectionLogBulkAssignSchedule = Effect.fn('rpc.injection.bulkAssignSchedule')(function* (
       data: InjectionLogBulkAssignSchedule,
     ) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InjectionLogBulkAssignSchedule called').pipe(
         Effect.annotateLogs({
           rpc: 'InjectionLogBulkAssignSchedule',

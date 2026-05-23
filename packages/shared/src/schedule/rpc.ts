@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 import { InjectionScheduleId } from './domain.js'
 import {
@@ -14,12 +14,12 @@ import {
 // Schedule Errors
 // ============================================
 
-export class ScheduleNotFoundError extends Schema.TaggedError<ScheduleNotFoundError>()('ScheduleNotFoundError', {
+export class ScheduleNotFoundError extends Schema.TaggedClass<ScheduleNotFoundError>()('ScheduleNotFoundError', {
   id: Schema.String,
 }) {}
 
-export class ScheduleDatabaseError extends Schema.TaggedError<ScheduleDatabaseError>()('ScheduleDatabaseError', {
-  operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+export class ScheduleDatabaseError extends Schema.TaggedClass<ScheduleDatabaseError>()('ScheduleDatabaseError', {
+  operation: Schema.Literals(['insert', 'update', 'delete', 'query'] as const),
   cause: Schema.Defect,
 }) {}
 
@@ -49,7 +49,7 @@ export const ScheduleRpcs = RpcGroup.make(
   Rpc.make('ScheduleUpdate', {
     payload: InjectionScheduleUpdate,
     success: InjectionSchedule,
-    error: Schema.Union(ScheduleNotFoundError, ScheduleDatabaseError),
+    error: Schema.Union([ScheduleNotFoundError, ScheduleDatabaseError]),
   }),
   Rpc.make('ScheduleDelete', {
     payload: InjectionScheduleDelete,

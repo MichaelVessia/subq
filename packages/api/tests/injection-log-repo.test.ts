@@ -10,7 +10,7 @@ import {
   Offset,
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo, InjectionLogRepoLive } from '../src/injection/injection-log-repo.js'
 import { insertInjectionLog, insertSchedule, makeInitializedTestLayer } from './helpers/test-db.js'
 
@@ -24,7 +24,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Testosterone Cypionate'),
               source: Option.some(DrugSource.make('Empower Pharmacy')),
               dosage: Dosage.make('200mg'),
@@ -51,7 +51,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('BPC-157'),
               source: Option.none(),
               dosage: Dosage.make('250mcg'),
@@ -78,7 +78,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Testosterone'),
               source: Option.none(),
               dosage: Dosage.make('100mg'),
@@ -130,7 +130,7 @@ describe('InjectionLogRepo', () => {
           for (let i = 0; i < 5; i++) {
             yield* repo.create(
               {
-                datetime: DateTime.unsafeMake(`2024-01-${15 + i}T10:00:00Z`),
+                datetime: DateTime.makeUnsafe(`2024-01-${15 + i}T10:00:00Z`),
                 drug: DrugName.make('Testosterone'),
                 source: Option.none(),
                 dosage: Dosage.make(`${100 + i * 10}mg`),
@@ -160,7 +160,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Testosterone'),
               source: Option.none(),
               dosage: Dosage.make('100mg'),
@@ -172,7 +172,7 @@ describe('InjectionLogRepo', () => {
           )
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-16T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-16T10:00:00Z'),
               drug: DrugName.make('BPC-157'),
               source: Option.none(),
               dosage: Dosage.make('250mcg'),
@@ -204,7 +204,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-10T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-10T10:00:00Z'),
               drug: DrugName.make('Test'),
               source: Option.none(),
               dosage: Dosage.make('100mg'),
@@ -216,7 +216,7 @@ describe('InjectionLogRepo', () => {
           )
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Test'),
               source: Option.none(),
               dosage: Dosage.make('200mg'),
@@ -228,7 +228,7 @@ describe('InjectionLogRepo', () => {
           )
           yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-20T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-20T10:00:00Z'),
               drug: DrugName.make('Test'),
               source: Option.none(),
               dosage: Dosage.make('300mg'),
@@ -243,8 +243,8 @@ describe('InjectionLogRepo', () => {
             {
               limit: Limit.make(50),
               offset: Offset.make(0),
-              startDate: DateTime.unsafeMake('2024-01-12T00:00:00Z'),
-              endDate: DateTime.unsafeMake('2024-01-18T00:00:00Z'),
+              startDate: DateTime.makeUnsafe('2024-01-12T00:00:00Z'),
+              endDate: DateTime.makeUnsafe('2024-01-18T00:00:00Z'),
             },
             'user-123',
           )
@@ -279,7 +279,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Testosterone'),
               source: Option.none(),
               dosage: Dosage.make('100mg'),
@@ -325,11 +325,11 @@ describe('InjectionLogRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InjectionLogNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InjectionLogNotFoundError')
           }
         }),
       )
@@ -353,11 +353,11 @@ describe('InjectionLogRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InjectionLogNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InjectionLogNotFoundError')
           }
         }),
       )
@@ -371,7 +371,7 @@ describe('InjectionLogRepo', () => {
           const repo = yield* InjectionLogRepo
           const created = yield* repo.create(
             {
-              datetime: DateTime.unsafeMake('2024-01-15T10:00:00Z'),
+              datetime: DateTime.makeUnsafe('2024-01-15T10:00:00Z'),
               drug: DrugName.make('Testosterone'),
               source: Option.none(),
               dosage: Dosage.make('100mg'),

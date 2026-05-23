@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   Notes,
   Weight,
@@ -10,7 +10,7 @@ import {
   WeightLogNotFoundError,
   type WeightLogUpdate,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -28,17 +28,17 @@ const WeightLogRow = Schema.Struct({
   updated_at: Schema.String,
 })
 
-const decodeRow = Schema.decodeUnknown(WeightLogRow)
+const decodeRow = Schema.decodeUnknownEffect(WeightLogRow)
 
 // Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof WeightLogRow.Type): WeightLog =>
   new WeightLog({
     id: WeightLogId.make(row.id),
-    datetime: DateTime.unsafeMake(row.datetime),
+    datetime: DateTime.makeUnsafe(row.datetime),
     weight: Weight.make(row.weight),
     notes: row.notes ? Notes.make(row.notes) : null,
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 // Decode and transform raw DB row
@@ -51,7 +51,7 @@ const generateUuid = () => crypto.randomUUID()
 // Repository Service Definition
 // ============================================
 
-export class WeightLogRepo extends Effect.Tag('WeightLogRepo')<
+export class WeightLogRepo extends Context.Service<
   WeightLogRepo,
   {
     readonly list: (params: WeightLogListParams, userId: string) => Effect.Effect<WeightLog[], WeightLogDatabaseError>
@@ -63,7 +63,7 @@ export class WeightLogRepo extends Effect.Tag('WeightLogRepo')<
     ) => Effect.Effect<WeightLog, WeightLogNotFoundError | WeightLogDatabaseError>
     readonly delete: (id: string, userId: string) => Effect.Effect<boolean, WeightLogDatabaseError>
   }
->() {}
+>()('WeightLogRepo') {}
 
 // ============================================
 // Repository Implementation
@@ -109,7 +109,7 @@ export const WeightLogRepoLive = Layer.effect(
       Effect.gen(function* () {
         const id = generateUuid()
         const notes = Option.isSome(data.notes) ? data.notes.value : null
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         const datetimeStr = DateTime.formatIso(data.datetime)
 
         yield* sql`
@@ -135,7 +135,7 @@ export const WeightLogRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => WeightLogDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* WeightLogNotFoundError.make({ id: data.id })
+          return yield* Effect.fail(WeightLogNotFoundError.make({ id: data.id }))
         }
 
         const curr = yield* decodeRow(current[0]).pipe(
@@ -144,7 +144,7 @@ export const WeightLogRepoLive = Layer.effect(
         const newDatetime = data.datetime ? DateTime.formatIso(data.datetime) : curr.datetime
         const newWeight = data.weight ?? curr.weight
         const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         yield* sql`
           UPDATE weight_logs

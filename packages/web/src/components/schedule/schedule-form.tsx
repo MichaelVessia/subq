@@ -1,5 +1,6 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
-import { Result, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomValue } from '@effect/atom-react'
 import {
   Dosage,
   DrugName,
@@ -220,7 +221,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
           drug: DrugName.make(data.drug),
           source: null, // Source is not required for schedules
           frequency: data.frequency,
-          startDate: DateTime.unsafeMake(new Date(data.startDate)),
+          startDate: DateTime.makeUnsafe(new Date(data.startDate)),
           notes: data.notes ? Notes.make(data.notes) : null,
           phases: phasesData,
         }),
@@ -232,7 +233,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
           drug: DrugName.make(data.drug),
           source: Option.none(), // Source is not required for schedules
           frequency: data.frequency,
-          startDate: DateTime.unsafeMake(new Date(data.startDate)),
+          startDate: DateTime.makeUnsafe(new Date(data.startDate)),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
           phases: phasesData,
         }),

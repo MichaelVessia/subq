@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   GoalDatabaseError,
   GoalId,
@@ -9,7 +9,7 @@ import {
   type UserGoalUpdate,
   Weight,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schemas
@@ -29,20 +29,20 @@ const GoalRow = Schema.Struct({
   updated_at: Schema.String,
 })
 
-const decodeGoalRow = Schema.decodeUnknown(GoalRow)
+const decodeGoalRow = Schema.decodeUnknownEffect(GoalRow)
 
 const goalRowToDomain = (row: typeof GoalRow.Type): UserGoal =>
   new UserGoal({
     id: GoalId.make(row.id),
     goalWeight: Weight.make(row.goal_weight),
     startingWeight: Weight.make(row.starting_weight),
-    startingDate: DateTime.unsafeMake(row.starting_date),
-    targetDate: row.target_date ? DateTime.unsafeMake(row.target_date) : null,
+    startingDate: DateTime.makeUnsafe(row.starting_date),
+    targetDate: row.target_date ? DateTime.makeUnsafe(row.target_date) : null,
     notes: row.notes ? Notes.make(row.notes) : null,
     isActive: row.is_active === 1,
-    completedAt: row.completed_at ? DateTime.unsafeMake(row.completed_at) : null,
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    completedAt: row.completed_at ? DateTime.makeUnsafe(row.completed_at) : null,
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 const generateUuid = () => crypto.randomUUID()
@@ -61,7 +61,7 @@ const extractDatePart = (isoString: string): string => {
 // Repository Service Definition
 // ============================================
 
-export class GoalRepo extends Effect.Tag('GoalRepo')<
+export class GoalRepo extends Context.Service<
   GoalRepo,
   {
     readonly list: (userId: string) => Effect.Effect<UserGoal[], GoalDatabaseError>
@@ -78,7 +78,7 @@ export class GoalRepo extends Effect.Tag('GoalRepo')<
     ) => Effect.Effect<UserGoal, GoalNotFoundError | GoalDatabaseError>
     readonly delete: (id: string, userId: string) => Effect.Effect<boolean, GoalDatabaseError>
   }
->() {}
+>()('GoalRepo') {}
 
 // ============================================
 // Repository Implementation
@@ -135,7 +135,7 @@ export const GoalRepoLive = Layer.effect(
     const create = (data: UserGoalCreate, startingWeight: number, userId: string) =>
       Effect.gen(function* () {
         const id = generateUuid()
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         const startingDate = Option.isSome(data.startingDate)
           ? extractDatePart(DateTime.formatIso(data.startingDate.value))
           : extractDatePart(now)
@@ -171,14 +171,14 @@ export const GoalRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* GoalNotFoundError.make({ id: data.id })
+          return yield* Effect.fail(GoalNotFoundError.make({ id: data.id }))
         }
 
         const curr = yield* decodeGoalRow(current[0]).pipe(
           Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
         )
 
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         // Compute new values (use provided or fall back to current)
         const newGoalWeight = data.goalWeight ?? curr.goal_weight

@@ -1,5 +1,5 @@
 import { Dosage, DrugName, DrugSource, Limit, Notes, Offset } from '../common/domain.js'
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { InjectionScheduleId } from '../schedule/domain.js'
 
 // ============================================
@@ -15,33 +15,35 @@ export type InjectionLogId = typeof InjectionLogId.Type
 // ============================================
 
 /** Injection site location */
-export const InjectionSite = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('InjectionSite'))
+export const InjectionSite = Schema.NonEmptyString.pipe(Schema.brand('InjectionSite'))
 export type InjectionSite = typeof InjectionSite.Type
 
 /** Injections per week rate */
-export const InjectionsPerWeek = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('InjectionsPerWeek'))
+export const InjectionsPerWeek = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0)).pipe(
+  Schema.brand('InjectionsPerWeek'),
+)
 export type InjectionsPerWeek = typeof InjectionsPerWeek.Type
 
 // ============================================
 // Injection Domain Errors
 // ============================================
 
-export class InjectionLogNotFoundError extends Schema.TaggedError<InjectionLogNotFoundError>()(
+export class InjectionLogNotFoundError extends Schema.TaggedClass<InjectionLogNotFoundError>()(
   'InjectionLogNotFoundError',
   {
     id: Schema.String,
   },
 ) {}
 
-export class InjectionLogDatabaseError extends Schema.TaggedError<InjectionLogDatabaseError>()(
+export class InjectionLogDatabaseError extends Schema.TaggedClass<InjectionLogDatabaseError>()(
   'InjectionLogDatabaseError',
   {
-    operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+    operation: Schema.Literals(['insert', 'update', 'delete', 'query'] as const),
     cause: Schema.Defect,
   },
 ) {}
 
-export const InjectionLogError = Schema.Union(InjectionLogNotFoundError, InjectionLogDatabaseError)
+export const InjectionLogError = Schema.Union([InjectionLogNotFoundError, InjectionLogDatabaseError])
 export type InjectionLogError = typeof InjectionLogError.Type
 // ============================================
 // Core Domain Type
@@ -84,11 +86,11 @@ export class InjectionLog extends Schema.Class<InjectionLog>('InjectionLog')({
 export class InjectionLogCreate extends Schema.Class<InjectionLogCreate>('InjectionLogCreate')({
   datetime: Schema.DateTimeUtc,
   drug: DrugName,
-  source: Schema.optionalWith(DrugSource, { as: 'Option' }),
+  source: Schema.OptionFromOptional(DrugSource),
   dosage: Dosage,
-  injectionSite: Schema.optionalWith(InjectionSite, { as: 'Option' }),
-  notes: Schema.optionalWith(Notes, { as: 'Option' }),
-  scheduleId: Schema.optionalWith(InjectionScheduleId, { as: 'Option' }),
+  injectionSite: Schema.OptionFromOptional(InjectionSite),
+  notes: Schema.OptionFromOptional(Notes),
+  scheduleId: Schema.OptionFromOptional(InjectionScheduleId),
 }) {}
 
 /**
@@ -98,13 +100,11 @@ export class InjectionLogUpdate extends Schema.Class<InjectionLogUpdate>('Inject
   id: InjectionLogId,
   datetime: Schema.optional(Schema.DateTimeUtc),
   drug: Schema.optional(DrugName),
-  source: Schema.optionalWith(Schema.NullOr(DrugSource), { as: 'Option' }),
+  source: Schema.OptionFromOptionalNullOr(DrugSource),
   dosage: Schema.optional(Dosage),
-  injectionSite: Schema.optionalWith(Schema.NullOr(InjectionSite), {
-    as: 'Option',
-  }),
-  notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
-  scheduleId: Schema.optionalWith(Schema.NullOr(InjectionScheduleId), { as: 'Option' }),
+  injectionSite: Schema.OptionFromOptionalNullOr(InjectionSite),
+  notes: Schema.OptionFromOptionalNullOr(Notes),
+  scheduleId: Schema.OptionFromOptionalNullOr(InjectionScheduleId),
 }) {}
 
 /**
@@ -118,8 +118,8 @@ export class InjectionLogDelete extends Schema.Class<InjectionLogDelete>('Inject
  * Parameters for listing injection logs.
  */
 export class InjectionLogListParams extends Schema.Class<InjectionLogListParams>('InjectionLogListParams')({
-  limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
-  offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
+  limit: Limit.pipe(Schema.withDecodingDefaultType(Effect.succeed(Limit.make(50)))),
+  offset: Offset.pipe(Schema.withDecodingDefaultType(Effect.succeed(Offset.make(0)))),
   startDate: Schema.optional(Schema.DateTimeUtc),
   endDate: Schema.optional(Schema.DateTimeUtc),
   drug: Schema.optional(DrugName), // Filter by specific drug

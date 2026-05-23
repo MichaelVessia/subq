@@ -1,6 +1,6 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import { SettingsDatabaseError, UserSettings, type UserSettingsUpdate } from '@subq/shared'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { Context, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -9,13 +9,13 @@ import { Effect, Layer, Option, Schema } from 'effect'
 const SettingsRow = Schema.Struct({
   id: Schema.String,
   user_id: Schema.String,
-  weight_unit: Schema.Literal('lbs', 'kg'),
+  weight_unit: Schema.Literals(['lbs', 'kg'] as const),
   reminders_enabled: Schema.Number, // SQLite boolean as 0/1
   created_at: Schema.String,
   updated_at: Schema.String,
 })
 
-const decodeSettingsRow = Schema.decodeUnknown(SettingsRow)
+const decodeSettingsRow = Schema.decodeUnknownEffect(SettingsRow)
 
 // Schema for the partial row used in upsert's existing check
 const CurrentSettingsRow = Schema.Struct({
@@ -23,7 +23,7 @@ const CurrentSettingsRow = Schema.Struct({
   weight_unit: Schema.String,
   reminders_enabled: Schema.Number,
 })
-const decodeCurrentSettingsRow = Schema.decodeUnknown(CurrentSettingsRow)
+const decodeCurrentSettingsRow = Schema.decodeUnknownEffect(CurrentSettingsRow)
 
 const settingsRowToDomain = (row: typeof SettingsRow.Type): UserSettings =>
   new UserSettings({
@@ -40,13 +40,13 @@ const generateUuid = () => crypto.randomUUID()
 // Repository Service Definition
 // ============================================
 
-export class SettingsRepo extends Effect.Tag('SettingsRepo')<
+export class SettingsRepo extends Context.Service<
   SettingsRepo,
   {
     readonly get: (userId: string) => Effect.Effect<Option.Option<UserSettings>, SettingsDatabaseError>
     readonly upsert: (userId: string, data: UserSettingsUpdate) => Effect.Effect<UserSettings, SettingsDatabaseError>
   }
->() {}
+>()('SettingsRepo') {}
 
 // ============================================
 // Repository Implementation

@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import { Database } from 'bun:sqlite'
 import { betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db'

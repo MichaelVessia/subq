@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   Dosage,
   DrugName,
@@ -15,7 +15,7 @@ import {
   InjectionSite,
   Notes,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 
 // ============================================
 // Database Row Schema
@@ -36,34 +36,34 @@ const InjectionLogRow = Schema.Struct({
   updated_at: Schema.String,
 })
 
-const decodeRow = Schema.decodeUnknown(InjectionLogRow)
+const decodeRow = Schema.decodeUnknownEffect(InjectionLogRow)
 
 // Schemas for simple aggregation queries
 const DrugRow = Schema.Struct({ drug: Schema.String })
-const decodeDrugRows = Schema.decodeUnknown(Schema.Array(DrugRow))
+const decodeDrugRows = Schema.decodeUnknownEffect(Schema.Array(DrugRow))
 
 const InjectionSiteRow = Schema.Struct({ injection_site: Schema.String })
-const decodeSiteRows = Schema.decodeUnknown(Schema.Array(InjectionSiteRow))
+const decodeSiteRows = Schema.decodeUnknownEffect(Schema.Array(InjectionSiteRow))
 
 const LastSiteRow = Schema.Struct({ injection_site: Schema.NullOr(Schema.String) })
-const decodeLastSiteRows = Schema.decodeUnknown(Schema.Array(LastSiteRow))
+const decodeLastSiteRows = Schema.decodeUnknownEffect(Schema.Array(LastSiteRow))
 
 const CountRow = Schema.Struct({ count: Schema.Number })
-const decodeCountRow = Schema.decodeUnknown(CountRow)
+const decodeCountRow = Schema.decodeUnknownEffect(CountRow)
 
 // Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
   new InjectionLog({
     id: InjectionLogId.make(row.id),
-    datetime: DateTime.unsafeMake(row.datetime),
+    datetime: DateTime.makeUnsafe(row.datetime),
     drug: DrugName.make(row.drug),
     source: row.source ? DrugSource.make(row.source) : null,
     dosage: Dosage.make(row.dosage),
     injectionSite: row.injection_site ? InjectionSite.make(row.injection_site) : null,
     notes: row.notes ? Notes.make(row.notes) : null,
     scheduleId: row.schedule_id ? InjectionScheduleId.make(row.schedule_id) : null,
-    createdAt: DateTime.unsafeMake(row.created_at),
-    updatedAt: DateTime.unsafeMake(row.updated_at),
+    createdAt: DateTime.makeUnsafe(row.created_at),
+    updatedAt: DateTime.makeUnsafe(row.updated_at),
   })
 
 const decodeAndTransform = (raw: unknown) => Effect.map(decodeRow(raw), rowToDomain)
@@ -75,7 +75,7 @@ const generateUuid = () => crypto.randomUUID()
 // Repository Service Definition
 // ============================================
 
-export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
+export class InjectionLogRepo extends Context.Service<
   InjectionLogRepo,
   {
     readonly list: (
@@ -107,7 +107,7 @@ export class InjectionLogRepo extends Effect.Tag('InjectionLogRepo')<
       userId: string,
     ) => Effect.Effect<InjectionLog[], InjectionLogDatabaseError>
   }
->() {}
+>()('InjectionLogRepo') {}
 
 // ============================================
 // Repository Implementation
@@ -158,7 +158,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const injectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : null
         const notes = Option.isSome(data.notes) ? data.notes.value : null
         const scheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : null
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         const datetimeStr = DateTime.formatIso(data.datetime)
 
         yield* sql`
@@ -184,7 +184,7 @@ export const InjectionLogRepoLive = Layer.effect(
         `.pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
         if (current.length === 0) {
-          return yield* InjectionLogNotFoundError.make({ id: data.id })
+          return yield* Effect.fail(InjectionLogNotFoundError.make({ id: data.id }))
         }
 
         const curr = yield* decodeRow(current[0]).pipe(
@@ -197,7 +197,7 @@ export const InjectionLogRepoLive = Layer.effect(
         const newInjectionSite = Option.isSome(data.injectionSite) ? data.injectionSite.value : curr.injection_site
         const newNotes = Option.isSome(data.notes) ? data.notes.value : curr.notes
         const newScheduleId = Option.isSome(data.scheduleId) ? data.scheduleId.value : curr.schedule_id
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
 
         yield* sql`
           UPDATE injection_logs
@@ -275,7 +275,7 @@ export const InjectionLogRepoLive = Layer.effect(
       Effect.gen(function* () {
         if (data.ids.length === 0) return 0
 
-        const now = DateTime.formatIso(DateTime.unsafeNow())
+        const now = DateTime.formatIso(DateTime.nowUnsafe())
         const scheduleId = data.scheduleId
 
         // Single batch UPDATE using IN clause for all IDs

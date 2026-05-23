@@ -1,6 +1,6 @@
 import { DrugName, DrugSource, InventoryId, TotalAmount } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { InventoryRepo, InventoryRepoLive } from '../src/inventory/inventory-repo.js'
 import { insertInventory, makeInitializedTestLayer } from './helpers/test-db.js'
 
@@ -12,7 +12,7 @@ describe('InventoryRepo', () => {
       it.effect('creates inventory item with all fields', () =>
         Effect.gen(function* () {
           const repo = yield* InventoryRepo
-          const beyondUseDate = DateTime.unsafeMake('2024-03-01')
+          const beyondUseDate = DateTime.makeUnsafe('2024-03-01')
           const created = yield* repo.create(
             {
               drug: DrugName.make('Semaglutide'),
@@ -248,7 +248,7 @@ describe('InventoryRepo', () => {
             'user-123',
           )
 
-          const newBeyondUseDate = DateTime.unsafeMake('2024-04-01')
+          const newBeyondUseDate = DateTime.makeUnsafe('2024-04-01')
           const updated = yield* repo.update(
             {
               id: created.id,
@@ -278,11 +278,11 @@ describe('InventoryRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )
@@ -303,11 +303,11 @@ describe('InventoryRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )
@@ -392,11 +392,11 @@ describe('InventoryRepo', () => {
       it.effect('fails for non-existent item', () =>
         Effect.gen(function* () {
           const repo = yield* InventoryRepo
-          const result = yield* repo.markOpened('non-existent', 'user-123').pipe(Effect.either)
+          const result = yield* repo.markOpened('non-existent', 'user-123').pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )
@@ -408,11 +408,11 @@ describe('InventoryRepo', () => {
           yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'new', 'user-456')
 
           const repo = yield* InventoryRepo
-          const result = yield* repo.markOpened('inv-1', 'user-123').pipe(Effect.either)
+          const result = yield* repo.markOpened('inv-1', 'user-123').pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )
@@ -448,11 +448,11 @@ describe('InventoryRepo', () => {
       it.effect('fails for non-existent item', () =>
         Effect.gen(function* () {
           const repo = yield* InventoryRepo
-          const result = yield* repo.markFinished('non-existent', 'user-123').pipe(Effect.either)
+          const result = yield* repo.markFinished('non-existent', 'user-123').pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )
@@ -464,11 +464,11 @@ describe('InventoryRepo', () => {
           yield* insertInventory('inv-1', 'Drug', 'Source', 'vial', '10mg', 'opened', 'user-456')
 
           const repo = yield* InventoryRepo
-          const result = yield* repo.markFinished('inv-1', 'user-123').pipe(Effect.either)
+          const result = yield* repo.markFinished('inv-1', 'user-123').pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('InventoryNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('InventoryNotFoundError')
           }
         }),
       )

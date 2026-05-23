@@ -1,4 +1,5 @@
-import { Result, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomValue } from '@effect/atom-react'
 import type { InjectionScheduleId, SchedulePhaseView, ScheduleView } from '@subq/shared'
 import { Link, useParams } from '@tanstack/react-router'
 import type { DateTime } from 'effect'

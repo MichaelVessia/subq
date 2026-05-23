@@ -18,19 +18,19 @@ export type SchedulePhaseId = typeof SchedulePhaseId.Type
 // ============================================
 
 /** Schedule name/label */
-export const ScheduleName = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('ScheduleName'))
+export const ScheduleName = Schema.NonEmptyString.pipe(Schema.brand('ScheduleName'))
 export type ScheduleName = typeof ScheduleName.Type
 
 /** Frequency of injections (e.g., "weekly", "every 3 days") */
-export const Frequency = Schema.Literal('daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly')
+export const Frequency = Schema.Literals(['daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly'] as const)
 export type Frequency = typeof Frequency.Type
 
 /** Phase order number (1-based) */
-export const PhaseOrder = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('PhaseOrder'))
+export const PhaseOrder = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.brand('PhaseOrder'))
 export type PhaseOrder = typeof PhaseOrder.Type
 
 /** Duration in days for a phase */
-export const PhaseDurationDays = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('PhaseDurationDays'))
+export const PhaseDurationDays = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.brand('PhaseDurationDays'))
 export type PhaseDurationDays = typeof PhaseDurationDays.Type
 
 // ============================================
@@ -90,10 +90,10 @@ export class InjectionSchedule extends Schema.Class<InjectionSchedule>('Injectio
 export class InjectionScheduleCreate extends Schema.Class<InjectionScheduleCreate>('InjectionScheduleCreate')({
   name: ScheduleName,
   drug: DrugName,
-  source: Schema.optionalWith(DrugSource, { as: 'Option' }),
+  source: Schema.OptionFromOptional(DrugSource),
   frequency: Frequency,
   startDate: Schema.DateTimeUtc,
-  notes: Schema.optionalWith(Notes, { as: 'Option' }),
+  notes: Schema.OptionFromOptional(Notes),
   phases: Schema.Array(SchedulePhaseCreate),
 }) {}
 
@@ -163,7 +163,7 @@ export class SchedulePhaseView extends Schema.Class<SchedulePhaseView>('Schedule
   dosage: Dosage,
   startDate: Schema.DateTimeUtc,
   endDate: Schema.NullOr(Schema.DateTimeUtc),
-  status: Schema.Literal('completed', 'current', 'upcoming'),
+  status: Schema.Literals(['completed', 'current', 'upcoming'] as const),
   expectedInjections: Schema.NullOr(Schema.Number), // null for indefinite
   completedInjections: Schema.Number,
   injections: Schema.Array(PhaseInjectionSummary),

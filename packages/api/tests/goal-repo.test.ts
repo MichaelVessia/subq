@@ -1,6 +1,6 @@
 import { GoalId, Notes, Weight } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { GoalRepo, GoalRepoLive } from '../src/goals/goal-repo.js'
 import { makeInitializedTestLayer } from './helpers/test-db.js'
 
@@ -15,8 +15,8 @@ describe('GoalRepo', () => {
           const created = yield* repo.create(
             {
               goalWeight: Weight.make(150),
-              startingDate: Option.some(DateTime.unsafeMake('2024-01-01')),
-              targetDate: Option.some(DateTime.unsafeMake('2024-06-01')),
+              startingDate: Option.some(DateTime.makeUnsafe('2024-01-01')),
+              targetDate: Option.some(DateTime.makeUnsafe('2024-06-01')),
               notes: Option.some(Notes.make('Initial goal')),
             },
             180,
@@ -99,7 +99,7 @@ describe('GoalRepo', () => {
             {
               goalWeight: Weight.make(150),
               startingDate: Option.none(),
-              targetDate: Option.some(DateTime.unsafeMake('2024-06-01')),
+              targetDate: Option.some(DateTime.makeUnsafe('2024-06-01')),
               notes: Option.some(Notes.make('Initial notes')),
             },
             180,

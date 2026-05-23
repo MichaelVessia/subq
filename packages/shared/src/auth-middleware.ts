@@ -1,4 +1,4 @@
-import { RpcMiddleware } from '@effect/rpc'
+import * as RpcMiddleware from 'effect/unstable/rpc/RpcMiddleware'
 import { Context, Schema } from 'effect'
 
 // Minimal user/session types (matches better-auth structure)
@@ -14,13 +14,13 @@ export interface AuthSession {
 }
 
 // Auth context for authenticated requests
-export class AuthContext extends Context.Tag('AuthContext')<
+export class AuthContext extends Context.Service<
   AuthContext,
   { readonly user: AuthUser; readonly session: AuthSession }
->() {}
+>()('AuthContext') {}
 
 // Error for unauthorized access
-export class Unauthorized extends Schema.TaggedError<Unauthorized>()('Unauthorized', {
+export class Unauthorized extends Schema.TaggedClass<Unauthorized>()('Unauthorized', {
   details: Schema.String,
 }) {}
 
@@ -28,7 +28,9 @@ export class Unauthorized extends Schema.TaggedError<Unauthorized>()('Unauthoriz
  * RPC Middleware that extracts the authenticated user from request headers
  * and provides AuthContext to RPC handlers.
  */
-export class AuthRpcMiddleware extends RpcMiddleware.Tag<AuthRpcMiddleware>()('AuthRpcMiddleware', {
-  provides: AuthContext,
-  failure: Unauthorized,
-}) {}
+export class AuthRpcMiddleware extends RpcMiddleware.Service<AuthRpcMiddleware, { provides: typeof AuthContext }>()(
+  'AuthRpcMiddleware',
+  {
+    error: Unauthorized,
+  },
+) {}

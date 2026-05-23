@@ -4,7 +4,7 @@ import {
   SESSION_REFRESH_INTERVAL_MS,
   SESSION_UPDATE_AGE_SECONDS,
 } from '@subq/shared'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 
 describe('auth session timing config', () => {
   it('refreshes session before cookie cache expires', () => {
