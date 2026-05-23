@@ -1,5 +1,0 @@
-$ oxfmt --check packages/api/src packages/api/tests packages/api/scripts packages/shared/src packages/web/src packages/web/e2e scripts '!**/*.css'
-Checking formatting...
-
-All matched files use the correct format.
-Finished in 84ms on 161 files using 16 threads.

@@ -29,7 +29,10 @@
 		"seed:prod": "bun run scripts/seed-prod.ts",
 		"migrate": "bun run --filter @subq/api migrate",
 		"deploy": "flyctl deploy --remote-only",
-		"knip": "knip"
+		"knip": "knip",
+		"vendor:update": "bun run vendor:update:effect-smol",
+		"vendor:update:effect-smol": "git subtree pull --prefix=repos/effect-smol https://github.com/Effect-TS/effect-smol main --squash",
+		"validate": "bun run check"
 	},
 	"devDependencies": {
 		"@codeforbreakfast/bun-test-effect": "^0.4.1",

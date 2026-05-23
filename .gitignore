@@ -37,6 +37,7 @@ result
 .grove/
 .scratch/
 .fallow/
+.autoresearch-logs/
 .lefthook-local.yml
 
 # Sidecar worktree state files
