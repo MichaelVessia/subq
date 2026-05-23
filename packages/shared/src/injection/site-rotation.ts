@@ -2,14 +2,7 @@
  * Standard injection site rotation order.
  * Used to suggest the next injection site based on the last one used.
  */
-export const SITE_ROTATION = [
-  'Left abdomen',
-  'Right abdomen',
-  'Left thigh',
-  'Right thigh',
-  'Left upper arm',
-  'Right upper arm',
-] as const
+export const SITE_ROTATION = ['Left abdomen', 'Right abdomen', 'Left thigh', 'Right thigh'] as const
 
 export type InjectionSiteRotation = (typeof SITE_ROTATION)[number]
 
