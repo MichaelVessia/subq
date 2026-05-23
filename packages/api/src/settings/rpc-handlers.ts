@@ -7,7 +7,7 @@ export const SettingsRpcHandlersLive = SettingsRpcs.toLayer(
     const settingsRepo = yield* SettingsRepo
 
     const UserSettingsGet = Effect.fn('rpc.settings.get')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('UserSettingsGet called').pipe(
         Effect.annotateLogs({ rpc: 'UserSettingsGet', userId: user.id }),
       )
@@ -31,7 +31,7 @@ export const SettingsRpcHandlersLive = SettingsRpcs.toLayer(
     })
 
     const UserSettingsUpdate = Effect.fn('rpc.settings.update')(function* (data: UserSettingsUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('UserSettingsUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'UserSettingsUpdate', userId: user.id, weightUnit: data.weightUnit }),
       )

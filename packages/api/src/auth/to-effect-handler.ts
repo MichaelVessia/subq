@@ -1,7 +1,7 @@
 import * as BunHttpServerRequest from '@effect/platform-bun/BunHttpServerRequest'
-import * as Headers from '@effect/platform/Headers'
-import * as HttpServerRequest from '@effect/platform/HttpServerRequest'
-import * as HttpServerResponse from '@effect/platform/HttpServerResponse'
+import * as Headers from 'effect/unstable/http/Headers'
+import * as HttpServerRequest from 'effect/unstable/http/HttpServerRequest'
+import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse'
 import type { Auth } from 'better-auth'
 import * as Effect from 'effect/Effect'
 import { BetterAuthApiError } from './better-auth-error.js'
@@ -17,7 +17,7 @@ export const toEffectHandler: (
 ) =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
-    const fetchRequest = BunHttpServerRequest.toRequest(request)
+    const fetchRequest = BunHttpServerRequest.toBunServerRequest(request)
 
     const handler = 'handler' in auth ? auth.handler : auth
     const response = yield* Effect.tryPromise({

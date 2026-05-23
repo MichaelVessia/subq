@@ -1,4 +1,5 @@
-import { Result, useAtomSet, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomSet, useAtomValue } from '@effect/atom-react'
 import { kgToLbs, lbsToKg, type WeightUnit, DEFAULT_WEIGHT_UNIT, UserSettingsUpdate } from '@subq/shared'
 import { useMemo } from 'react'
 import { ApiClient, ReactivityKeys, UserSettingsAtom } from '../rpc.js'

@@ -64,15 +64,15 @@ export function WeightLogForm({ onSubmit, onUpdate, onCancel, initialData }: Wei
       await onUpdate(
         new WeightLogUpdate({
           id: initialData.id,
-          datetime: DateTime.unsafeMake(new Date(data.datetime)),
+          datetime: DateTime.makeUnsafe(new Date(data.datetime)),
           weight: Weight.make(weightInLbs),
-          notes: Option.some(data.notes ? Notes.make(data.notes) : null),
+          notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
         }),
       )
     } else {
       await onSubmit(
         new WeightLogCreate({
-          datetime: DateTime.unsafeMake(new Date(data.datetime)),
+          datetime: DateTime.makeUnsafe(new Date(data.datetime)),
           weight: Weight.make(weightInLbs),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
         }),

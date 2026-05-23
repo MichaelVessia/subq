@@ -11,8 +11,6 @@ COPY package.json bun.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/api/package.json ./packages/api/
 COPY packages/web/package.json ./packages/web/
-COPY packages/cli/package.json ./packages/cli/
-COPY packages/tui/package.json ./packages/tui/
 
 # Install dependencies from lockfile (skip prepare script which needs effect-language-service)
 RUN bun install --frozen-lockfile --ignore-scripts

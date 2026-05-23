@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 import { GoalId, GoalProgress, UserGoal, UserGoalCreate, UserGoalDelete, UserGoalUpdate } from './domain.js'
 
@@ -6,16 +6,16 @@ import { GoalId, GoalProgress, UserGoal, UserGoalCreate, UserGoalDelete, UserGoa
 // Goals Errors
 // ============================================
 
-export class GoalNotFoundError extends Schema.TaggedError<GoalNotFoundError>()('GoalNotFoundError', {
+export class GoalNotFoundError extends Schema.TaggedClass<GoalNotFoundError>()('GoalNotFoundError', {
   id: Schema.String,
 }) {}
 
-export class GoalDatabaseError extends Schema.TaggedError<GoalDatabaseError>()('GoalDatabaseError', {
-  operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+export class GoalDatabaseError extends Schema.TaggedClass<GoalDatabaseError>()('GoalDatabaseError', {
+  operation: Schema.Literals(['insert', 'update', 'delete', 'query'] as const),
   cause: Schema.Defect,
 }) {}
 
-export class NoWeightDataError extends Schema.TaggedError<NoWeightDataError>()('NoWeightDataError', {}) {}
+export class NoWeightDataError extends Schema.TaggedClass<NoWeightDataError>()('NoWeightDataError', {}) {}
 
 // ============================================
 // Goals RPCs
@@ -38,12 +38,12 @@ export const GoalRpcs = RpcGroup.make(
   Rpc.make('GoalCreate', {
     payload: UserGoalCreate,
     success: UserGoal,
-    error: Schema.Union(GoalNotFoundError, GoalDatabaseError, NoWeightDataError),
+    error: Schema.Union([GoalNotFoundError, GoalDatabaseError, NoWeightDataError]),
   }),
   Rpc.make('GoalUpdate', {
     payload: UserGoalUpdate,
     success: UserGoal,
-    error: Schema.Union(GoalNotFoundError, GoalDatabaseError),
+    error: Schema.Union([GoalNotFoundError, GoalDatabaseError]),
   }),
   Rpc.make('GoalDelete', {
     payload: UserGoalDelete,

@@ -1,5 +1,5 @@
 import { getNextSite } from '@subq/shared'
-import { Config, Data, Effect, Layer, Option, Redacted, Schedule } from 'effect'
+import { Context, Config, Data, Effect, Layer, Option, Redacted, Schedule } from 'effect'
 import { Resend } from 'resend'
 import type { UserDueForReminder } from './reminder-service.js'
 
@@ -64,7 +64,7 @@ Manage notifications: https://subq.vessia.net/settings`,
 // Service Definition
 // ============================================
 
-export class EmailService extends Effect.Tag('EmailService')<
+export class EmailService extends Context.Service<
   EmailService,
   {
     readonly sendReminderEmail: (user: UserDueForReminder) => Effect.Effect<void, EmailServiceError>
@@ -72,19 +72,19 @@ export class EmailService extends Effect.Tag('EmailService')<
       users: UserDueForReminder[],
     ) => Effect.Effect<{ sent: number; failed: number; errors: string[] }>
   }
->() {}
+>()('EmailService') {}
 
 // ============================================
 // Service Implementation
 // ============================================
 
 // No-op implementation when RESEND_API_KEY is not configured
-const noOpEmailService: EmailService['Type'] = {
-  sendReminderEmail: (user) =>
+const noOpEmailService: EmailService['Service'] = {
+  sendReminderEmail: (user: UserDueForReminder) =>
     Effect.logWarning('Email disabled - RESEND_API_KEY not configured').pipe(
       Effect.annotateLogs({ email: user.email }),
     ),
-  sendReminderEmails: (users) =>
+  sendReminderEmails: (users: UserDueForReminder[]) =>
     Effect.logWarning('Email disabled - RESEND_API_KEY not configured').pipe(
       Effect.annotateLogs({ userCount: users.length }),
       Effect.map(() => ({ sent: 0, failed: users.length, errors: ['RESEND_API_KEY not configured'] })),
@@ -92,9 +92,9 @@ const noOpEmailService: EmailService['Type'] = {
 }
 
 // Real implementation with Resend
-const createRealEmailService = (apiKey: string): EmailService['Type'] => {
+const createRealEmailService = (apiKey: string): EmailService['Service'] => {
   const resend = new Resend(apiKey)
-  const retryPolicy = Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))
+  const retryPolicy = Schedule.exponential('100 millis').pipe(Schedule.both(Schedule.recurs(3)))
 
   const sendReminderEmail = (user: UserDueForReminder): Effect.Effect<void, EmailServiceError> =>
     Effect.tryPromise({
@@ -124,7 +124,7 @@ const createRealEmailService = (apiKey: string): EmailService['Type'] => {
         users.map((user) =>
           sendReminderEmail(user).pipe(
             Effect.map(() => ({ success: true as const, email: user.email })),
-            Effect.catchAll((error) =>
+            Effect.catch((error) =>
               Effect.succeed({ success: false as const, email: user.email, error: error.message }),
             ),
           ),
@@ -151,7 +151,7 @@ const createRealEmailService = (apiKey: string): EmailService['Type'] => {
   return { sendReminderEmail, sendReminderEmails }
 }
 
-export const EmailServiceLive = Layer.unwrapEffect(
+export const EmailServiceLive = Layer.unwrap(
   Effect.gen(function* () {
     const apiKeyOption = yield* Config.option(Config.redacted('RESEND_API_KEY'))
 

@@ -76,8 +76,8 @@ export function GoalForm(props: GoalFormProps) {
         new UserGoalUpdate({
           id: props.existingGoal.id,
           goalWeight: Weight.make(goalWeightInLbs),
-          startingDate: data.startDate ? DateTime.unsafeMake(new Date(data.startDate)) : undefined,
-          targetDate: data.targetDate ? DateTime.unsafeMake(new Date(data.targetDate)) : null,
+          startingDate: data.startDate ? DateTime.makeUnsafe(new Date(data.startDate)) : undefined,
+          targetDate: data.targetDate ? DateTime.makeUnsafe(new Date(data.targetDate)) : null,
           notes: data.notes ? Notes.make(data.notes) : null,
         }),
       )
@@ -85,8 +85,8 @@ export function GoalForm(props: GoalFormProps) {
       await props.onSubmit(
         new UserGoalCreate({
           goalWeight: Weight.make(goalWeightInLbs),
-          startingDate: data.startDate ? Option.some(DateTime.unsafeMake(new Date(data.startDate))) : Option.none(),
-          targetDate: data.targetDate ? Option.some(DateTime.unsafeMake(new Date(data.targetDate))) : Option.none(),
+          startingDate: data.startDate ? Option.some(DateTime.makeUnsafe(new Date(data.startDate))) : Option.none(),
+          targetDate: data.targetDate ? Option.some(DateTime.makeUnsafe(new Date(data.targetDate))) : Option.none(),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
         }),
       )

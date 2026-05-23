@@ -1,4 +1,4 @@
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import {
   Count,
   DayOfWeek,
@@ -25,7 +25,7 @@ import {
   WeightTrendPoint,
   WeightTrendStats,
 } from '@subq/shared'
-import { Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 // ============================================
 // Raw SQL Result Schema
@@ -39,49 +39,49 @@ const WeightStatsRow = Schema.Struct({
   entry_count: Schema.Number,
   points_json: Schema.String,
 })
-const decodeWeightStatsRow = Schema.decodeUnknown(WeightStatsRow)
+const decodeWeightStatsRow = Schema.decodeUnknownEffect(WeightStatsRow)
 
 // Schema for parsing points from JSON
 const WeightPointJson = Schema.Struct({
   datetime: Schema.String,
   weight: Schema.Number,
 })
-const decodeWeightPointsJson = Schema.decodeUnknown(Schema.Array(WeightPointJson))
+const decodeWeightPointsJson = Schema.decodeUnknownEffect(Schema.Array(WeightPointJson))
 
-// Weight trend row schema - Schema.Date decodes ISO8601 string to Date
+// Weight trend row schema - decode ISO8601 string to Date
 const WeightTrendRow = Schema.Struct({
-  datetime: Schema.Date,
+  datetime: Schema.DateFromString,
   weight: Schema.Number,
 })
-const decodeWeightTrendRow = Schema.decodeUnknown(WeightTrendRow)
+const decodeWeightTrendRow = Schema.decodeUnknownEffect(WeightTrendRow)
 
 // Injection site count row schema
 const InjectionSiteRow = Schema.Struct({
   injection_site: Schema.NullOr(Schema.String),
   count: Schema.Number,
 })
-const decodeInjectionSiteRow = Schema.decodeUnknown(InjectionSiteRow)
+const decodeInjectionSiteRow = Schema.decodeUnknownEffect(InjectionSiteRow)
 
-// Dosage history row schema - Schema.Date decodes ISO8601 string to Date
+// Dosage history row schema - decode ISO8601 string to Date
 const DosageHistoryRow = Schema.Struct({
-  datetime: Schema.Date,
+  datetime: Schema.DateFromString,
   drug: Schema.String,
   dosage: Schema.String,
 })
-const decodeDosageHistoryRow = Schema.decodeUnknown(DosageHistoryRow)
+const decodeDosageHistoryRow = Schema.decodeUnknownEffect(DosageHistoryRow)
 
 // Drug count row schema
 const DrugCountRow = Schema.Struct({
   drug: Schema.String,
   count: Schema.Number,
 })
-const decodeDrugCountRow = Schema.decodeUnknown(DrugCountRow)
+const decodeDrugCountRow = Schema.decodeUnknownEffect(DrugCountRow)
 
 // Datetime-only row schema (for timezone-aware day of week calculation)
 const DatetimeRow = Schema.Struct({
   datetime: Schema.String,
 })
-const decodeDatetimeRow = Schema.decodeUnknown(DatetimeRow)
+const decodeDatetimeRow = Schema.decodeUnknownEffect(DatetimeRow)
 
 // ============================================
 // Linear Regression Helpers
@@ -186,7 +186,7 @@ function computeTrendLine(points: WeightTrendPoint[]): TrendLine | null {
 // Stats Service Definition
 // ============================================
 
-export class StatsService extends Effect.Tag('StatsService')<
+export class StatsService extends Context.Service<
   StatsService,
   {
     readonly getWeightStats: (params: StatsParams, userId: string) => Effect.Effect<WeightStats | null>
@@ -200,7 +200,7 @@ export class StatsService extends Effect.Tag('StatsService')<
     readonly getDrugBreakdown: (params: StatsParams, userId: string) => Effect.Effect<DrugBreakdownStats>
     readonly getInjectionByDayOfWeek: (params: StatsParams, userId: string) => Effect.Effect<InjectionDayOfWeekStats>
   }
->() {}
+>()('StatsService') {}
 
 // ============================================
 // Stats Service Implementation
@@ -393,7 +393,7 @@ export const StatsServiceLive = Layer.effect(
           avg_days_between: Schema.NullOr(Schema.Number),
           weeks_in_period: Schema.NullOr(Schema.Number),
         })
-        const decoded = yield* Schema.decodeUnknown(FrequencyRow)(rows[0])
+        const decoded = yield* Schema.decodeUnknownEffect(FrequencyRow)(rows[0])
         const totalInjectionsNum = decoded.total_injections
         if (totalInjectionsNum === 0) return null
 

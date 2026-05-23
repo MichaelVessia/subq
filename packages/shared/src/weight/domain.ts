@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { Limit, Notes, Offset } from '../common/domain.js'
 
 // ============================================
@@ -33,7 +33,7 @@ export type WeightLogId = typeof WeightLogId.Type
 // ============================================
 
 /** Weight measurement value (positive number) */
-export const Weight = Schema.Number.pipe(Schema.positive(), Schema.brand('Weight'))
+export const Weight = Schema.Number.check(Schema.isGreaterThan(0)).pipe(Schema.brand('Weight'))
 export type Weight = typeof Weight.Type
 
 /** Percentage value */
@@ -52,12 +52,12 @@ export type WeightRateOfChange = typeof WeightRateOfChange.Type
 // Weight Domain Errors
 // ============================================
 
-export class WeightLogNotFoundError extends Schema.TaggedError<WeightLogNotFoundError>()('WeightLogNotFoundError', {
+export class WeightLogNotFoundError extends Schema.TaggedClass<WeightLogNotFoundError>()('WeightLogNotFoundError', {
   id: Schema.String,
 }) {}
 
-export class WeightLogDatabaseError extends Schema.TaggedError<WeightLogDatabaseError>()('WeightLogDatabaseError', {
-  operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+export class WeightLogDatabaseError extends Schema.TaggedClass<WeightLogDatabaseError>()('WeightLogDatabaseError', {
+  operation: Schema.Literals(['insert', 'update', 'delete', 'query'] as const),
   cause: Schema.Defect,
 }) {}
 
@@ -65,7 +65,7 @@ export class WeightLogDatabaseError extends Schema.TaggedError<WeightLogDatabase
 // Union Types for Convenience
 // ============================================
 
-export const WeightLogError = Schema.Union(WeightLogNotFoundError, WeightLogDatabaseError)
+export const WeightLogError = Schema.Union([WeightLogNotFoundError, WeightLogDatabaseError])
 export type WeightLogError = typeof WeightLogError.Type
 
 // ============================================
@@ -104,7 +104,7 @@ export class WeightLog extends Schema.Class<WeightLog>('WeightLog')({
 export class WeightLogCreate extends Schema.Class<WeightLogCreate>('WeightLogCreate')({
   datetime: Schema.DateTimeUtc,
   weight: Weight,
-  notes: Schema.optionalWith(Notes, { as: 'Option' }),
+  notes: Schema.OptionFromOptional(Notes),
 }) {}
 
 /**
@@ -116,7 +116,7 @@ export class WeightLogUpdate extends Schema.Class<WeightLogUpdate>('WeightLogUpd
   id: WeightLogId,
   datetime: Schema.optional(Schema.DateTimeUtc),
   weight: Schema.optional(Weight),
-  notes: Schema.optionalWith(Schema.NullOr(Notes), { as: 'Option' }),
+  notes: Schema.OptionFromOptionalNullOr(Notes),
 }) {}
 
 /**
@@ -135,8 +135,8 @@ export class WeightLogDelete extends Schema.Class<WeightLogDelete>('WeightLogDel
  * Supports pagination and date filtering.
  */
 export class WeightLogListParams extends Schema.Class<WeightLogListParams>('WeightLogListParams')({
-  limit: Schema.optionalWith(Limit, { default: () => 50 as Limit }),
-  offset: Schema.optionalWith(Offset, { default: () => 0 as Offset }),
+  limit: Limit.pipe(Schema.withDecodingDefaultType(Effect.succeed(Limit.make(50)))),
+  offset: Offset.pipe(Schema.withDecodingDefaultType(Effect.succeed(Offset.make(0)))),
   startDate: Schema.optional(Schema.DateTimeUtc),
   endDate: Schema.optional(Schema.DateTimeUtc),
 }) {}

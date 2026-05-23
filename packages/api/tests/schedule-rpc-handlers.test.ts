@@ -20,8 +20,9 @@ import {
   SchedulePhase,
   SchedulePhaseId,
 } from '@subq/shared'
-import { DateTime, Effect, Layer, Option, TestClock } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { DateTime, Effect, Layer, Option } from 'effect'
+import { TestClock } from 'effect/testing'
+import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
 
@@ -118,6 +119,11 @@ const AuthContextTest = Layer.succeed(AuthContext, {
 
 const TestLayer = Layer.mergeAll(ScheduleRepoTest, InjectionLogRepoTest, AuthContextTest)
 
+const itWithLayer =
+  (layer: Layer.Layer<any, any, any>): ((name: string, effect: () => Effect.Effect<unknown, unknown, any>) => void) =>
+  (name, effect) =>
+    it.effect(name, () => effect().pipe(Effect.provide(layer)))
+
 // ============================================
 // Helper: Create a test schedule
 // ============================================
@@ -127,7 +133,7 @@ const createTestSchedule = (
   frequency: Frequency,
   phases: Array<{ order: PhaseOrder; durationDays: PhaseDurationDays | null; dosage: string }>,
 ): InjectionSchedule => {
-  const now = DateTime.unsafeNow()
+  const now = DateTime.nowUnsafe()
   const scheduleId = InjectionScheduleId.make('test-schedule-1')
   return new InjectionSchedule({
     id: scheduleId,
@@ -160,7 +166,7 @@ const createTestSchedule = (
 // ============================================
 
 const createTestInjection = (scheduleId: string, datetime: DateTime.Utc, dosage: string): InjectionLog => {
-  const now = DateTime.unsafeNow()
+  const now = DateTime.nowUnsafe()
   return new InjectionLog({
     id: InjectionLogId.make(`injection-${Math.random()}`),
     datetime,
@@ -236,10 +242,10 @@ const calculateNextDose = Effect.gen(function* () {
 
   if (Option.isNone(lastInjectionOpt)) {
     // No injections yet, suggest today or start date (whichever is later)
-    suggestedDate = DateTime.greaterThan(now, startDate) ? now : startDate
+    suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
   } else {
     const lastInjection = lastInjectionOpt.value
-    suggestedDate = DateTime.unsafeMake(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
+    suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
   }
 
   const daysUntilDue = Math.floor((DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay)
@@ -264,7 +270,7 @@ const calculateNextDose = Effect.gen(function* () {
 
 describe('ScheduleGetNextDose', () => {
   describe('no active schedule', () => {
-    it.layer(TestLayer)('returns null when no active schedule exists', () =>
+    itWithLayer(TestLayer)('returns null when no active schedule exists', () =>
       Effect.gen(function* () {
         resetTestState()
         testState.activeSchedule = null
@@ -276,12 +282,12 @@ describe('ScheduleGetNextDose', () => {
   })
 
   describe('no previous injections', () => {
-    it.layer(TestLayer)('suggests start date when schedule starts in the future', () =>
+    itWithLayer(TestLayer)('suggests start date when schedule starts in the future', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const futureDate = DateTime.unsafeMake('2024-01-22T12:00:00Z') // 7 days from now
+        const futureDate = DateTime.makeUnsafe('2024-01-22T12:00:00Z') // 7 days from now
         testState.activeSchedule = createTestSchedule(futureDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
@@ -295,12 +301,12 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('suggests today when schedule started in the past', () =>
+    itWithLayer(TestLayer)('suggests today when schedule started in the past', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const pastDate = DateTime.unsafeMake('2024-01-12T12:00:00Z') // 3 days ago
+        const pastDate = DateTime.makeUnsafe('2024-01-12T12:00:00Z') // 3 days ago
         testState.activeSchedule = createTestSchedule(pastDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
@@ -310,7 +316,7 @@ describe('ScheduleGetNextDose', () => {
 
         expect(result).not.toBeNull()
         // Should suggest today (2024-01-15)
-        const now = DateTime.unsafeMake('2024-01-15T12:00:00Z')
+        const now = DateTime.makeUnsafe('2024-01-15T12:00:00Z')
         const diffMs = Math.abs(DateTime.toEpochMillis(result!.suggestedDate) - DateTime.toEpochMillis(now))
         expect(diffMs).toBeLessThan(24 * 60 * 60 * 1000) // Within 1 day
       }),
@@ -318,17 +324,17 @@ describe('ScheduleGetNextDose', () => {
   })
 
   describe('with previous injections', () => {
-    it.layer(TestLayer)('calculates next dose based on weekly frequency', () =>
+    itWithLayer(TestLayer)('calculates next dose based on weekly frequency', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2024-01-01T12:00:00Z') // 14 days ago
+        const startDate = DateTime.makeUnsafe('2024-01-01T12:00:00Z') // 14 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
         // Last injection was 5 days ago
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-10T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-01-10T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -339,19 +345,19 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('calculates next dose based on every_3_days frequency', () =>
+    itWithLayer(TestLayer)('calculates next dose based on every_3_days frequency', () =>
       Effect.gen(function* () {
         resetTestState()
 
         // Set TestClock to specific time
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
 
-        const startDate = DateTime.unsafeMake('2024-01-05T12:00:00Z') // 10 days before reference
+        const startDate = DateTime.makeUnsafe('2024-01-05T12:00:00Z') // 10 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'every_3_days', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '100mg' },
         ])
         // Last injection was 2 days ago
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-13T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-01-13T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -362,18 +368,18 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('marks dose as overdue when past due date', () =>
+    itWithLayer(TestLayer)('marks dose as overdue when past due date', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed reference date to avoid timezone/day boundary issues
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
 
-        const startDate = DateTime.unsafeMake('2024-01-01T12:00:00Z') // 14 days before reference
+        const startDate = DateTime.makeUnsafe('2024-01-01T12:00:00Z') // 14 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
         // Last injection was 10 days before reference (overdue by 3 days for weekly)
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-05T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-01-05T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -385,12 +391,12 @@ describe('ScheduleGetNextDose', () => {
   })
 
   describe('phase transitions', () => {
-    it.layer(TestLayer)('returns first phase dosage at start', () =>
+    itWithLayer(TestLayer)('returns first phase dosage at start', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2024-01-14T12:00:00Z') // 1 day ago
+        const startDate = DateTime.makeUnsafe('2024-01-14T12:00:00Z') // 1 day ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -407,18 +413,18 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('transitions to second phase after first phase duration', () =>
+    itWithLayer(TestLayer)('transitions to second phase after first phase duration', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-02-14 (30 days from 2024-01-15)
         yield* TestClock.setTime(new Date('2024-02-14T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 30 days ago
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 30 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
           { order: 3 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-02-07T12:00:00Z') // 7 days ago
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-02-07T12:00:00Z') // 7 days ago
 
         const result = yield* calculateNextDose
 
@@ -428,18 +434,18 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('stays on indefinite (maintenance) phase', () =>
+    itWithLayer(TestLayer)('stays on indefinite (maintenance) phase', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-04-24 (100 days from 2024-01-15)
         yield* TestClock.setTime(new Date('2024-04-24T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 100 days ago
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 100 days ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
           { order: 3 as PhaseOrder, durationDays: null, dosage: '200mg' }, // Indefinite
         ])
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-04-19T12:00:00Z') // 5 days ago
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-04-19T12:00:00Z') // 5 days ago
 
         const result = yield* calculateNextDose
 
@@ -449,17 +455,17 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('handles single indefinite phase schedule', () =>
+    itWithLayer(TestLayer)('handles single indefinite phase schedule', () =>
       Effect.gen(function* () {
         resetTestState()
         // Set current time to 2024-01-15
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2023-01-15T12:00:00Z') // 1 year ago
+        const startDate = DateTime.makeUnsafe('2023-01-15T12:00:00Z') // 1 year ago
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '200mg' },
         ])
         // Last injection was 5 days ago, so next is due in 2 days
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-10T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-01-10T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -474,12 +480,12 @@ describe('ScheduleGetNextDose', () => {
   })
 
   describe('edge cases', () => {
-    it.layer(TestLayer)('returns null for schedule with no phases', () =>
+    itWithLayer(TestLayer)('returns null for schedule with no phases', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use a fixed date for determinism
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z')
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z')
         testState.activeSchedule = createTestSchedule(startDate, 'weekly', [])
         testState.lastInjectionDate = null
 
@@ -488,18 +494,18 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('handles daily frequency correctly', () =>
+    itWithLayer(TestLayer)('handles daily frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
 
         yield* TestClock.setTime(new Date('2024-01-15T12:00:00Z').getTime())
 
-        const startDate = DateTime.unsafeMake('2024-01-10T12:00:00Z') // 5 days before reference
+        const startDate = DateTime.makeUnsafe('2024-01-10T12:00:00Z') // 5 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'daily', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '10mg' },
         ])
         // Last injection was today
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-01-15T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -508,18 +514,18 @@ describe('ScheduleGetNextDose', () => {
       }),
     )
 
-    it.layer(TestLayer)('handles monthly frequency correctly', () =>
+    itWithLayer(TestLayer)('handles monthly frequency correctly', () =>
       Effect.gen(function* () {
         resetTestState()
 
         yield* TestClock.setTime(new Date('2024-03-15T12:00:00Z').getTime())
 
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 60 days before reference
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 60 days before reference
         testState.activeSchedule = createTestSchedule(startDate, 'monthly', [
           { order: 1 as PhaseOrder, durationDays: null, dosage: '1000mg' },
         ])
         // Last injection was 20 days ago
-        testState.lastInjectionDate = DateTime.unsafeMake('2024-02-24T12:00:00Z')
+        testState.lastInjectionDate = DateTime.makeUnsafe('2024-02-24T12:00:00Z')
 
         const result = yield* calculateNextDose
 
@@ -537,13 +543,13 @@ describe('ScheduleGetNextDose', () => {
 
 describe('ScheduleGetView', () => {
   describe('phase status calculation', () => {
-    it.layer(TestLayer)('marks past phases as completed', () =>
+    itWithLayer(TestLayer)('marks past phases as completed', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
         // Reference date: 2024-03-15 (60 days after 2024-01-15)
-        const now = DateTime.unsafeMake('2024-03-15T12:00:00Z')
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 60 days ago
+        const now = DateTime.makeUnsafe('2024-03-15T12:00:00Z')
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 60 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -557,19 +563,19 @@ describe('ScheduleGetView', () => {
         let cumulativeDays = 0
 
         const phaseStatuses = schedule.phases.map((phase) => {
-          const phaseStartDate = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + cumulativeDays * msPerDay)
+          const phaseStartDate = DateTime.makeUnsafe(DateTime.toEpochMillis(startDate) + cumulativeDays * msPerDay)
 
           const isIndefinite = phase.durationDays === null
           const phaseEndDate = isIndefinite
             ? null
-            : DateTime.unsafeMake(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
+            : DateTime.makeUnsafe(DateTime.toEpochMillis(phaseStartDate) + (phase.durationDays - 1) * msPerDay)
 
           let status: 'completed' | 'current' | 'upcoming'
           if (isIndefinite) {
-            status = DateTime.greaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
-          } else if (phaseEndDate && DateTime.greaterThan(now, phaseEndDate)) {
+            status = DateTime.isGreaterThanOrEqualTo(now, phaseStartDate) ? 'current' : 'upcoming'
+          } else if (phaseEndDate && DateTime.isGreaterThan(now, phaseEndDate)) {
             status = 'completed'
-          } else if (DateTime.greaterThanOrEqualTo(now, phaseStartDate)) {
+          } else if (DateTime.isGreaterThanOrEqualTo(now, phaseStartDate)) {
             status = 'current'
           } else {
             status = 'upcoming'
@@ -591,13 +597,13 @@ describe('ScheduleGetView', () => {
       }),
     )
 
-    it.layer(TestLayer)('marks current phase correctly', () =>
+    itWithLayer(TestLayer)('marks current phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
         // Reference date: 2024-02-19 (35 days after 2024-01-15)
-        const now = DateTime.unsafeMake('2024-02-19T12:00:00Z')
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 35 days ago
+        const now = DateTime.makeUnsafe('2024-02-19T12:00:00Z')
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 35 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -614,13 +620,13 @@ describe('ScheduleGetView', () => {
       }),
     )
 
-    it.layer(TestLayer)('marks future phases as upcoming', () =>
+    itWithLayer(TestLayer)('marks future phases as upcoming', () =>
       Effect.gen(function* () {
         resetTestState()
         // Use fixed dates for determinism
         // Reference date: 2024-01-20 (5 days after 2024-01-15)
-        const now = DateTime.unsafeMake('2024-01-20T12:00:00Z')
-        const startDate = DateTime.unsafeMake('2024-01-15T12:00:00Z') // 5 days ago
+        const now = DateTime.makeUnsafe('2024-01-20T12:00:00Z')
+        const startDate = DateTime.makeUnsafe('2024-01-15T12:00:00Z') // 5 days ago
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '150mg' },
@@ -641,10 +647,10 @@ describe('ScheduleGetView', () => {
   })
 
   describe('injection counting', () => {
-    it.layer(TestLayer)('counts injections per phase correctly', () =>
+    itWithLayer(TestLayer)('counts injections per phase correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = DateTime.unsafeMake('2024-01-01')
+        const startDate = DateTime.makeUnsafe('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' },
@@ -653,37 +659,37 @@ describe('ScheduleGetView', () => {
 
         // Create injections: 4 in phase 1, 2 in phase 2
         const injections = [
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-01'), '100mg'),
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-08'), '100mg'),
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-15'), '100mg'),
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-22'), '100mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-01-01'), '100mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-01-08'), '100mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-01-15'), '100mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-01-22'), '100mg'),
           // Phase 2 starts day 28 = 2024-01-29
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-01-29'), '200mg'),
-          createTestInjection(schedule.id, DateTime.unsafeMake('2024-02-05'), '200mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-01-29'), '200mg'),
+          createTestInjection(schedule.id, DateTime.makeUnsafe('2024-02-05'), '200mg'),
         ]
         testState.injectionsBySchedule.set(schedule.id, injections)
 
         // Phase 1: Jan 1 - Jan 28 (4 injections)
-        const jan1 = DateTime.unsafeMake('2024-01-01')
-        const jan29 = DateTime.unsafeMake('2024-01-29')
+        const jan1 = DateTime.makeUnsafe('2024-01-01')
+        const jan29 = DateTime.makeUnsafe('2024-01-29')
         const phase1Injections = injections.filter((inj) => {
           const injDate = inj.datetime
-          return DateTime.greaterThanOrEqualTo(injDate, jan1) && DateTime.lessThan(injDate, jan29)
+          return DateTime.isGreaterThanOrEqualTo(injDate, jan1) && DateTime.isLessThan(injDate, jan29)
         })
         expect(phase1Injections.length).toBe(4)
 
         // Phase 2: Jan 29+ (2 injections)
         const phase2Injections = injections.filter((inj) => {
-          return DateTime.greaterThanOrEqualTo(inj.datetime, jan29)
+          return DateTime.isGreaterThanOrEqualTo(inj.datetime, jan29)
         })
         expect(phase2Injections.length).toBe(2)
       }),
     )
 
-    it.layer(TestLayer)('calculates expected injections based on frequency', () =>
+    itWithLayer(TestLayer)('calculates expected injections based on frequency', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = DateTime.unsafeMake('2024-01-01')
+        const startDate = DateTime.makeUnsafe('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' }, // Indefinite
@@ -702,10 +708,10 @@ describe('ScheduleGetView', () => {
   })
 
   describe('date range calculations', () => {
-    it.layer(TestLayer)('calculates phase start and end dates correctly', () =>
+    itWithLayer(TestLayer)('calculates phase start and end dates correctly', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = DateTime.unsafeMake('2024-01-01T00:00:00Z')
+        const startDate = DateTime.makeUnsafe('2024-01-01T00:00:00Z')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 14 as PhaseDurationDays, dosage: '150mg' },
@@ -717,29 +723,29 @@ describe('ScheduleGetView', () => {
 
         // Phase 1: Jan 1 - Jan 28 (28 days, end = start + 27)
         const phase1Start = startDate
-        const phase1End = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + (28 - 1) * msPerDay)
+        const phase1End = DateTime.makeUnsafe(DateTime.toEpochMillis(startDate) + (28 - 1) * msPerDay)
 
         expect(DateTime.formatIso(phase1Start).split('T')[0]).toBe('2024-01-01')
         expect(DateTime.formatIso(phase1End).split('T')[0]).toBe('2024-01-28')
 
         // Phase 2: Jan 29 - Feb 11 (14 days)
-        const phase2Start = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + 28 * msPerDay)
-        const phase2End = DateTime.unsafeMake(DateTime.toEpochMillis(phase2Start) + (14 - 1) * msPerDay)
+        const phase2Start = DateTime.makeUnsafe(DateTime.toEpochMillis(startDate) + 28 * msPerDay)
+        const phase2End = DateTime.makeUnsafe(DateTime.toEpochMillis(phase2Start) + (14 - 1) * msPerDay)
 
         expect(DateTime.formatIso(phase2Start).split('T')[0]).toBe('2024-01-29')
         expect(DateTime.formatIso(phase2End).split('T')[0]).toBe('2024-02-11')
 
         // Phase 3: Feb 12 - no end (indefinite)
-        const phase3Start = DateTime.unsafeMake(DateTime.toEpochMillis(phase2Start) + 14 * msPerDay)
+        const phase3Start = DateTime.makeUnsafe(DateTime.toEpochMillis(phase2Start) + 14 * msPerDay)
 
         expect(DateTime.formatIso(phase3Start).split('T')[0]).toBe('2024-02-12')
       }),
     )
 
-    it.layer(TestLayer)('schedule end date is null for indefinite final phase', () =>
+    itWithLayer(TestLayer)('schedule end date is null for indefinite final phase', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = DateTime.unsafeMake('2024-01-01')
+        const startDate = DateTime.makeUnsafe('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: null, dosage: '200mg' },
@@ -752,10 +758,10 @@ describe('ScheduleGetView', () => {
       }),
     )
 
-    it.layer(TestLayer)('schedule end date is calculated for finite schedules', () =>
+    itWithLayer(TestLayer)('schedule end date is calculated for finite schedules', () =>
       Effect.gen(function* () {
         resetTestState()
-        const startDate = DateTime.unsafeMake('2024-01-01')
+        const startDate = DateTime.makeUnsafe('2024-01-01')
         const schedule = createTestSchedule(startDate, 'weekly', [
           { order: 1 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '100mg' },
           { order: 2 as PhaseOrder, durationDays: 28 as PhaseDurationDays, dosage: '200mg' },
@@ -771,7 +777,7 @@ describe('ScheduleGetView', () => {
         expect(totalDays).toBe(56)
 
         const msPerDay = 1000 * 60 * 60 * 24
-        const endDate = DateTime.unsafeMake(DateTime.toEpochMillis(startDate) + (totalDays - 1) * msPerDay)
+        const endDate = DateTime.makeUnsafe(DateTime.toEpochMillis(startDate) + (totalDays - 1) * msPerDay)
         expect(DateTime.formatIso(endDate).split('T')[0]).toBe('2024-02-25')
       }),
     )

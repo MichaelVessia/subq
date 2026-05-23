@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { DrugName, DrugSource } from '../common/domain.js'
 
 // ============================================
@@ -14,31 +14,31 @@ export type InventoryId = typeof InventoryId.Type
 // ============================================
 
 /** Form of the medication - vial (compounded) or pen (branded) */
-export const InventoryForm = Schema.Literal('vial', 'pen')
+export const InventoryForm = Schema.Literals(['vial', 'pen'] as const)
 export type InventoryForm = typeof InventoryForm.Type
 
 /** Status of the inventory item */
-export const InventoryStatus = Schema.Literal('new', 'opened', 'finished')
+export const InventoryStatus = Schema.Literals(['new', 'opened', 'finished'] as const)
 export type InventoryStatus = typeof InventoryStatus.Type
 
 /** Total amount in the vial/pen (e.g., "10mg", "2.4mg") */
-export const TotalAmount = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('TotalAmount'))
+export const TotalAmount = Schema.NonEmptyString.pipe(Schema.brand('TotalAmount'))
 export type TotalAmount = typeof TotalAmount.Type
 
 // ============================================
 // Inventory Domain Errors
 // ============================================
 
-export class InventoryNotFoundError extends Schema.TaggedError<InventoryNotFoundError>()('InventoryNotFoundError', {
+export class InventoryNotFoundError extends Schema.TaggedClass<InventoryNotFoundError>()('InventoryNotFoundError', {
   id: Schema.String,
 }) {}
 
-export class InventoryDatabaseError extends Schema.TaggedError<InventoryDatabaseError>()('InventoryDatabaseError', {
-  operation: Schema.Literal('insert', 'update', 'delete', 'query'),
+export class InventoryDatabaseError extends Schema.TaggedClass<InventoryDatabaseError>()('InventoryDatabaseError', {
+  operation: Schema.Literals(['insert', 'update', 'delete', 'query'] as const),
   cause: Schema.Defect,
 }) {}
 
-export const InventoryError = Schema.Union(InventoryNotFoundError, InventoryDatabaseError)
+export const InventoryError = Schema.Union([InventoryNotFoundError, InventoryDatabaseError])
 export type InventoryError = typeof InventoryError.Type
 // ============================================
 // Core Domain Type
@@ -82,8 +82,8 @@ export class InventoryCreate extends Schema.Class<InventoryCreate>('InventoryCre
   source: DrugSource,
   form: InventoryForm,
   totalAmount: TotalAmount,
-  status: Schema.optionalWith(InventoryStatus, { default: () => 'new' as const }),
-  beyondUseDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
+  status: InventoryStatus.pipe(Schema.withDecodingDefaultType(Effect.succeed('new' as const))),
+  beyondUseDate: Schema.OptionFromOptional(Schema.DateTimeUtc),
 }) {}
 
 /**
@@ -96,7 +96,7 @@ export class InventoryUpdate extends Schema.Class<InventoryUpdate>('InventoryUpd
   form: Schema.optional(InventoryForm),
   totalAmount: Schema.optional(TotalAmount),
   status: Schema.optional(InventoryStatus),
-  beyondUseDate: Schema.optionalWith(Schema.NullOr(Schema.DateTimeUtc), { as: 'Option' }),
+  beyondUseDate: Schema.OptionFromOptionalNullOr(Schema.DateTimeUtc),
 }) {}
 
 /**

@@ -7,7 +7,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     const service = yield* StatsService
 
     const GetWeightStats = Effect.fn('rpc.stats.getWeightStats')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetWeightStats called').pipe(
         Effect.annotateLogs({
           rpc: 'GetWeightStats',
@@ -24,7 +24,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetWeightTrend = Effect.fn('rpc.stats.getWeightTrend')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetWeightTrend called').pipe(
         Effect.annotateLogs({ rpc: 'GetWeightTrend', userId: user.id }),
       )
@@ -36,7 +36,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetInjectionSiteStats = Effect.fn('rpc.stats.getInjectionSiteStats')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetInjectionSiteStats called').pipe(
         Effect.annotateLogs({ rpc: 'GetInjectionSiteStats', userId: user.id }),
       )
@@ -48,7 +48,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetDosageHistory = Effect.fn('rpc.stats.getDosageHistory')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetDosageHistory called').pipe(
         Effect.annotateLogs({ rpc: 'GetDosageHistory', userId: user.id }),
       )
@@ -60,7 +60,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetInjectionFrequency = Effect.fn('rpc.stats.getInjectionFrequency')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetInjectionFrequency called').pipe(
         Effect.annotateLogs({ rpc: 'GetInjectionFrequency', userId: user.id }),
       )
@@ -72,7 +72,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetDrugBreakdown = Effect.fn('rpc.stats.getDrugBreakdown')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetDrugBreakdown called').pipe(
         Effect.annotateLogs({ rpc: 'GetDrugBreakdown', userId: user.id }),
       )
@@ -84,7 +84,7 @@ export const StatsRpcHandlersLive = StatsRpcs.toLayer(
     })
 
     const GetInjectionByDayOfWeek = Effect.fn('rpc.stats.getInjectionByDayOfWeek')(function* (params: StatsParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GetInjectionByDayOfWeek called').pipe(
         Effect.annotateLogs({ rpc: 'GetInjectionByDayOfWeek', userId: user.id }),
       )

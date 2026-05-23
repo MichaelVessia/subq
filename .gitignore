@@ -34,3 +34,16 @@ prod.db
 result
 .sidecar/
 .todos/
+.grove/
+.scratch/
+.fallow/
+.autoresearch-logs/
+.lefthook-local.yml
+
+# Sidecar worktree state files
+.sidecar-agent
+.sidecar-task
+.sidecar-pr
+.sidecar-start.sh
+.sidecar-base
+.td-root

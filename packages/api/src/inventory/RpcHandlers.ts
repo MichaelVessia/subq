@@ -15,7 +15,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     const repo = yield* InventoryRepo
 
     const InventoryList = Effect.fn('rpc.inventory.list')(function* (params: InventoryListParams) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InventoryList called').pipe(
         Effect.annotateLogs({
           rpc: 'InventoryList',
@@ -32,7 +32,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryGet = Effect.fn('rpc.inventory.get')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('InventoryGet called').pipe(Effect.annotateLogs({ rpc: 'InventoryGet', id }))
       const result = yield* repo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('InventoryGet completed').pipe(
@@ -42,7 +42,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryCreate = Effect.fn('rpc.inventory.create')(function* (data: InventoryCreate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InventoryCreate called').pipe(
         Effect.annotateLogs({
           rpc: 'InventoryCreate',
@@ -61,7 +61,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryUpdate = Effect.fn('rpc.inventory.update')(function* (data: InventoryUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InventoryUpdate called').pipe(Effect.annotateLogs({ rpc: 'InventoryUpdate', id: data.id }))
       const result = yield* repo.update(data, user.id)
       yield* Effect.logInfo('InventoryUpdate completed').pipe(
@@ -71,7 +71,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryDelete = Effect.fn('rpc.inventory.delete')(function* ({ id }: { id: string }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InventoryDelete called').pipe(Effect.annotateLogs({ rpc: 'InventoryDelete', id }))
       const result = yield* repo.delete(id, user.id)
       yield* Effect.logInfo('InventoryDelete completed').pipe(
@@ -81,7 +81,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryMarkFinished = Effect.fn('rpc.inventory.markFinished')(function* ({ id }: InventoryMarkFinished) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InventoryMarkFinished called').pipe(
         Effect.annotateLogs({ rpc: 'InventoryMarkFinished', id }),
       )
@@ -93,7 +93,7 @@ export const InventoryRpcHandlersLive = InventoryRpcs.toLayer(
     })
 
     const InventoryMarkOpened = Effect.fn('rpc.inventory.markOpened')(function* ({ id }: InventoryMarkOpened) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('InventoryMarkOpened called').pipe(Effect.annotateLogs({ rpc: 'InventoryMarkOpened', id }))
       const result = yield* repo.markOpened(id, user.id)
       yield* Effect.logInfo('InventoryMarkOpened completed').pipe(

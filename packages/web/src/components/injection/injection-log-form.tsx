@@ -1,4 +1,5 @@
-import { Result, useAtomValue } from '@effect-atom/atom-react'
+import { AsyncResult as Result } from 'effect/unstable/reactivity'
+import { useAtomValue } from '@effect/atom-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import {
   Dosage,
@@ -192,19 +193,19 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
       await onUpdate(
         new InjectionLogUpdate({
           id: initialData.id,
-          datetime: DateTime.unsafeMake(new Date(data.datetime)),
+          datetime: DateTime.makeUnsafe(new Date(data.datetime)),
           drug: DrugName.make(data.drug),
-          source: Option.some(data.source ? DrugSource.make(data.source) : null),
+          source: data.source ? Option.some(DrugSource.make(data.source)) : Option.none(),
           dosage: Dosage.make(data.dosage),
-          injectionSite: Option.some(data.injectionSite ? InjectionSite.make(data.injectionSite) : null),
-          notes: Option.some(data.notes ? Notes.make(data.notes) : null),
+          injectionSite: data.injectionSite ? Option.some(InjectionSite.make(data.injectionSite)) : Option.none(),
+          notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
           scheduleId: Option.none(), // Don't change scheduleId when editing via form
         }),
       )
     } else {
       await onSubmit(
         new InjectionLogCreate({
-          datetime: DateTime.unsafeMake(new Date(data.datetime)),
+          datetime: DateTime.makeUnsafe(new Date(data.datetime)),
           drug: DrugName.make(data.drug),
           source: data.source ? Option.some(DrugSource.make(data.source)) : Option.none(),
           dosage: Dosage.make(data.dosage),

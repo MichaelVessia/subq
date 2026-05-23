@@ -2,11 +2,15 @@ pre-commit:
   commands:
     format-fix:
       glob: "*.{ts,tsx,mjs,js,jsx}"
+      exclude:
+        - "repos/**"
       run: bunx oxfmt {staged_files}
       stage_fixed: true
       priority: 2
     lint-fix:
       glob: "*.{ts,tsx,mjs,js,jsx}"
+      exclude:
+        - "repos/**"
       run: bunx oxlint --fix {staged_files}
       stage_fixed: true
       priority: 3

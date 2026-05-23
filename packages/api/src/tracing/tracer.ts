@@ -1,5 +1,6 @@
-import * as Otlp from '@effect/opentelemetry/Otlp'
-import { FetchHttpClient } from '@effect/platform'
+import { NodeSdk } from '@effect/opentelemetry'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { Config, Effect, Layer, Option, Redacted } from 'effect'
 
 /**
@@ -15,7 +16,7 @@ import { Config, Effect, Layer, Option, Redacted } from 'effect'
  *
  * Set OTEL_SERVICE_NAME to customize service name (default: 'subq-api')
  */
-export const TracerLayer = Layer.unwrapEffect(
+export const TracerLayer = Layer.unwrap(
   Effect.gen(function* () {
     const serviceName = yield* Config.string('OTEL_SERVICE_NAME').pipe(Config.withDefault('subq-api'))
 
@@ -29,14 +30,16 @@ export const TracerLayer = Layer.unwrapEffect(
         headers.Authorization = Redacted.value(otelAuthHeader.value)
       }
 
-      return Otlp.layer({
-        baseUrl: otelEndpoint.value,
+      const baseUrl = otelEndpoint.value.replace(/\/$/, '')
+      const url = baseUrl.endsWith('/v1/traces') ? baseUrl : `${baseUrl}/v1/traces`
+
+      return NodeSdk.layer(() => ({
         resource: { serviceName },
-        headers,
-      })
+        spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter({ url, headers })),
+      }))
     }
 
     // No tracing configured
     return Layer.empty
   }),
-).pipe(Layer.provide(FetchHttpClient.layer), Layer.orDie)
+).pipe(Layer.orDie)

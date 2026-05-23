@@ -1,4 +1,4 @@
-import { useAtom, useAtomSet } from '@effect-atom/atom-react'
+import { useAtom, useAtomSet } from '@effect/atom-react'
 import { DataExport } from '@subq/shared'
 import { DateTime, Effect, Schema } from 'effect'
 import { useRef, useState } from 'react'
@@ -43,13 +43,13 @@ export function DataManagement() {
       })
 
       // Convert to JSON and trigger download
-      const encoded = await Effect.runPromise(Schema.encode(DataExport)(result))
+      const encoded = await Effect.runPromise(Schema.encodeEffect(DataExport)(result))
       const json = JSON.stringify(encoded, null, 2)
       const blob = new Blob([json], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `subq-export-${DateTime.formatIso(DateTime.unsafeNow()).split('T')[0]}.json`
+      a.download = `subq-export-${DateTime.formatIso(DateTime.nowUnsafe()).split('T')[0]}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -73,7 +73,7 @@ export function DataManagement() {
       const json: unknown = JSON.parse(text)
 
       // Validate the data structure using Effect Schema
-      const decoded = await Effect.runPromise(Schema.decodeUnknown(DataExport)(json))
+      const decoded = await Effect.runPromise(Schema.decodeUnknownEffect(DataExport)(json))
       setPendingImportData(decoded)
       setShowConfirm(true)
     } catch (error) {

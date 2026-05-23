@@ -2,7 +2,7 @@
  * Property-based tests for branded type validation.
  * Tests that branded types properly enforce their constraints.
  */
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import {
   Count,
   DayOfWeek,
@@ -15,8 +15,8 @@ import {
   PhaseOrder,
   Weight,
 } from '@subq/shared'
-import { Arbitrary, Effect, Either, Schema } from 'effect'
-import * as FC from 'effect/FastCheck'
+import { Effect, Exit, Schema } from 'effect'
+import { FastCheck as FC } from 'effect/testing'
 import { frequencyToDays } from '../src/schedule/rpc-handlers.js'
 
 /**
@@ -37,7 +37,7 @@ describe('Branded Type Property Tests', () => {
   describe('Weight', () => {
     it.effect('accepts any positive number (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(Weight)
+        const arbitrary = Schema.toArbitrary(Weight)
         runProperty(arbitrary, (value) => {
           // Value should be positive
           return value > 0
@@ -47,15 +47,15 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects zero', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Weight)(0)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Weight)(0)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects negative numbers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Weight)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Weight)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -66,7 +66,7 @@ describe('Branded Type Property Tests', () => {
   describe('Limit', () => {
     it.effect('accepts any positive integer (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(Limit)
+        const arbitrary = Schema.toArbitrary(Limit)
         runProperty(arbitrary, (value) => {
           // Value should be positive integer
           return value > 0 && Number.isInteger(value)
@@ -76,22 +76,22 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects zero', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Limit)(0)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Limit)(0)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects negative integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Limit)(-5)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Limit)(-5)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects non-integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Limit)(1.5)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Limit)(1.5)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -102,7 +102,7 @@ describe('Branded Type Property Tests', () => {
   describe('Offset', () => {
     it.effect('accepts any non-negative integer (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(Offset)
+        const arbitrary = Schema.toArbitrary(Offset)
         runProperty(arbitrary, (value) => {
           // Value should be non-negative integer
           return value >= 0 && Number.isInteger(value)
@@ -119,15 +119,15 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects negative integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Offset)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Offset)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects non-integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Offset)(0.5)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Offset)(0.5)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -138,7 +138,7 @@ describe('Branded Type Property Tests', () => {
   describe('Count', () => {
     it.effect('accepts any non-negative integer (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(Count)
+        const arbitrary = Schema.toArbitrary(Count)
         runProperty(arbitrary, (value) => {
           // Value should be non-negative integer
           return value >= 0 && Number.isInteger(value)
@@ -155,8 +155,8 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects negative integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(Count)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(Count)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -167,7 +167,7 @@ describe('Branded Type Property Tests', () => {
   describe('DaysBetween', () => {
     it.effect('accepts any non-negative number (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(DaysBetween)
+        const arbitrary = Schema.toArbitrary(DaysBetween)
         runProperty(arbitrary, (value) => {
           // Value should be non-negative
           return value >= 0
@@ -191,8 +191,8 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects negative numbers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(DaysBetween)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(DaysBetween)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -203,7 +203,7 @@ describe('Branded Type Property Tests', () => {
   describe('DayOfWeek', () => {
     it.effect('accepts integers 0-6 (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(DayOfWeek)
+        const arbitrary = Schema.toArbitrary(DayOfWeek)
         runProperty(arbitrary, (value) => {
           // Value should be integer 0-6
           return value >= 0 && value <= 6 && Number.isInteger(value)
@@ -213,15 +213,15 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects 7', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(DayOfWeek)(7)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(DayOfWeek)(7)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects negative', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(DayOfWeek)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(DayOfWeek)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -232,7 +232,7 @@ describe('Branded Type Property Tests', () => {
   describe('PhaseOrder', () => {
     it.effect('accepts any positive integer (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(PhaseOrder)
+        const arbitrary = Schema.toArbitrary(PhaseOrder)
         runProperty(arbitrary, (value) => {
           // Value should be positive integer
           return value > 0 && Number.isInteger(value)
@@ -242,15 +242,15 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects zero', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(PhaseOrder)(0)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(PhaseOrder)(0)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects negative integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(PhaseOrder)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(PhaseOrder)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -261,7 +261,7 @@ describe('Branded Type Property Tests', () => {
   describe('PhaseDurationDays', () => {
     it.effect('accepts any positive integer (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(PhaseDurationDays)
+        const arbitrary = Schema.toArbitrary(PhaseDurationDays)
         runProperty(arbitrary, (value) => {
           // Value should be positive integer
           return value > 0 && Number.isInteger(value)
@@ -271,15 +271,15 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects zero', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(PhaseDurationDays)(0)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(PhaseDurationDays)(0)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
 
     it.effect('rejects negative integers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(PhaseDurationDays)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(PhaseDurationDays)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -290,7 +290,7 @@ describe('Branded Type Property Tests', () => {
   describe('InjectionsPerWeek', () => {
     it.effect('accepts any non-negative number (property test)', () =>
       Effect.gen(function* () {
-        const arbitrary = Arbitrary.make(InjectionsPerWeek)
+        const arbitrary = Schema.toArbitrary(InjectionsPerWeek)
         runProperty(arbitrary, (value) => {
           // Value should be non-negative
           return value >= 0
@@ -314,8 +314,8 @@ describe('Branded Type Property Tests', () => {
 
     it.effect('rejects negative numbers', () =>
       Effect.gen(function* () {
-        const result = Schema.decodeUnknownEither(InjectionsPerWeek)(-1)
-        expect(Either.isLeft(result)).toBe(true)
+        const result = Schema.decodeUnknownExit(InjectionsPerWeek)(-1)
+        expect(Exit.isFailure(result)).toBe(true)
       }),
     )
   })
@@ -338,7 +338,7 @@ describe('frequencyToDays Property Tests', () => {
 
   it.effect('returns positive integers for all frequency variants (property test)', () =>
     Effect.gen(function* () {
-      const arbitrary = Arbitrary.make(Frequency)
+      const arbitrary = Schema.toArbitrary(Frequency)
       runProperty(arbitrary, (frequency) => {
         const days = frequencyToDays(frequency)
         // Should be positive integer
@@ -379,7 +379,7 @@ describe('frequencyToDays Property Tests', () => {
 
   it.effect('all variants map to correct day counts (property test)', () =>
     Effect.gen(function* () {
-      const arbitrary = Arbitrary.make(Frequency)
+      const arbitrary = Schema.toArbitrary(Frequency)
       runProperty(arbitrary, (frequency) => {
         const days = frequencyToDays(frequency)
         return days === expectedDays[frequency]

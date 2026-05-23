@@ -6,7 +6,7 @@ import * as Layer from 'effect/Layer'
 
 export type AuthInstance = ReturnType<typeof betterAuth>
 
-export class AuthService extends Context.Tag('AuthService')<AuthService, { readonly auth: AuthInstance }>() {}
+export class AuthService extends Context.Service<AuthService, { readonly auth: AuthInstance }>()('AuthService') {}
 
 export const AuthServiceLive = (options: BetterAuthOptions) =>
   Layer.effect(

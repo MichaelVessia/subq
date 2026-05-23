@@ -15,7 +15,7 @@ export type GoalId = typeof GoalId.Type
 // ============================================
 
 /** Pace status relative to projected goal */
-export const PaceStatus = Schema.Literal('on_track', 'ahead', 'behind', 'not_losing')
+export const PaceStatus = Schema.Literals(['on_track', 'ahead', 'behind', 'not_losing'] as const)
 export type PaceStatus = typeof PaceStatus.Type
 
 /** Percentage complete (0-100+) */
@@ -55,9 +55,9 @@ export class UserGoal extends Schema.Class<UserGoal>('UserGoal')({
 export class UserGoalCreate extends Schema.Class<UserGoalCreate>('UserGoalCreate')({
   goalWeight: Weight,
   startingWeight: Schema.optional(Weight),
-  startingDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
-  targetDate: Schema.optionalWith(Schema.DateTimeUtc, { as: 'Option' }),
-  notes: Schema.optionalWith(Notes, { as: 'Option' }),
+  startingDate: Schema.OptionFromOptional(Schema.DateTimeUtc),
+  targetDate: Schema.OptionFromOptional(Schema.DateTimeUtc),
+  notes: Schema.OptionFromOptional(Notes),
 }) {}
 
 /**

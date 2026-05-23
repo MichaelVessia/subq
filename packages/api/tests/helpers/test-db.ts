@@ -3,7 +3,7 @@
  * Uses in-memory SQLite to test real SQL queries.
  */
 
-import { SqlClient } from '@effect/sql'
+import { SqlClient } from 'effect/unstable/sql'
 import { SqliteClient } from '@effect/sql-sqlite-bun'
 import { Effect, Layer } from 'effect'
 
@@ -11,13 +11,13 @@ import { Effect, Layer } from 'effect'
 // SQLite In-Memory Test Layer
 // ============================================
 
-export const SqliteTestLayer = SqliteClient.layer({ filename: ':memory:' })
+const SqliteTestLayer = SqliteClient.layer({ filename: ':memory:' })
 
 // ============================================
 // Table Setup
 // ============================================
 
-export const setupTables = Effect.gen(function* () {
+const setupTables = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
   // Weight logs
@@ -129,7 +129,7 @@ export const setupTables = Effect.gen(function* () {
 // Clear All Tables
 // ============================================
 
-export const clearTables = Effect.gen(function* () {
+const clearTables = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   // Order matters due to foreign keys
   yield* sql`DELETE FROM schedule_phases`

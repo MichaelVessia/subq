@@ -1,4 +1,3 @@
-import type * as React from 'react'
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -12,51 +11,6 @@ import {
   YAxis,
 } from 'recharts'
 import { cn } from '../../lib/utils.js'
-
-// ============================================
-// Chart Config Types
-// ============================================
-
-export type ChartConfig = Record<
-  string,
-  {
-    label: string
-    color: string
-  }
->
-
-// ============================================
-// Chart Container
-// ============================================
-
-interface ChartContainerProps extends React.HTMLAttributes<HTMLDivElement> {
-  config: ChartConfig
-  children: React.ReactNode
-}
-
-export function ChartContainer({ config, children, className, ...props }: ChartContainerProps) {
-  return (
-    <div
-      className={cn('w-full', className)}
-      style={
-        {
-          ...Object.entries(config).reduce(
-            (acc, [key, value]) => {
-              acc[`--color-${key}`] = value.color
-              return acc
-            },
-            {} as Record<string, string>,
-          ),
-        } as React.CSSProperties
-      }
-      {...props}
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        {children as React.ReactElement}
-      </ResponsiveContainer>
-    </div>
-  )
-}
 
 // ============================================
 // Simple Pie Chart
@@ -207,5 +161,3 @@ export function SimpleHorizontalBarChart({ data, colors, className }: SimpleHori
     </div>
   )
 }
-
-export { RechartsPieChart as PieChart, Pie, Cell, Tooltip as ChartTooltip, Legend as ChartLegend }

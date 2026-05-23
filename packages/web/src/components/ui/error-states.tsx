@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { AlertCircle, LogIn, RefreshCw, SearchX } from 'lucide-react'
 import { useEffect } from 'react'
 import { Button } from './button.js'
-import { Card, CardContent, CardHeader, CardTitle } from './card.js'
+import { Card, CardContent } from './card.js'
 
 /**
  * Redirects to login page when session is unauthorized.
@@ -72,25 +72,6 @@ export function DatabaseError({ onRetry }: { onRetry?: () => void }) {
             </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-/**
- * Generic error display for unexpected errors.
- */
-export function GenericError({ title, message }: { title?: string; message?: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-destructive flex items-center gap-2">
-          <AlertCircle className="h-5 w-5" />
-          {title ?? 'Error'}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{message ?? 'An unexpected error occurred.'}</p>
       </CardContent>
     </Card>
   )

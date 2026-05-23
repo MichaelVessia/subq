@@ -10,7 +10,7 @@ import {
   ScheduleName,
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { describe, expect, it } from '@codeforbreakfast/bun-test-effect'
+import { describe, expect, it } from '@effect/vitest'
 import { ScheduleRepo, ScheduleRepoLive } from '../src/schedule/schedule-repo.js'
 import { insertInjectionLog, insertSchedule, insertSchedulePhase, makeInitializedTestLayer } from './helpers/test-db.js'
 
@@ -28,7 +28,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Testosterone Cypionate'),
               source: Option.some(DrugSource.make('Empower')),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.some(Notes.make('Start low')),
               phases: [
                 {
@@ -73,7 +73,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Drug A'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -94,7 +94,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Drug B'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-02-01'),
+              startDate: DateTime.makeUnsafe('2024-02-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -140,7 +140,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Test Drug'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -206,7 +206,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Test'),
               source: Option.none(),
               frequency: 'daily' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -258,7 +258,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Drug'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -297,7 +297,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Drug'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -348,7 +348,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('A'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -367,7 +367,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('B'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-02-01'),
+              startDate: DateTime.makeUnsafe('2024-02-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -403,11 +403,11 @@ describe('ScheduleRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('ScheduleNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('ScheduleNotFoundError')
           }
         }),
       )
@@ -427,11 +427,11 @@ describe('ScheduleRepo', () => {
               },
               'user-123',
             )
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
-          expect(result._tag).toBe('Left')
-          if (result._tag === 'Left') {
-            expect(result.left._tag).toBe('ScheduleNotFoundError')
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure._tag).toBe('ScheduleNotFoundError')
           }
         }),
       )
@@ -449,7 +449,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('Drug'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -552,7 +552,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('A'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-01-01'),
+              startDate: DateTime.makeUnsafe('2024-01-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -571,7 +571,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('B'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-03-01'),
+              startDate: DateTime.makeUnsafe('2024-03-01'),
               notes: Option.none(),
               phases: [
                 {
@@ -590,7 +590,7 @@ describe('ScheduleRepo', () => {
               drug: DrugName.make('C'),
               source: Option.none(),
               frequency: 'weekly' as Frequency,
-              startDate: DateTime.unsafeMake('2024-02-01'),
+              startDate: DateTime.makeUnsafe('2024-02-01'),
               notes: Option.none(),
               phases: [
                 {

@@ -12,7 +12,3 @@ export interface InjectionPoint {
   injectionSite?: string | null
   notes?: string | null
 }
-
-export interface WeightPointWithColor extends DataPoint {
-  color: string
-}

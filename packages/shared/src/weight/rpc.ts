@@ -1,4 +1,4 @@
-import { Rpc, RpcGroup } from '@effect/rpc'
+import { Rpc, RpcGroup } from 'effect/unstable/rpc'
 import { Schema } from 'effect'
 import {
   WeightLog,
@@ -33,7 +33,7 @@ export const WeightRpcs = RpcGroup.make(
   Rpc.make('WeightLogUpdate', {
     payload: WeightLogUpdate,
     success: WeightLog,
-    error: Schema.Union(WeightLogNotFoundError, WeightLogDatabaseError),
+    error: Schema.Union([WeightLogNotFoundError, WeightLogDatabaseError]),
   }),
   Rpc.make('WeightLogDelete', {
     payload: WeightLogDelete,

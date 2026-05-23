@@ -17,7 +17,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     const goalService = yield* GoalService
 
     const GoalGetActive = Effect.fn('rpc.goal.getActive')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GoalGetActive called').pipe(
         Effect.annotateLogs({ rpc: 'GoalGetActive', userId: user.id }),
       )
@@ -29,7 +29,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalGet = Effect.fn('rpc.goal.get')(function* ({ id }: { id: GoalId }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GoalGet called').pipe(Effect.annotateLogs({ rpc: 'GoalGet', id }))
       const result = yield* goalRepo.findById(id, user.id).pipe(Effect.map(Option.getOrNull))
       yield* Effect.logDebug('GoalGet completed').pipe(Effect.annotateLogs({ rpc: 'GoalGet', id, found: !!result }))
@@ -37,7 +37,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalList = Effect.fn('rpc.goal.list')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GoalList called').pipe(Effect.annotateLogs({ rpc: 'GoalList', userId: user.id }))
       const result = yield* goalRepo.list(user.id)
       yield* Effect.logDebug('GoalList completed').pipe(Effect.annotateLogs({ rpc: 'GoalList', count: result.length }))
@@ -45,7 +45,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalCreate = Effect.fn('rpc.goal.create')(function* (data: UserGoalCreate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('GoalCreate called').pipe(
         Effect.annotateLogs({
           rpc: 'GoalCreate',
@@ -61,13 +61,13 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
       } else if (Option.isSome(data.startingDate)) {
         const weightOpt = yield* goalService.getWeightAtDate(user.id, data.startingDate.value)
         if (Option.isNone(weightOpt)) {
-          return yield* NoWeightDataError.make({})
+          return yield* Effect.fail(NoWeightDataError.make({}))
         }
         startingWeight = weightOpt.value
       } else {
         const weightOpt = yield* goalService.getMostRecentWeight(user.id)
         if (Option.isNone(weightOpt)) {
-          return yield* NoWeightDataError.make({})
+          return yield* Effect.fail(NoWeightDataError.make({}))
         }
         startingWeight = weightOpt.value
       }
@@ -80,7 +80,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalUpdate = Effect.fn('rpc.goal.update')(function* (data: UserGoalUpdate) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('GoalUpdate called').pipe(
         Effect.annotateLogs({ rpc: 'GoalUpdate', id: data.id, isActive: data.isActive }),
       )
@@ -100,7 +100,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalDelete = Effect.fn('rpc.goal.delete')(function* ({ id }: { id: GoalId }) {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('GoalDelete called').pipe(Effect.annotateLogs({ rpc: 'GoalDelete', id }))
       const result = yield* goalRepo.delete(id, user.id)
       yield* Effect.logInfo('GoalDelete completed').pipe(
@@ -110,7 +110,7 @@ export const GoalRpcHandlersLive = GoalRpcs.toLayer(
     })
 
     const GoalGetProgress = Effect.fn('rpc.goal.getProgress')(function* () {
-      const { user } = yield* AuthContext
+      const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logDebug('GoalGetProgress called').pipe(
         Effect.annotateLogs({ rpc: 'GoalGetProgress', userId: user.id }),
       )
