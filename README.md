@@ -4,14 +4,12 @@ Health tracking application for subcutaneous injection management.
 
 ## Architecture
 
-SubQ uses a client/server architecture with multiple clients sharing a single API server:
+SubQ uses a client/server architecture with a React web app backed by a single API server:
 
 ```mermaid
 graph TB
-    subgraph Clients
+    subgraph Client
         Web[Web App<br/>React + Vite]
-        CLI[CLI<br/>Effect CLI]
-        TUI[TUI<br/>OpenTUI + React]
     end
 
     subgraph Server
@@ -20,102 +18,16 @@ graph TB
     end
 
     Web -->|RPC| API
-    CLI -->|RPC| API
-    TUI -->|RPC| API
     API --> DB
 ```
 
-All clients communicate with the server using type-safe RPC (Effect RPC). The shared package (`@subq/shared`) defines domain types and RPC contracts used by both clients and server.
+The web app communicates with the server using type-safe RPC (Effect RPC). The shared package (`@subq/shared`) defines domain types and RPC contracts used by both client and server.
 
 | Package | Description |
 |---------|-------------|
 | `packages/api` | API server with RPC handlers, database, auth |
 | `packages/web` | Web client (React, Vite) |
-| `packages/cli` | Command-line client |
-| `packages/tui` | Terminal UI client (React, OpenTUI) |
 | `packages/shared` | Shared types, RPC definitions |
-
-## TUI
-
-An interactive terminal UI for managing injections, weight logs, and schedules.
-
-### Installation
-
-#### Nix
-
-```bash
-nix run github:MichaelVessia/subq#subq
-```
-
-#### Binary Download (Linux x64 only)
-
-Only Linux x64 binaries are available due to native dependencies in @opentui/core.
-
-```bash
-curl -L https://github.com/MichaelVessia/subq/releases/download/tui-latest/subq-linux-x64 -o subq
-chmod +x subq && sudo mv subq /usr/local/bin/
-```
-
-For other platforms, run from source: `cd packages/tui && bun run dev`
-
-### Usage
-
-```bash
-subq
-```
-
-## CLI
-
-A command-line interface for scripting and automation.
-
-### Installation
-
-#### Homebrew (macOS/Linux)
-
-```bash
-brew tap MichaelVessia/tap
-brew install subq-cli
-```
-
-#### Nix
-
-```bash
-nix run github:MichaelVessia/subq#subq-cli
-```
-
-#### Binary Download
-
-Download from [Releases](https://github.com/MichaelVessia/subq/releases/tag/cli-latest):
-
-```bash
-# macOS Apple Silicon
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-arm64 -o subq-cli
-chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
-
-# macOS Intel
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-darwin-x64 -o subq-cli
-chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
-
-# Linux x64
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-x64 -o subq-cli
-chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
-
-# Linux ARM64
-curl -L https://github.com/MichaelVessia/subq/releases/download/cli-latest/subq-cli-linux-arm64 -o subq-cli
-chmod +x subq-cli && sudo mv subq-cli /usr/local/bin/
-```
-
-### Usage
-
-```bash
-# Login first
-subq-cli auth login
-
-# See all commands
-subq-cli --help
-```
-
-The CLI supports JSON output (`--json`) for easy integration with scripts and AI agents.
 
 ## Email Reminders
 

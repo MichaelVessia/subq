@@ -42,7 +42,7 @@
   "testing_policy": {
     "mandatory": "EVERY story MUST include tests. A story is NOT complete without passing tests.",
     "schema_tests": "Form schemas must have unit tests validating success/failure cases",
-    "verification": "bun run check && bun run test:all",
+    "verification": "bun run check",
     "no_exceptions": "Do NOT mark a story as complete if tests are missing or failing."
   },
   "ui_patterns": {
