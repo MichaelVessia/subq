@@ -7,7 +7,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "migrate": "bun run scripts/migrate.ts",
-    "seed": "bun run scripts/seed.ts"
+    "seed": "bun run scripts/seed.ts",
+    "seed:export-sql": "bun run scripts/export-seed-sql.ts"
   },
   "dependencies": {
     "@effect/opentelemetry": "0.59.1",

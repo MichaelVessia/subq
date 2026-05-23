@@ -11,7 +11,7 @@ import { StatsPage } from './components/stats/StatsPage.js'
 import { WeightLogList } from './components/weight/weight-log-list.js'
 
 // Search params type for pages with date range filtering
-export interface DateRangeSearchParams {
+interface DateRangeSearchParams {
   start?: string | undefined
   end?: string | undefined
 }

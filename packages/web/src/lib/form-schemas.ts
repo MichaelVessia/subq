@@ -14,7 +14,7 @@ import { Schema } from 'effect'
  * Schema for weight log form inputs.
  * Validates string inputs from HTML form fields.
  */
-export class WeightLogFormSchema extends Schema.Class<WeightLogFormSchema>('WeightLogFormSchema')({
+class WeightLogFormSchema extends Schema.Class<WeightLogFormSchema>('WeightLogFormSchema')({
   datetime: Schema.String.pipe(
     Schema.nonEmptyString({ message: () => 'Date & time is required' }),
     Schema.filter(
@@ -75,7 +75,7 @@ export const weightLogFormStandardSchema = Schema.standardSchemaV1(WeightLogForm
  * Schema for inventory form inputs.
  * Validates string inputs from HTML form fields.
  */
-export class InventoryFormSchema extends Schema.Class<InventoryFormSchema>('InventoryFormSchema')({
+class InventoryFormSchema extends Schema.Class<InventoryFormSchema>('InventoryFormSchema')({
   form: Schema.Literal('vial', 'pen'),
   drug: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Medication is required' })),
   source: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'Pharmacy source is required' })),
@@ -99,7 +99,7 @@ const dosagePattern = /^\d+(\.\d+)?\s*(mg|mcg|ml|units?|iu)$/i
  * Schema for injection log form inputs.
  * Validates string inputs from HTML form fields.
  */
-export class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>('InjectionLogFormSchema')({
+class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>('InjectionLogFormSchema')({
   datetime: Schema.String.pipe(
     Schema.nonEmptyString({ message: () => 'Date & time is required' }),
     Schema.filter(
@@ -214,8 +214,6 @@ export const SchedulePhaseSchema = Schema.Struct({
     { message: () => 'Duration is required for non-indefinite phases' },
   ),
 )
-
-export type SchedulePhaseFormInput = typeof SchedulePhaseSchema.Type
 
 const frequencyLiteral = Schema.Literal('daily', 'every_3_days', 'weekly', 'every_2_weeks', 'monthly')
 

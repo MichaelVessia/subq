@@ -58,7 +58,7 @@ export const dateRangeKey = (startDate: Date | undefined, endDate: Date | undefi
  * Parses a date range key back into optional start/end dates.
  * Returns [undefined, undefined] for empty or invalid keys.
  */
-export const parseDateRangeKey = (key: string): [Date | undefined, Date | undefined] => {
+const parseDateRangeKey = (key: string): [Date | undefined, Date | undefined] => {
   const [startStr, endStr] = key.split('|')
   const start = startStr ? Option.fromNullable(new Date(startStr)).pipe(Option.getOrUndefined) : undefined
   const end = endStr ? Option.fromNullable(new Date(endStr)).pipe(Option.getOrUndefined) : undefined
@@ -182,10 +182,6 @@ export const ScheduleListAtom = ApiClient.query('ScheduleList', undefined, {
   reactivityKeys: [ReactivityKeys.schedule],
 })
 
-export const ActiveScheduleAtom = ApiClient.query('ScheduleGetActive', undefined, {
-  reactivityKeys: [ReactivityKeys.schedule],
-})
-
 export const NextDoseAtom = ApiClient.query('ScheduleGetNextDose', undefined, {
   reactivityKeys: [ReactivityKeys.schedule, ReactivityKeys.injectionLogs],
 })
@@ -204,16 +200,8 @@ export const createScheduleViewAtom = (id: InjectionScheduleId) =>
   )
 
 // Goals atoms
-export const ActiveGoalAtom = ApiClient.query('GoalGetActive', undefined, {
-  reactivityKeys: [ReactivityKeys.goals],
-})
-
 export const GoalProgressAtom = ApiClient.query('GoalGetProgress', undefined, {
   reactivityKeys: [ReactivityKeys.goals, ReactivityKeys.weightLogs],
-})
-
-export const GoalListAtom = ApiClient.query('GoalList', undefined, {
-  reactivityKeys: [ReactivityKeys.goals],
 })
 
 // Settings atoms

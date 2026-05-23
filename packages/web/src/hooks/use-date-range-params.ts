@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react'
 
 export type TimeRangeKey = '1m' | '3m' | '6m' | '1y' | 'all'
 
-export interface TimeRangeOption {
+interface TimeRangeOption {
   label: string
   getRange: () => { startDate?: Date; endDate?: Date }
 }

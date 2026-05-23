@@ -1,6 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"ignore": [".context/**", ".alchemy/**", "docs/**", "repos/**", ".autoresearch-logs/**"],
+	"ignoreBinaries": ["flyctl"],
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts"]
