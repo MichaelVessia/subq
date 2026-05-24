@@ -1,13 +1,11 @@
 import { SqlClient } from 'effect/unstable/sql'
 import {
+  buildDosageHistoryStats,
   buildInjectionDayOfWeekStats,
   buildObservedInjectionFrequency,
   calculateWeightTrajectory,
   Count,
-  Dosage,
-  DosageHistoryPoint,
   DosageHistoryStats,
-  DosageValue,
   DrugBreakdownStats,
   DrugCount,
   DrugName,
@@ -265,24 +263,13 @@ export const StatsServiceLive = Layer.effect(
           ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
           ORDER BY datetime ASC
         `
-        const points: DosageHistoryPoint[] = []
+        const inputs: { date: Date; drug: string; dosage: string }[] = []
         for (const row of rows) {
           const decoded = yield* decodeDosageHistoryRow(row)
-          // Extract numeric value from dosage string (e.g., "5mg" -> 5)
-          const match = decoded.dosage.match(/(\d+(?:\.\d+)?)/)
-          const captured = match?.[1]
-          const dosageValueNum = captured !== undefined ? Number.parseFloat(captured) : 0
-          points.push(
-            new DosageHistoryPoint({
-              date: decoded.datetime,
-              drug: DrugName.make(decoded.drug),
-              dosage: Dosage.make(decoded.dosage),
-              dosageValue: DosageValue.make(dosageValueNum),
-            }),
-          )
+          inputs.push({ date: decoded.datetime, drug: decoded.drug, dosage: decoded.dosage })
         }
-        yield* Effect.annotateCurrentSpan('pointCount', points.length)
-        return new DosageHistoryStats({ points })
+        yield* Effect.annotateCurrentSpan('pointCount', inputs.length)
+        return buildDosageHistoryStats(inputs)
       })().pipe(Effect.orDie)
 
     const getInjectionFrequency = (params: StatsParams, userId: string) =>
