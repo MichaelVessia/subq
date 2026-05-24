@@ -1,5 +1,17 @@
 import { describe, expect, it } from '@effect/vitest'
-import { DataExport, ExportedSettings, Notes, Weight, WeightLog, WeightLogId } from '@subq/shared'
+import {
+  DataExport,
+  Dosage,
+  DrugName,
+  ExportedSettings,
+  InjectionLog,
+  InjectionLogId,
+  InjectionScheduleId,
+  Notes,
+  Weight,
+  WeightLog,
+  WeightLogId,
+} from '@subq/shared'
 import { DateTime, Effect } from 'effect'
 import { DataExportService, DataExportServiceLive } from '../src/data-export/data-export-service.js'
 import { insertSettings, insertWeightLog, makeInitializedTestLayer } from './helpers/test-db.js'
@@ -144,6 +156,98 @@ describe('DataExportService', () => {
           const otherUserExport = yield* service.exportData('user-456')
           expect(otherUserExport.data.weightLogs).toHaveLength(1)
           expect(otherUserExport.data.weightLogs[0].id).toBe('other-user-1')
+        }),
+      )
+    })
+
+    it.layer(TestLayer)((it) => {
+      it.effect('rolls back replacement when an import row fails', () =>
+        Effect.gen(function* () {
+          yield* insertWeightLog('existing-1', new Date('2024-01-01'), 200, 'user-123')
+
+          const service = yield* DataExportService
+          const now = DateTime.nowUnsafe()
+          const duplicateId = WeightLogId.make('duplicate-log')
+          const importData = new DataExport({
+            version: '1.0.0',
+            exportedAt: now,
+            data: {
+              weightLogs: [
+                new WeightLog({
+                  id: duplicateId,
+                  datetime: DateTime.makeUnsafe('2024-02-01T00:00:00Z'),
+                  weight: Weight.make(190),
+                  notes: null,
+                  createdAt: now,
+                  updatedAt: now,
+                }),
+                new WeightLog({
+                  id: duplicateId,
+                  datetime: DateTime.makeUnsafe('2024-02-02T00:00:00Z'),
+                  weight: Weight.make(191),
+                  notes: null,
+                  createdAt: now,
+                  updatedAt: now,
+                }),
+              ],
+              injectionLogs: [],
+              inventory: [],
+              schedules: [],
+              goals: [],
+              settings: null,
+            },
+          })
+
+          const result = yield* service.importData('user-123', importData).pipe(Effect.result)
+          expect(result._tag).toBe('Failure')
+
+          const exported = yield* service.exportData('user-123')
+          expect(exported.data.weightLogs.map((log) => log.id)).toEqual(['existing-1'])
+        }),
+      )
+    })
+
+    it.layer(TestLayer)((it) => {
+      it.effect('rejects injection logs that reference schedules missing from the import', () =>
+        Effect.gen(function* () {
+          yield* insertWeightLog('existing-1', new Date('2024-01-01'), 200, 'user-123')
+
+          const service = yield* DataExportService
+          const now = DateTime.nowUnsafe()
+          const importData = new DataExport({
+            version: '1.0.0',
+            exportedAt: now,
+            data: {
+              weightLogs: [],
+              injectionLogs: [
+                new InjectionLog({
+                  id: InjectionLogId.make('inj-1'),
+                  datetime: DateTime.makeUnsafe('2024-02-01T00:00:00Z'),
+                  drug: DrugName.make('Testosterone'),
+                  source: null,
+                  dosage: Dosage.make('100mg'),
+                  injectionSite: null,
+                  notes: null,
+                  scheduleId: InjectionScheduleId.make('missing-schedule'),
+                  createdAt: now,
+                  updatedAt: now,
+                }),
+              ],
+              inventory: [],
+              schedules: [],
+              goals: [],
+              settings: null,
+            },
+          })
+
+          const result = yield* service.importData('user-123', importData).pipe(Effect.result)
+          expect(result._tag).toBe('Failure')
+          if (result._tag === 'Failure') {
+            expect(result.failure.message).toContain('references missing schedule')
+          }
+
+          const exported = yield* service.exportData('user-123')
+          expect(exported.data.weightLogs.map((log) => log.id)).toEqual(['existing-1'])
         }),
       )
     })

@@ -8,7 +8,7 @@ import {
   DrugName,
   DrugSource,
   ExportedSettings,
-  type Frequency,
+  Frequency,
   GoalId,
   InjectionLog,
   InjectionLogId,
@@ -18,8 +18,8 @@ import {
   Inventory,
   InventoryId,
   Notes,
-  type PhaseDurationDays,
-  type PhaseOrder,
+  PhaseDurationDays,
+  PhaseOrder,
   ScheduleName,
   SchedulePhase,
   SchedulePhaseId,
@@ -30,6 +30,7 @@ import {
   WeightLogId,
 } from '@subq/shared'
 import { Context, DateTime, Effect, Layer, Schema } from 'effect'
+import { planDataImport, type DataImportPlan } from './data-import-plan.js'
 
 // ============================================
 // Service Definition
@@ -86,7 +87,7 @@ const ScheduleRow = Schema.Struct({
   name: Schema.String,
   drug: Schema.String,
   source: Schema.NullOr(Schema.String),
-  frequency: Schema.String,
+  frequency: Frequency,
   start_date: Schema.String,
   is_active: Schema.Number,
   notes: Schema.NullOr(Schema.String),
@@ -97,8 +98,8 @@ const ScheduleRow = Schema.Struct({
 const PhaseRow = Schema.Struct({
   id: Schema.String,
   schedule_id: Schema.String,
-  order: Schema.Number,
-  duration_days: Schema.NullOr(Schema.Number),
+  order: PhaseOrder,
+  duration_days: Schema.NullOr(PhaseDurationDays),
   dosage: Schema.String,
   created_at: Schema.String,
   updated_at: Schema.String,
@@ -236,8 +237,8 @@ export const DataExportServiceLive = Layer.effect(
                         new SchedulePhase({
                           id: SchedulePhaseId.make(p.id),
                           scheduleId: InjectionScheduleId.make(p.schedule_id),
-                          order: p.order as PhaseOrder,
-                          durationDays: p.duration_days as PhaseDurationDays | null,
+                          order: p.order,
+                          durationDays: p.duration_days,
                           dosage: Dosage.make(p.dosage),
                           createdAt: DateTime.makeUnsafe(p.created_at),
                           updatedAt: DateTime.makeUnsafe(p.updated_at),
@@ -252,7 +253,7 @@ export const DataExportServiceLive = Layer.effect(
                 name: ScheduleName.make(r.name),
                 drug: DrugName.make(r.drug),
                 source: r.source ? DrugSource.make(r.source) : null,
-                frequency: r.frequency as Frequency,
+                frequency: r.frequency,
                 startDate: DateTime.makeUnsafe(r.start_date),
                 isActive: r.is_active === 1,
                 notes: r.notes ? Notes.make(r.notes) : null,
@@ -317,8 +318,10 @@ export const DataExportServiceLive = Layer.effect(
         })
       }).pipe(Effect.mapError((cause) => DataExportError.make({ message: 'Failed to export data', cause })))
 
-    const importData = (userId: string, data: DataExport) =>
+    const applyDataImport = (userId: string, plan: DataImportPlan) =>
       Effect.gen(function* () {
+        const snapshot = plan.snapshot
+
         // Delete all existing user data (in order to handle foreign key constraints)
         yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
         yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
@@ -329,7 +332,7 @@ export const DataExportServiceLive = Layer.effect(
         yield* sql`DELETE FROM user_settings WHERE user_id = ${userId}`
 
         // Import weight logs
-        for (const log of data.data.weightLogs) {
+        for (const log of snapshot.data.weightLogs) {
           const notes = log.notes
           yield* sql`
             INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
@@ -338,7 +341,7 @@ export const DataExportServiceLive = Layer.effect(
         }
 
         // Import schedules first (so injection logs can reference them)
-        for (const schedule of data.data.schedules) {
+        for (const schedule of snapshot.data.schedules) {
           const source = schedule.source
           const notes = schedule.notes
           yield* sql`
@@ -356,7 +359,7 @@ export const DataExportServiceLive = Layer.effect(
         }
 
         // Import injection logs
-        for (const log of data.data.injectionLogs) {
+        for (const log of snapshot.data.injectionLogs) {
           const source = log.source
           const injectionSite = log.injectionSite
           const notes = log.notes
@@ -368,7 +371,7 @@ export const DataExportServiceLive = Layer.effect(
         }
 
         // Import inventory
-        for (const item of data.data.inventory) {
+        for (const item of snapshot.data.inventory) {
           const beyondUseDate = item.beyondUseDate ? DateTime.formatIso(item.beyondUseDate).split('T')[0] : null
           yield* sql`
             INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
@@ -377,7 +380,7 @@ export const DataExportServiceLive = Layer.effect(
         }
 
         // Import goals
-        for (const goal of data.data.goals) {
+        for (const goal of snapshot.data.goals) {
           const targetDate = goal.targetDate ? DateTime.formatIso(goal.targetDate) : null
           const notes = goal.notes
           const completedAt = goal.completedAt ? DateTime.formatIso(goal.completedAt) : null
@@ -388,26 +391,25 @@ export const DataExportServiceLive = Layer.effect(
         }
 
         // Import settings
-        let settingsUpdated = false
-        if (data.data.settings) {
+        if (snapshot.data.settings) {
           const id = crypto.randomUUID()
           const now = new Date().toISOString()
           yield* sql`
             INSERT INTO user_settings (id, user_id, weight_unit, created_at, updated_at)
-            VALUES (${id}, ${userId}, ${data.data.settings.weightUnit}, ${now}, ${now})
+            VALUES (${id}, ${userId}, ${snapshot.data.settings.weightUnit}, ${now}, ${now})
           `
-          settingsUpdated = true
         }
+      })
 
-        return new DataImportResult({
-          weightLogs: data.data.weightLogs.length,
-          injectionLogs: data.data.injectionLogs.length,
-          inventory: data.data.inventory.length,
-          schedules: data.data.schedules.length,
-          goals: data.data.goals.length,
-          settingsUpdated,
-        })
-      }).pipe(Effect.mapError((cause) => DataImportError.make({ message: 'Failed to import data', cause })))
+    const importData = (userId: string, data: DataExport) =>
+      Effect.gen(function* () {
+        const plan = yield* planDataImport(data)
+        yield* applyDataImport(userId, plan).pipe(
+          sql.withTransaction,
+          Effect.mapError((cause) => DataImportError.make({ message: 'Failed to import data', cause })),
+        )
+        return plan.result
+      })
 
     return { exportData, importData }
   }),
