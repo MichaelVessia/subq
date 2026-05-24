@@ -3,13 +3,10 @@ import {
   type InjectionScheduleCreate,
   type InjectionScheduleId,
   type InjectionScheduleUpdate,
-  ScheduleDatabaseError,
   ScheduleRpcs,
-  nextDose,
-  scheduleView,
 } from '@subq/shared'
-import { DateTime, Effect, Option } from 'effect'
-import { InjectionLogRepo } from '../injection/injection-log-repo.js'
+import { Effect, Option } from 'effect'
+import { ScheduleCadenceService } from './schedule-cadence-service.js'
 import { ScheduleRepo } from './schedule-repo.js'
 
 export { frequencyToDays } from '@subq/shared'
@@ -17,7 +14,7 @@ export { frequencyToDays } from '@subq/shared'
 export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
   Effect.gen(function* () {
     const scheduleRepo = yield* ScheduleRepo
-    const injectionLogRepo = yield* InjectionLogRepo
+    const scheduleCadence = yield* ScheduleCadenceService
 
     const ScheduleList = Effect.fn('rpc.schedule.list')(function* () {
       const { user } = yield* Effect.service(AuthContext)
@@ -98,33 +95,17 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         Effect.annotateLogs({ rpc: 'ScheduleGetNextDose', userId: user.id }),
       )
 
-      // Get active schedule
-      const scheduleOpt = yield* scheduleRepo.getActive(user.id)
-      if (Option.isNone(scheduleOpt)) {
-        yield* Effect.logDebug('ScheduleGetNextDose: no active schedule').pipe(
-          Effect.annotateLogs({ rpc: 'ScheduleGetNextDose' }),
-        )
-        return null
-      }
-
-      const schedule = scheduleOpt.value
-
-      // Get last injection for this drug
-      const lastInjectionOpt = yield* scheduleRepo.getLastInjectionDate(user.id, schedule.drug)
-      const lastInjectionDate = Option.isSome(lastInjectionOpt) ? lastInjectionOpt.value : null
-      const result = nextDose(schedule, lastInjectionDate, DateTime.nowUnsafe())
+      const result = yield* scheduleCadence.getNextScheduledDose(user.id)
 
       if (result === null) {
-        yield* Effect.logDebug('ScheduleGetNextDose: no phases').pipe(
-          Effect.annotateLogs({ rpc: 'ScheduleGetNextDose', scheduleId: schedule.id }),
-        )
+        yield* Effect.logDebug('ScheduleGetNextDose: no dose').pipe(Effect.annotateLogs({ rpc: 'ScheduleGetNextDose' }))
         return null
       }
 
       yield* Effect.logDebug('ScheduleGetNextDose completed').pipe(
         Effect.annotateLogs({
           rpc: 'ScheduleGetNextDose',
-          scheduleId: schedule.id,
+          scheduleId: result.scheduleId,
           phase: result.currentPhase,
           daysUntilDue: result.daysUntilDue,
           isOverdue: result.isOverdue,
@@ -140,21 +121,11 @@ export const ScheduleRpcHandlersLive = ScheduleRpcs.toLayer(
         Effect.annotateLogs({ rpc: 'ScheduleGetView', id, userId: user.id }),
       )
 
-      // Get schedule
-      const scheduleOpt = yield* scheduleRepo.findById(id, user.id)
-      if (Option.isNone(scheduleOpt)) {
+      const result = yield* scheduleCadence.getScheduleView(user.id, id)
+      if (result === null) {
         yield* Effect.logDebug('ScheduleGetView: not found').pipe(Effect.annotateLogs({ rpc: 'ScheduleGetView', id }))
         return null
       }
-
-      const schedule = scheduleOpt.value
-
-      // Get all injection logs for this schedule
-      const injections = yield* injectionLogRepo
-        .listBySchedule(id, user.id)
-        .pipe(Effect.mapError((e) => ScheduleDatabaseError.make({ operation: e.operation, cause: e.cause })))
-
-      const result = scheduleView(schedule, injections, DateTime.nowUnsafe())
 
       yield* Effect.logDebug('ScheduleGetView completed').pipe(
         Effect.annotateLogs({

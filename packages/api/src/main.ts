@@ -18,7 +18,7 @@ import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
-import { ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
+import { ScheduleCadenceServiceLive, ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
 import { SqlLive } from './sql.js'
 import { StatsRpcHandlersLive, StatsServiceLive } from './stats/index.js'
@@ -291,15 +291,25 @@ const ProductionRoutesLive = Layer.effectDiscard(
 )
 
 // Reminder services layer
-const ReminderServicesLive = Layer.mergeAll(ReminderServiceLive.pipe(Layer.provide(SqlLive)), EmailServiceLive)
+const ReminderServicesLive = Layer.mergeAll(
+  ReminderServiceLive.pipe(
+    Layer.provide(ScheduleCadenceServiceLive),
+    Layer.provide(RepositoriesLive),
+    Layer.provide(SqlLive),
+  ),
+  EmailServiceLive,
+)
 
 // Merge all route layers so they share the same Default router
 const AllRoutesLive = Layer.mergeAll(AuthRoutesLive, RpcProtocolLive, ProductionRoutesLive)
 
 // Services that depend on SQL
-const ServicesLive = Layer.mergeAll(StatsServiceLive, GoalServiceLive, DataExportServiceLive).pipe(
-  Layer.provide(SqlLive),
-)
+const ServicesLive = Layer.mergeAll(
+  StatsServiceLive,
+  GoalServiceLive,
+  DataExportServiceLive,
+  ScheduleCadenceServiceLive,
+).pipe(Layer.provide(RepositoriesLive), Layer.provide(SqlLive))
 
 // RPC handler layer with auth middleware - needs services and repos
 const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(

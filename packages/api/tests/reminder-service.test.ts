@@ -1,6 +1,10 @@
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
+import { TestClock } from 'effect/testing'
+import { InjectionLogRepoLive } from '../src/injection/injection-log-repo.js'
 import { ReminderService, ReminderServiceLive } from '../src/reminders/reminder-service.js'
+import { ScheduleCadenceServiceLive } from '../src/schedule/schedule-cadence-service.js'
+import { ScheduleRepoLive } from '../src/schedule/schedule-repo.js'
 import {
   insertInjectionLog,
   insertSchedule,
@@ -9,7 +13,10 @@ import {
   makeInitializedTestLayer,
 } from './helpers/test-db.js'
 
-const TestLayer = makeInitializedTestLayer(ReminderServiceLive)
+const RepoLayer = Layer.mergeAll(ScheduleRepoLive, InjectionLogRepoLive)
+const TestLayer = makeInitializedTestLayer(
+  ReminderServiceLive.pipe(Layer.provide(ScheduleCadenceServiceLive), Layer.provide(RepoLayer)),
+)
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 const requireValue = <T>(value: T | null | undefined): T => {
@@ -26,6 +33,7 @@ describe('ReminderService', () => {
         const now = new Date()
         const userId = 'user-1'
         const scheduleId = 'schedule-1'
+        yield* TestClock.setTime(now.getTime())
 
         yield* insertUser(userId, 'user@example.com', 'Test User')
         yield* insertSchedule(
