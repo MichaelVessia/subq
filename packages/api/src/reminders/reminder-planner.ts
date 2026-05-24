@@ -1,5 +1,5 @@
 import { DateTime } from 'effect'
-import { nextDoseTiming, type Frequency } from '@subq/shared'
+import type { NextScheduledDose } from '@subq/shared'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const MAX_OVERDUE_REMINDER_DAYS = 7
@@ -8,10 +8,7 @@ export interface ReminderCandidate {
   readonly userId: string
   readonly email: string
   readonly name: string
-  readonly drug: string
-  readonly dosage: string
-  readonly frequency: Frequency
-  readonly startDate: DateTime.Utc
+  readonly nextScheduledDose: NextScheduledDose
   readonly lastInjectionDate: DateTime.Utc | null
   readonly lastInjectionSite: string | null
 }
@@ -37,35 +34,25 @@ const daysSince = (date: DateTime.Utc | null, now: DateTime.Utc): number | null 
 }
 
 export const planReminder = (candidate: ReminderCandidate, now: DateTime.Utc): UserDueForReminder => {
-  const timing = nextDoseTiming({
-    startDate: candidate.startDate,
-    frequency: candidate.frequency,
-    lastInjectionDate: candidate.lastInjectionDate,
-    now,
-  })
+  const nextScheduledDose = candidate.nextScheduledDose
 
   return {
     userId: candidate.userId,
     email: candidate.email,
     name: candidate.name,
-    drug: candidate.drug,
-    dosage: candidate.dosage,
+    drug: nextScheduledDose.drug,
+    dosage: nextScheduledDose.dosage,
     daysSinceLastInjection: daysSince(candidate.lastInjectionDate, now),
     lastInjectionSite: candidate.lastInjectionSite,
-    isOverdue: timing.isOverdue,
-    daysOverdue: timing.isOverdue ? Math.abs(timing.daysUntilDue) : 0,
+    isOverdue: nextScheduledDose.isOverdue,
+    daysOverdue: nextScheduledDose.isOverdue ? Math.abs(nextScheduledDose.daysUntilDue) : 0,
   }
 }
 
 export const planReminderIfDue = (candidate: ReminderCandidate, now: DateTime.Utc): UserDueForReminder | null => {
-  const timing = nextDoseTiming({
-    startDate: candidate.startDate,
-    frequency: candidate.frequency,
-    lastInjectionDate: candidate.lastInjectionDate,
-    now,
-  })
+  const nextScheduledDose = candidate.nextScheduledDose
 
-  if (timing.daysUntilDue > 0 || timing.daysUntilDue < -MAX_OVERDUE_REMINDER_DAYS) {
+  if (nextScheduledDose.daysUntilDue > 0 || nextScheduledDose.daysUntilDue < -MAX_OVERDUE_REMINDER_DAYS) {
     return null
   }
 

@@ -20,6 +20,15 @@ const SqliteTestLayer = SqliteClient.layer({ filename: ':memory:' })
 const setupTables = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
+  // Auth user table subset needed by cross-domain tests.
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS "user" (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT NOT NULL
+    )
+  `
+
   // Weight logs
   yield* sql`
     CREATE TABLE IF NOT EXISTS weight_logs (
@@ -119,6 +128,7 @@ const setupTables = Effect.gen(function* () {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       weight_unit TEXT NOT NULL DEFAULT 'lbs',
+      reminders_enabled INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
@@ -139,6 +149,7 @@ const clearTables = Effect.gen(function* () {
   yield* sql`DELETE FROM glp1_inventory`
   yield* sql`DELETE FROM user_goals`
   yield* sql`DELETE FROM user_settings`
+  yield* sql`DELETE FROM "user"`
 })
 
 // ============================================
@@ -158,6 +169,15 @@ export const insertWeightLog = (
     yield* sql`
       INSERT INTO weight_logs (id, datetime, weight, notes, user_id, created_at, updated_at)
       VALUES (${id}, ${datetime.toISOString()}, ${weight}, ${notes}, ${userId}, ${now}, ${now})
+    `
+  })
+
+export const insertUser = (id: string, email = `${id}@example.com`, name = 'Test User') =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      INSERT INTO "user" (id, email, name)
+      VALUES (${id}, ${email}, ${name})
     `
   })
 
@@ -240,13 +260,13 @@ export const insertSchedulePhase = (
     `
   })
 
-export const insertSettings = (id: string, userId: string, weightUnit: 'lbs' | 'kg') =>
+export const insertSettings = (id: string, userId: string, weightUnit: 'lbs' | 'kg', remindersEnabled = true) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const now = new Date().toISOString()
     yield* sql`
-      INSERT INTO user_settings (id, user_id, weight_unit, created_at, updated_at)
-      VALUES (${id}, ${userId}, ${weightUnit}, ${now}, ${now})
+      INSERT INTO user_settings (id, user_id, weight_unit, reminders_enabled, created_at, updated_at)
+      VALUES (${id}, ${userId}, ${weightUnit}, ${remindersEnabled ? 1 : 0}, ${now}, ${now})
     `
   })
 
