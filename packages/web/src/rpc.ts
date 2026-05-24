@@ -5,7 +5,6 @@ import {
   AppRpcs,
   InjectionLogListParams,
   type InjectionScheduleId,
-  InventoryListParams,
   Limit,
   Offset,
   StatsParams,
@@ -36,7 +35,6 @@ export const ReactivityKeys = {
   injectionLogs: 'injection-logs',
   injectionDrugs: 'injection-drugs',
   injectionSites: 'injection-sites',
-  inventory: 'inventory',
   schedule: 'schedule',
   goals: 'goals',
   settings: 'settings',
@@ -168,17 +166,6 @@ export const InjectionByDayOfWeekAtomFamily = Atom.family((key: string) => {
     new StatsParams({ startDate: start, endDate: end, timezone: getBrowserTimezone() }),
     { reactivityKeys: [ReactivityKeys.injectionLogs] },
   )
-})
-
-// Inventory atoms
-export const createInventoryListAtom = (status?: 'new' | 'opened' | 'finished') =>
-  ApiClient.query('InventoryList', new InventoryListParams({ status }), {
-    reactivityKeys: [ReactivityKeys.inventory],
-  })
-
-// Active inventory (new or opened) for use in injection form
-export const ActiveInventoryAtom = ApiClient.query('InventoryList', new InventoryListParams({}), {
-  reactivityKeys: [ReactivityKeys.inventory],
 })
 
 // Schedule atoms

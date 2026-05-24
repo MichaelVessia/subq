@@ -57,28 +57,6 @@ export type WeightLogFormInput = typeof WeightLogFormSchema.Type
 export const weightLogFormStandardSchema = Schema.toStandardSchemaV1(WeightLogFormSchema)
 
 // ============================================
-// Inventory Form Schema
-// ============================================
-
-/**
- * Schema for inventory form inputs.
- * Validates string inputs from HTML form fields.
- */
-class InventoryFormSchema extends Schema.Class<InventoryFormSchema>('InventoryFormSchema')({
-  form: Schema.Literals(['vial', 'pen'] as const),
-  drug: Schema.String.check(nonEmpty('Medication is required')),
-  source: Schema.String.check(nonEmpty('Pharmacy source is required')),
-  totalAmount: Schema.String.check(nonEmpty('Total amount is required')),
-  status: Schema.Literals(['new', 'opened', 'finished'] as const),
-  beyondUseDate: Schema.String, // Optional, empty string means no date
-  quantity: Schema.String, // Only used for create, number of items to create
-}) {}
-
-export type InventoryFormInput = typeof InventoryFormSchema.Type
-
-export const inventoryFormStandardSchema = Schema.toStandardSchemaV1(InventoryFormSchema)
-
-// ============================================
 // Injection Log Form Schema
 // ============================================
 
@@ -111,8 +89,6 @@ class InjectionLogFormSchema extends Schema.Class<InjectionLogFormSchema>('Injec
   ),
   injectionSite: Schema.String, // Optional
   notes: Schema.String, // Optional
-  finishVial: Schema.Boolean,
-  selectedInventoryId: Schema.String, // Empty string if not selected
 }) {}
 
 export type InjectionLogFormInput = typeof InjectionLogFormSchema.Type

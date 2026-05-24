@@ -78,6 +78,13 @@
       "when": 1765100000000,
       "tag": "0010_reminders_enabled",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1779657784922,
+      "tag": "0011_remove_inventory",
+      "breakpoints": true
     }
   ]
 }

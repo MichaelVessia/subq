@@ -33,7 +33,6 @@ export const planDataImport = (snapshot: DataExport): Effect.Effect<DataImportPl
       result: new DataImportResult({
         weightLogs: snapshot.data.weightLogs.length,
         injectionLogs: snapshot.data.injectionLogs.length,
-        inventory: snapshot.data.inventory.length,
         schedules: snapshot.data.schedules.length,
         goals: snapshot.data.goals.length,
         settingsUpdated: snapshot.data.settings !== null,

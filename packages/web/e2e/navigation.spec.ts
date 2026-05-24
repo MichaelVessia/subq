@@ -19,7 +19,6 @@ test.describe('Navigation', () => {
     await expect(page.locator('nav a:has-text("Stats")')).toBeVisible()
     await expect(page.locator('nav a:has-text("Weight")')).toBeVisible()
     await expect(page.locator('nav a:has-text("Injections")')).toBeVisible()
-    await expect(page.locator('nav a:has-text("Inventory")')).toBeVisible()
     await expect(page.locator('nav a:has-text("Schedule")')).toBeVisible()
   })
 
@@ -40,9 +39,6 @@ test.describe('Navigation', () => {
     await page.click('nav a:has-text("Injections")')
     await expect(page).toHaveURL('/injection')
     await expect(page.locator('h2:has-text("Injection Log")')).toBeVisible()
-    await page.click('nav a:has-text("Inventory")')
-    await expect(page).toHaveURL('/inventory')
-    await expect(page.locator('h2:has-text("GLP-1 Inventory")')).toBeVisible()
     await page.click('nav a:has-text("Schedule")')
     await expect(page).toHaveURL('/schedule')
     await expect(page.locator('h2:has-text("Injection Schedule")')).toBeVisible()

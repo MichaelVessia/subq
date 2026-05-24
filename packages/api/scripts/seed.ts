@@ -95,7 +95,6 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
     yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
     yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
     yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
-    yield* sql`DELETE FROM glp1_inventory WHERE user_id = ${userId}`
     yield* sql`DELETE FROM user_goals WHERE user_id = ${userId}`
 
     console.log(`\nGenerating 1 year of consistent data for user ${userId}...`)
@@ -137,15 +136,6 @@ const seedConsistentUser = (sql: SqlClient.SqlClient, userId: string) =>
       `
     }
     console.log(`Inserted ${data.weights.length} weight logs`)
-
-    // Insert inventory
-    for (const inv of data.inventory) {
-      yield* sql`
-        INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
-        VALUES (${inv.id}, ${inv.drug}, ${inv.source}, ${inv.form}, ${inv.totalAmount}, ${inv.status}, ${inv.beyondUseDate}, ${userId}, ${inv.createdAt}, ${inv.updatedAt})
-      `
-    }
-    console.log(`Inserted ${data.inventory.length} inventory items`)
 
     // Insert goals
     for (const goal of data.goals) {

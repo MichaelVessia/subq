@@ -7,7 +7,6 @@ export * from './auth/index.js'
 // Domain modules
 export * from './weight/index.js'
 export * from './injection/index.js'
-export * from './inventory/index.js'
 export * from './schedule/index.js'
 export * from './stats/index.js'
 export * from './goals/index.js'

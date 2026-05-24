@@ -17,7 +17,6 @@ import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } 
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
 import { InjectionLogRepoLive, InjectionRpcHandlersLive, ScheduleAssignmentLive } from './injection/index.js'
-import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleCadenceServiceLive, ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
 import { SqlLive } from './sql.js'
@@ -108,7 +107,6 @@ const AuthLive = Layer.unwrap(
 const RpcHandlersLive = Layer.mergeAll(
   WeightRpcHandlersLive,
   InjectionRpcHandlersLive,
-  InventoryRpcHandlersLive,
   ScheduleRpcHandlersLive,
   StatsRpcHandlersLive,
   GoalRpcHandlersLive,
@@ -120,7 +118,6 @@ const RpcHandlersLive = Layer.mergeAll(
 const RepositoriesLive = Layer.mergeAll(
   WeightLogRepoLive,
   InjectionLogRepoLive,
-  InventoryRepoLive,
   ScheduleRepoLive,
   GoalRepoLive,
   SettingsRepoLive,

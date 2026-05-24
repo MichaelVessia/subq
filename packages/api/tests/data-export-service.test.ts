@@ -26,10 +26,9 @@ describe('DataExportService', () => {
           const service = yield* DataExportService
           const result = yield* service.exportData('user-123')
 
-          expect(result.version).toBe('1.0.0')
+          expect(result.version).toBe('2.0.0')
           expect(result.data.weightLogs).toHaveLength(0)
           expect(result.data.injectionLogs).toHaveLength(0)
-          expect(result.data.inventory).toHaveLength(0)
           expect(result.data.schedules).toHaveLength(0)
           expect(result.data.goals).toHaveLength(0)
           expect(result.data.settings).toBeNull()
@@ -84,7 +83,7 @@ describe('DataExportService', () => {
 
           // Create import data
           const importData = new DataExport({
-            version: '1.0.0',
+            version: '2.0.0',
             exportedAt: DateTime.nowUnsafe(),
             data: {
               weightLogs: [
@@ -98,7 +97,6 @@ describe('DataExportService', () => {
                 }),
               ],
               injectionLogs: [],
-              inventory: [],
               schedules: [],
               goals: [],
               settings: new ExportedSettings({ weightUnit: 'kg' }),
@@ -129,7 +127,7 @@ describe('DataExportService', () => {
 
           // Import data for user-123
           const importData = new DataExport({
-            version: '1.0.0',
+            version: '2.0.0',
             exportedAt: DateTime.nowUnsafe(),
             data: {
               weightLogs: [
@@ -143,7 +141,6 @@ describe('DataExportService', () => {
                 }),
               ],
               injectionLogs: [],
-              inventory: [],
               schedules: [],
               goals: [],
               settings: null,
@@ -169,7 +166,7 @@ describe('DataExportService', () => {
           const now = DateTime.nowUnsafe()
           const duplicateId = WeightLogId.make('duplicate-log')
           const importData = new DataExport({
-            version: '1.0.0',
+            version: '2.0.0',
             exportedAt: now,
             data: {
               weightLogs: [
@@ -191,7 +188,6 @@ describe('DataExportService', () => {
                 }),
               ],
               injectionLogs: [],
-              inventory: [],
               schedules: [],
               goals: [],
               settings: null,
@@ -215,7 +211,7 @@ describe('DataExportService', () => {
           const service = yield* DataExportService
           const now = DateTime.nowUnsafe()
           const importData = new DataExport({
-            version: '1.0.0',
+            version: '2.0.0',
             exportedAt: now,
             data: {
               weightLogs: [],
@@ -233,7 +229,6 @@ describe('DataExportService', () => {
                   updatedAt: now,
                 }),
               ],
-              inventory: [],
               schedules: [],
               goals: [],
               settings: null,

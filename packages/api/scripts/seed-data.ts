@@ -26,18 +26,6 @@ export type WeightEntry = {
   updatedAt: string
 }
 
-export type InventoryEntry = {
-  id: string
-  drug: string
-  source: string
-  form: 'vial' | 'pen'
-  totalAmount: string
-  status: 'new' | 'opened' | 'finished'
-  beyondUseDate: string | null
-  createdAt: string
-  updatedAt: string
-}
-
 export type ScheduleEntry = {
   id: string
   name: string
@@ -79,7 +67,6 @@ export type ConsistentUserData = {
   phases: PhaseEntry[]
   injections: InjectionEntry[]
   weights: WeightEntry[]
-  inventory: InventoryEntry[]
   goals: GoalEntry[]
 }
 
@@ -130,7 +117,6 @@ export function generateConsistentUserData(): ConsistentUserData {
   const phases: PhaseEntry[] = []
   const injections: InjectionEntry[] = []
   const weights: WeightEntry[] = []
-  const inventory: InventoryEntry[] = []
 
   // Create Semaglutide schedule (weeks 1-20)
   const semaScheduleId = crypto.randomUUID()
@@ -386,112 +372,6 @@ export function generateConsistentUserData(): ConsistentUserData {
     }
   }
 
-  // Generate inventory
-  // Semaglutide vials (weeks 1-20)
-  const semaVials = [
-    { totalAmount: '10mg', weekStart: 1 },
-    { totalAmount: '20mg', weekStart: 5 },
-    { totalAmount: '30mg', weekStart: 9 },
-    { totalAmount: '40mg', weekStart: 13 },
-    { totalAmount: '60mg', weekStart: 17 },
-  ]
-
-  for (const vial of semaVials) {
-    const openedDate = new Date(startDate)
-    openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
-    const beyondUseDate = new Date(openedDate)
-    beyondUseDate.setDate(beyondUseDate.getDate() + 28)
-
-    inventory.push({
-      id: crypto.randomUUID(),
-      drug: 'Semaglutide',
-      source: 'Pharmacy',
-      form: 'vial',
-      totalAmount: vial.totalAmount,
-      status: 'finished',
-      beyondUseDate: beyondUseDate.toISOString(),
-      createdAt: openedDate.toISOString(),
-      updatedAt: now,
-    })
-  }
-
-  // Tirzepatide vials (weeks 21-40)
-  const tirzVials = [
-    { totalAmount: '10mg', weekStart: 21 },
-    { totalAmount: '20mg', weekStart: 25 },
-    { totalAmount: '30mg', weekStart: 29 },
-    { totalAmount: '40mg', weekStart: 33 },
-    { totalAmount: '60mg', weekStart: 37 },
-  ]
-
-  for (const vial of tirzVials) {
-    const openedDate = new Date(startDate)
-    openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
-    const beyondUseDate = new Date(openedDate)
-    beyondUseDate.setDate(beyondUseDate.getDate() + 28)
-
-    inventory.push({
-      id: crypto.randomUUID(),
-      drug: 'Tirzepatide',
-      source: 'Pharmacy',
-      form: 'vial',
-      totalAmount: vial.totalAmount,
-      status: 'finished',
-      beyondUseDate: beyondUseDate.toISOString(),
-      createdAt: openedDate.toISOString(),
-      updatedAt: now,
-    })
-  }
-
-  // Retatrutide vials (weeks 41+)
-  const retatVials = [
-    { totalAmount: '2mg', weekStart: 41 },
-    { totalAmount: '4mg', weekStart: 43 },
-    { totalAmount: '8mg', weekStart: 45 },
-    { totalAmount: '16mg', weekStart: 47 },
-  ]
-
-  for (const vial of retatVials) {
-    const openedDate = new Date(startDate)
-    openedDate.setDate(openedDate.getDate() + (vial.weekStart - 1) * 7)
-    if (openedDate > new Date()) continue
-
-    const beyondUseDate = new Date(openedDate)
-    beyondUseDate.setDate(beyondUseDate.getDate() + 28)
-
-    inventory.push({
-      id: crypto.randomUUID(),
-      drug: 'Retatrutide (Compounded)',
-      source: 'Compounding Pharmacy',
-      form: 'vial',
-      totalAmount: vial.totalAmount,
-      status: 'finished',
-      beyondUseDate: beyondUseDate.toISOString(),
-      createdAt: openedDate.toISOString(),
-      updatedAt: now,
-    })
-  }
-
-  // Current Retatrutide vial (opened)
-  const currentRetatStart = new Date(startDate)
-  currentRetatStart.setDate(currentRetatStart.getDate() + (49 - 1) * 7)
-  if (currentRetatStart <= new Date()) {
-    const beyondUseDate = new Date(currentRetatStart)
-    beyondUseDate.setDate(beyondUseDate.getDate() + 28)
-
-    inventory.push({
-      id: crypto.randomUUID(),
-      drug: 'Retatrutide (Compounded)',
-      source: 'Compounding Pharmacy',
-      form: 'vial',
-      totalAmount: '48mg',
-      status: 'opened',
-      beyondUseDate: beyondUseDate.toISOString(),
-      createdAt: currentRetatStart.toISOString(),
-      updatedAt: now,
-    })
-  }
-
   // Generate goal - set ~47% through
   // User started at 220 lbs, currently around 165 lbs (lost 55 lbs over the year)
   // For 47% progress: (start - current) / (start - goal) = 0.47
@@ -520,5 +400,5 @@ export function generateConsistentUserData(): ConsistentUserData {
     updatedAt: now,
   })
 
-  return { schedules, phases, injections, weights, inventory, goals }
+  return { schedules, phases, injections, weights, goals }
 }

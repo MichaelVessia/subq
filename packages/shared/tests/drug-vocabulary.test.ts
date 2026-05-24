@@ -1,10 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import {
-  drugVariantsForInventoryForm,
   listDefaultInjectionSites,
   listKnownDrugVariants,
   suggestedDosagesForDrug,
-  supportsInventoryForm,
 } from '../src/drug-vocabulary/index.js'
 import { getNextSite, SITE_ROTATION } from '../src/injection/index.js'
 
@@ -43,27 +41,6 @@ describe('DrugVocabulary', () => {
       '12.5mg',
       '15mg',
     ])
-  })
-
-  it('filters drug variants by inventory form compatibility', () => {
-    expect(drugVariantsForInventoryForm('vial')).toEqual([
-      'Semaglutide (Compounded)',
-      'Tirzepatide (Compounded)',
-      'Retatrutide (Compounded)',
-    ])
-    expect(drugVariantsForInventoryForm('pen')).toEqual([
-      'Semaglutide (Ozempic)',
-      'Semaglutide (Wegovy)',
-      'Tirzepatide (Mounjaro)',
-      'Tirzepatide (Zepbound)',
-      'Liraglutide (Saxenda)',
-      'Dulaglutide (Trulicity)',
-    ])
-  })
-
-  it('checks whether a drug variant supports an inventory form', () => {
-    expect(supportsInventoryForm('Retatrutide (Compounded)', 'vial')).toBe(true)
-    expect(supportsInventoryForm('Retatrutide (Compounded)', 'pen')).toBe(false)
   })
 
   it('provides default injection site rotation choices', () => {

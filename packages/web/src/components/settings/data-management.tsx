@@ -99,7 +99,6 @@ export function DataManagement() {
         reactivityKeys: [
           ReactivityKeys.weightLogs,
           ReactivityKeys.injectionLogs,
-          ReactivityKeys.inventory,
           ReactivityKeys.schedule,
           ReactivityKeys.goals,
           ReactivityKeys.settings,
@@ -108,7 +107,7 @@ export function DataManagement() {
 
       setImportState({
         _tag: 'success',
-        message: `Successfully imported: ${result.weightLogs} weight logs, ${result.injectionLogs} injection logs, ${result.inventory} inventory items, ${result.schedules} schedules, ${result.goals} goals`,
+        message: `Successfully imported: ${result.weightLogs} weight logs, ${result.injectionLogs} injection logs, ${result.schedules} schedules, ${result.goals} goals`,
       })
     } catch (error) {
       console.error('Import failed:', error)
@@ -125,7 +124,7 @@ export function DataManagement() {
 
   const getSummary = (data: DataExport) => {
     const d = data.data
-    return `${d.weightLogs.length} weight logs, ${d.injectionLogs.length} injection logs, ${d.inventory.length} inventory items, ${d.schedules.length} schedules, ${d.goals.length} goals`
+    return `${d.weightLogs.length} weight logs, ${d.injectionLogs.length} injection logs, ${d.schedules.length} schedules, ${d.goals.length} goals`
   }
 
   return (

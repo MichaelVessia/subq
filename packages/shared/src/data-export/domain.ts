@@ -1,7 +1,6 @@
 import { Schema } from 'effect'
 import { UserGoal } from '../goals/domain.js'
 import { InjectionLog } from '../injection/domain.js'
-import { Inventory } from '../inventory/domain.js'
 import { InjectionSchedule } from '../schedule/domain.js'
 import { WeightLog } from '../weight/domain.js'
 
@@ -13,7 +12,7 @@ import { WeightLog } from '../weight/domain.js'
  * Schema version for data exports.
  * Increment when making breaking changes to the export format.
  */
-export const DataExportVersion = Schema.Literal('1.0.0')
+export const DataExportVersion = Schema.Literal('2.0.0')
 export type DataExportVersion = typeof DataExportVersion.Type
 
 // ============================================
@@ -46,7 +45,6 @@ export class DataExport extends Schema.Class<DataExport>('DataExport')({
   data: Schema.Struct({
     weightLogs: Schema.Array(WeightLog),
     injectionLogs: Schema.Array(InjectionLog),
-    inventory: Schema.Array(Inventory),
     schedules: Schema.Array(InjectionSchedule),
     goals: Schema.Array(UserGoal),
     settings: Schema.NullOr(ExportedSettings),
@@ -63,7 +61,6 @@ export class DataExport extends Schema.Class<DataExport>('DataExport')({
 export class DataImportResult extends Schema.Class<DataImportResult>('DataImportResult')({
   weightLogs: Schema.Number,
   injectionLogs: Schema.Number,
-  inventory: Schema.Number,
   schedules: Schema.Number,
   goals: Schema.Number,
   settingsUpdated: Schema.Boolean,

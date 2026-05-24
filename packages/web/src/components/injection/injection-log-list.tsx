@@ -9,7 +9,6 @@ import type {
   InjectionSchedule,
   InjectionScheduleCreate,
   InjectionScheduleId,
-  InventoryId,
   NextScheduledDose,
 } from '@subq/shared'
 import { InjectionLogBulkAssignSchedule } from '@subq/shared'
@@ -54,7 +53,6 @@ export function InjectionLogList() {
   const createLog = useAtomSet(ApiClient.mutation('InjectionLogCreate'), { mode: 'promise' })
   const updateLog = useAtomSet(ApiClient.mutation('InjectionLogUpdate'), { mode: 'promise' })
   const deleteLog = useAtomSet(ApiClient.mutation('InjectionLogDelete'), { mode: 'promise' })
-  const markFinished = useAtomSet(ApiClient.mutation('InventoryMarkFinished'), { mode: 'promise' })
   const bulkAssign = useAtomSet(ApiClient.mutation('InjectionLogBulkAssignSchedule'), { mode: 'promise' })
   const createSchedule = useAtomSet(ApiClient.mutation('ScheduleCreate'), { mode: 'promise' })
 
@@ -64,10 +62,6 @@ export function InjectionLogList() {
       reactivityKeys: [ReactivityKeys.injectionLogs, ReactivityKeys.injectionDrugs, ReactivityKeys.injectionSites],
     })
     setShowForm(false)
-  }
-
-  const handleMarkFinished = async (inventoryId: InventoryId) => {
-    await markFinished({ payload: { id: inventoryId }, reactivityKeys: [ReactivityKeys.inventory] })
   }
 
   const handleUpdate = async (data: InjectionLogUpdate) => {
@@ -252,7 +246,6 @@ export function InjectionLogList() {
               setShowForm(false)
               setPrefillData(null)
             }}
-            onMarkFinished={handleMarkFinished}
             {...(prefillData
               ? {
                   initialData: {

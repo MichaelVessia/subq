@@ -125,17 +125,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
             Injections
           </Link>
           <Link
-            to="/inventory"
-            className={cn(
-              'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
-              pathname === '/inventory'
-                ? 'text-foreground border-foreground'
-                : 'text-muted-foreground border-transparent hover:text-foreground',
-            )}
-          >
-            Inventory
-          </Link>
-          <Link
             to="/schedule"
             className={cn(
               'py-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',

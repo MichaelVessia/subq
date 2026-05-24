@@ -89,22 +89,6 @@ const setupTables = Effect.gen(function* () {
     )
   `
 
-  // GLP-1 Inventory
-  yield* sql`
-    CREATE TABLE IF NOT EXISTS glp1_inventory (
-      id TEXT PRIMARY KEY,
-      drug TEXT NOT NULL,
-      source TEXT NOT NULL,
-      form TEXT NOT NULL,
-      total_amount TEXT NOT NULL,
-      status TEXT NOT NULL,
-      beyond_use_date TEXT,
-      user_id TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `
-
   // User goals
   yield* sql`
     CREATE TABLE IF NOT EXISTS user_goals (
@@ -146,7 +130,6 @@ const clearTables = Effect.gen(function* () {
   yield* sql`DELETE FROM injection_logs`
   yield* sql`DELETE FROM injection_schedules`
   yield* sql`DELETE FROM weight_logs`
-  yield* sql`DELETE FROM glp1_inventory`
   yield* sql`DELETE FROM user_goals`
   yield* sql`DELETE FROM user_settings`
   yield* sql`DELETE FROM "user"`
@@ -200,25 +183,6 @@ export const insertInjectionLog = (
     yield* sql`
       INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
       VALUES (${id}, ${datetime.toISOString()}, ${drug}, ${options.source ?? null}, ${dosage}, ${options.injectionSite ?? null}, ${options.notes ?? null}, ${options.scheduleId ?? null}, ${userId}, ${now}, ${now})
-    `
-  })
-
-export const insertInventory = (
-  id: string,
-  drug: string,
-  source: string,
-  form: 'vial' | 'pen',
-  totalAmount: string,
-  status: 'new' | 'opened' | 'finished',
-  userId: string,
-  beyondUseDate: string | null = null,
-) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient
-    const now = new Date().toISOString()
-    yield* sql`
-      INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
-      VALUES (${id}, ${drug}, ${source}, ${form}, ${totalAmount}, ${status}, ${beyondUseDate}, ${userId}, ${now}, ${now})
     `
   })
 

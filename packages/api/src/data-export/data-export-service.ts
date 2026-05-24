@@ -15,15 +15,12 @@ import {
   InjectionSchedule,
   InjectionScheduleId,
   InjectionSite,
-  Inventory,
-  InventoryId,
   Notes,
   PhaseDurationDays,
   PhaseOrder,
   ScheduleName,
   SchedulePhase,
   SchedulePhaseId,
-  TotalAmount,
   UserGoal,
   Weight,
   WeightLog,
@@ -66,18 +63,6 @@ const InjectionLogRow = Schema.Struct({
   injection_site: Schema.NullOr(Schema.String),
   notes: Schema.NullOr(Schema.String),
   schedule_id: Schema.NullOr(Schema.String),
-  created_at: Schema.String,
-  updated_at: Schema.String,
-})
-
-const InventoryRow = Schema.Struct({
-  id: Schema.String,
-  drug: Schema.String,
-  source: Schema.String,
-  form: Schema.Literals(['vial', 'pen'] as const),
-  total_amount: Schema.String,
-  status: Schema.Literals(['new', 'opened', 'finished'] as const),
-  beyond_use_date: Schema.NullOr(Schema.String),
   created_at: Schema.String,
   updated_at: Schema.String,
 })
@@ -185,33 +170,6 @@ export const DataExportServiceLive = Layer.effect(
           ),
         )
 
-        // Fetch all inventory
-        const inventoryRows = yield* sql`
-          SELECT id, drug, source, form, total_amount, status, beyond_use_date, created_at, updated_at
-          FROM glp1_inventory WHERE user_id = ${userId}
-          ORDER BY created_at DESC
-        `
-        const inventory = yield* Effect.all(
-          inventoryRows.map((row) =>
-            Schema.decodeUnknownEffect(InventoryRow)(row).pipe(
-              Effect.map(
-                (r) =>
-                  new Inventory({
-                    id: InventoryId.make(r.id),
-                    drug: DrugName.make(r.drug),
-                    source: DrugSource.make(r.source),
-                    form: r.form,
-                    totalAmount: TotalAmount.make(r.total_amount),
-                    status: r.status,
-                    beyondUseDate: r.beyond_use_date ? DateTime.makeUnsafe(r.beyond_use_date) : null,
-                    createdAt: DateTime.makeUnsafe(r.created_at),
-                    updatedAt: DateTime.makeUnsafe(r.updated_at),
-                  }),
-              ),
-            ),
-          ),
-        )
-
         // Fetch all schedules with phases
         const scheduleRows = yield* sql`
           SELECT id, name, drug, source, frequency, start_date, is_active, notes, created_at, updated_at
@@ -305,12 +263,11 @@ export const DataExportServiceLive = Layer.effect(
             : null
 
         return new DataExport({
-          version: '1.0.0',
+          version: '2.0.0',
           exportedAt: DateTime.nowUnsafe(),
           data: {
             weightLogs,
             injectionLogs,
-            inventory,
             schedules,
             goals,
             settings,
@@ -325,7 +282,6 @@ export const DataExportServiceLive = Layer.effect(
         // Delete all existing user data (in order to handle foreign key constraints)
         yield* sql`DELETE FROM weight_logs WHERE user_id = ${userId}`
         yield* sql`DELETE FROM injection_logs WHERE user_id = ${userId}`
-        yield* sql`DELETE FROM glp1_inventory WHERE user_id = ${userId}`
         yield* sql`DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${userId})`
         yield* sql`DELETE FROM injection_schedules WHERE user_id = ${userId}`
         yield* sql`DELETE FROM user_goals WHERE user_id = ${userId}`
@@ -367,15 +323,6 @@ export const DataExportServiceLive = Layer.effect(
           yield* sql`
             INSERT INTO injection_logs (id, datetime, drug, source, dosage, injection_site, notes, schedule_id, user_id, created_at, updated_at)
             VALUES (${log.id}, ${DateTime.formatIso(log.datetime)}, ${log.drug}, ${source}, ${log.dosage}, ${injectionSite}, ${notes}, ${scheduleId}, ${userId}, ${DateTime.formatIso(log.createdAt)}, ${DateTime.formatIso(log.updatedAt)})
-          `
-        }
-
-        // Import inventory
-        for (const item of snapshot.data.inventory) {
-          const beyondUseDate = item.beyondUseDate ? DateTime.formatIso(item.beyondUseDate).split('T')[0] : null
-          yield* sql`
-            INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)
-            VALUES (${item.id}, ${item.drug}, ${item.source}, ${item.form}, ${item.totalAmount}, ${item.status}, ${beyondUseDate}, ${userId}, ${DateTime.formatIso(item.createdAt)}, ${DateTime.formatIso(item.updatedAt)})
           `
         }
 

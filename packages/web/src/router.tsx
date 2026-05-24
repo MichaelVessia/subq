@@ -1,6 +1,5 @@
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import { InjectionLogList } from './components/injection/injection-log-list.js'
-import { InventoryList } from './components/inventory/inventory-list.js'
 import { AppLayout } from './components/layout/app-layout.js'
 import { LoginPage } from './components/layout/login-page.js'
 import { RootLayout } from './components/layout/root-layout.js'
@@ -70,16 +69,6 @@ const injectionRoute = createRoute({
   ),
 })
 
-const inventoryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/inventory',
-  component: () => (
-    <AppLayout>
-      <InventoryList />
-    </AppLayout>
-  ),
-})
-
 const scheduleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/schedule',
@@ -116,7 +105,6 @@ const routeTree = rootRoute.addChildren([
   statsRoute,
   weightRoute,
   injectionRoute,
-  inventoryRoute,
   scheduleRoute,
   scheduleViewRoute,
   settingsRoute,

@@ -9,9 +9,8 @@ import {
   InjectionLogCreate,
   type InjectionLogId,
   InjectionLogUpdate,
-  type InjectionScheduleId,
+  InjectionScheduleId,
   InjectionSite,
-  type InventoryId,
   listDefaultInjectionSites,
   listKnownDrugVariants,
   Notes,
@@ -21,7 +20,7 @@ import { DateTime, Option } from 'effect'
 import { AlertTriangle } from 'lucide-react'
 import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { ActiveInventoryAtom, InjectionDrugsAtom, InjectionSitesAtom, ScheduleListAtom } from '../../rpc.js'
+import { InjectionDrugsAtom, InjectionSitesAtom, ScheduleListAtom } from '../../rpc.js'
 import { type InjectionLogFormInput, injectionLogFormStandardSchema } from '../../lib/form-schemas.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -42,7 +41,6 @@ interface InjectionLogFormProps {
   onSubmit: (data: InjectionLogCreate) => Promise<void>
   onUpdate?: (data: InjectionLogUpdate) => Promise<void>
   onCancel: () => void
-  onMarkFinished?: (inventoryId: InventoryId) => Promise<void>
   initialData?: {
     id?: InjectionLogId
     datetime?: Date
@@ -55,17 +53,15 @@ interface InjectionLogFormProps {
   }
 }
 
-export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished, initialData }: InjectionLogFormProps) {
+export function InjectionLogForm({ onSubmit, onUpdate, onCancel, initialData }: InjectionLogFormProps) {
   const isEditing = !!initialData?.id
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const sitesResult = useAtomValue(InjectionSitesAtom)
-  const inventoryResult = useAtomValue(ActiveInventoryAtom)
   const schedulesResult = useAtomValue(ScheduleListAtom)
 
   const userDrugs = Result.getOrElse(drugsResult, () => [])
   const userSites = Result.getOrElse(sitesResult, () => [])
-  const inventory = Result.getOrElse(inventoryResult, () => [])
   const schedules = Result.getOrElse(schedulesResult, () => [] as InjectionSchedule[])
 
   const allDrugs = [...new Set([...userDrugs, ...listKnownDrugVariants()])]
@@ -94,14 +90,11 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
       dosage: initialData?.dosage ?? '',
       injectionSite: initialData?.injectionSite ?? '',
       notes: initialData?.notes ?? '',
-      finishVial: false,
-      selectedInventoryId: '',
     },
   })
 
   const drug = watch('drug')
   const dosage = watch('dosage')
-  const finishVial = watch('finishVial')
 
   // Get active schedules for the selected drug
   const schedulesForDrug = useMemo(() => {
@@ -160,9 +153,6 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   // Require confirmation if off-schedule
   const needsOffScheduleConfirmation = isOffScheduleDose && !confirmedOffSchedule
 
-  // Get active (non-finished) inventory items for current drug
-  const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
-
   // Fallback to generic suggestions only when no schedule
   const fallbackDosageSuggestions = suggestedDosagesForDrug(drug)
 
@@ -192,13 +182,9 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
           dosage: Dosage.make(data.dosage),
           injectionSite: data.injectionSite ? Option.some(InjectionSite.make(data.injectionSite)) : Option.none(),
           notes: data.notes ? Option.some(Notes.make(data.notes)) : Option.none(),
-          scheduleId: effectiveScheduleId ? Option.some(effectiveScheduleId as InjectionScheduleId) : Option.none(),
+          scheduleId: effectiveScheduleId ? Option.some(InjectionScheduleId.make(effectiveScheduleId)) : Option.none(),
         }),
       )
-      // Mark inventory as finished if requested
-      if (data.finishVial && data.selectedInventoryId && onMarkFinished) {
-        await onMarkFinished(data.selectedInventoryId as InventoryId)
-      }
     }
   }
 
@@ -394,32 +380,6 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
           placeholder="Any side effects, observations, or reminders..."
         />
       </div>
-
-      {!isEditing && activeInventory.length > 0 && (
-        <div className="mb-5 p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              type="checkbox"
-              id="finishVial"
-              {...register('finishVial')}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            <Label htmlFor="finishVial" className="text-sm font-medium cursor-pointer">
-              Finished a vial/pen with this injection?
-            </Label>
-          </div>
-          {finishVial && (
-            <Select id="inventorySelect" {...register('selectedInventoryId')}>
-              <option value="">Select inventory item to mark finished</option>
-              {activeInventory.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.drug} - {item.totalAmount} ({item.source}) - {item.status}
-                </option>
-              ))}
-            </Select>
-          )}
-        </div>
-      )}
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onCancel}>

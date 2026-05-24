@@ -31,7 +31,6 @@ sql.push(
   `DELETE FROM schedule_phases WHERE schedule_id IN (SELECT id FROM injection_schedules WHERE user_id = ${escapeSQL(USER_ID)});`,
 )
 sql.push(`DELETE FROM injection_schedules WHERE user_id = ${escapeSQL(USER_ID)};`)
-sql.push(`DELETE FROM glp1_inventory WHERE user_id = ${escapeSQL(USER_ID)};`)
 sql.push('')
 
 const data = generateConsistentUserData()
@@ -75,15 +74,5 @@ for (const weight of data.weights) {
   )
 }
 sql.push('')
-
-// Insert inventory
-for (const inv of data.inventory) {
-  sql.push(
-    `INSERT INTO glp1_inventory (id, drug, source, form, total_amount, status, beyond_use_date, user_id, created_at, updated_at)`,
-  )
-  sql.push(
-    `VALUES (${escapeSQL(inv.id)}, ${escapeSQL(inv.drug)}, ${escapeSQL(inv.source)}, ${escapeSQL(inv.form)}, ${escapeSQL(inv.totalAmount)}, ${escapeSQL(inv.status)}, ${escapeSQL(inv.beyondUseDate)}, ${escapeSQL(USER_ID)}, ${escapeSQL(inv.createdAt)}, ${escapeSQL(inv.updatedAt)});`,
-  )
-}
 
 console.log(sql.join('\n'))
