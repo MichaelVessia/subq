@@ -10,18 +10,20 @@ import {
   InjectionScheduleCreate,
   type InjectionScheduleId,
   InjectionScheduleUpdate,
+  inferScheduleDraftFromInjectionLogs,
   listKnownDrugVariants,
   Notes,
   type PhaseDurationDays,
   type PhaseOrder,
   ScheduleName,
   SchedulePhaseCreate,
+  type ScheduleInferencePhase,
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { Plus, Trash2 } from 'lucide-react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { type ScheduleFormInput, scheduleFormStandardSchema } from '../../lib/form-schemas.js'
-import { toDate, toDateString } from '../../lib/utils.js'
+import { toDateString } from '../../lib/utils.js'
 import { InjectionDrugsAtom } from '../../rpc.js'
 import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
@@ -46,10 +48,19 @@ const FREQUENCIES: { value: Frequency; label: string }[] = [
 
 interface PhaseInput {
   order: number
-  durationDays: string // empty string = indefinite
+  durationDays: string // empty string = maintenance phase
   dosage: string
   isIndefinite: boolean
 }
+
+const defaultPhaseInput = (): PhaseInput => ({ order: 1, durationDays: '28', dosage: '', isIndefinite: false })
+
+const toPhaseInput = (phase: ScheduleInferencePhase): PhaseInput => ({
+  order: phase.order,
+  durationDays: phase.durationDays === null ? '' : String(phase.durationDays),
+  dosage: phase.dosage,
+  isIndefinite: phase.durationDays === null,
+})
 
 interface ScheduleFormProps {
   onSubmit: (data: InjectionScheduleCreate) => Promise<void>
@@ -59,76 +70,12 @@ interface ScheduleFormProps {
   preselectedInjections?: InjectionLog[]
 }
 
-/**
- * Infer phases from a list of injections.
- * Groups by dosage, sorts by earliest injection date per dosage,
- * and calculates duration as days between first injection of phase N and phase N+1.
- */
-function inferPhasesFromInjections(injections: InjectionLog[]): PhaseInput[] {
-  if (injections.length === 0) return [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
-
-  // Group injections by dosage
-  const byDosage = new Map<string, Date[]>()
-  for (const inj of injections) {
-    const dates = byDosage.get(inj.dosage) ?? []
-    dates.push(toDate(inj.datetime))
-    byDosage.set(inj.dosage, dates)
-  }
-
-  // Get earliest date per dosage and sort phases by that date
-  const phases: { dosage: string; earliestDate: Date }[] = []
-  for (const [dosage, dates] of byDosage) {
-    const firstDate = dates[0]
-    if (!firstDate) continue
-    const earliestDate = dates.reduce((min, d) => (d < min ? d : min), firstDate)
-    phases.push({ dosage, earliestDate })
-  }
-  phases.sort((a, b) => a.earliestDate.getTime() - b.earliestDate.getTime())
-
-  // Calculate duration as days between phase starts
-  const result: PhaseInput[] = []
-  for (let i = 0; i < phases.length; i++) {
-    const phase = phases[i]
-    if (!phase) continue
-    const isLastPhase = i === phases.length - 1
-    let durationDays = 28 // default for last phase
-    if (!isLastPhase) {
-      const nextPhase = phases[i + 1]
-      if (nextPhase) {
-        const diffMs = nextPhase.earliestDate.getTime() - phase.earliestDate.getTime()
-        durationDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)))
-      }
-    }
-    result.push({
-      order: i + 1,
-      durationDays: isLastPhase ? '' : String(durationDays),
-      dosage: phase.dosage,
-      isIndefinite: isLastPhase, // Last phase defaults to indefinite
-    })
-  }
-
-  return result.length > 0 ? result : [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
-}
-
 export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, preselectedInjections }: ScheduleFormProps) {
   const isEditing = !!initialData
 
-  // Infer initial values from preselected injections
-  const inferredFromInjections = preselectedInjections && preselectedInjections.length > 0
-  const firstInjection = preselectedInjections?.[0]
-  const inferredDrug = firstInjection?.drug ?? ''
-  const inferredStartDate =
-    inferredFromInjections && firstInjection
-      ? toLocalDateString(
-          preselectedInjections.reduce(
-            (min, inj) => (toDate(inj.datetime) < min ? toDate(inj.datetime) : min),
-            toDate(firstInjection.datetime),
-          ),
-        )
-      : toLocalDateString(new Date())
-  const inferredPhases = inferredFromInjections
-    ? inferPhasesFromInjections(preselectedInjections)
-    : [{ order: 1, durationDays: '28', dosage: '', isIndefinite: false }]
+  const inferredDraft =
+    preselectedInjections === undefined ? null : inferScheduleDraftFromInjectionLogs(preselectedInjections)
+  const inferredPhases = inferredDraft === null ? [defaultPhaseInput()] : inferredDraft.phases.map(toPhaseInput)
 
   const initialPhases =
     initialData?.phases?.map((p) => ({
@@ -149,10 +96,14 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
     resolver: standardSchemaResolver(scheduleFormStandardSchema),
     mode: 'onBlur',
     defaultValues: {
-      name: initialData?.name ?? (inferredFromInjections ? `${inferredDrug} Schedule` : ''),
-      drug: initialData?.drug ?? inferredDrug,
+      name: initialData?.name ?? inferredDraft?.name ?? '',
+      drug: initialData?.drug ?? inferredDraft?.drug ?? '',
       frequency: initialData?.frequency ?? 'weekly',
-      startDate: initialData ? toDateString(initialData.startDate) : inferredStartDate,
+      startDate: initialData
+        ? toDateString(initialData.startDate)
+        : inferredDraft === null
+          ? toLocalDateString(new Date())
+          : toDateString(inferredDraft.startDate),
       notes: initialData?.notes ?? '',
       phases: initialPhases,
     },
