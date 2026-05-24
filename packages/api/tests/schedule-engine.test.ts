@@ -14,6 +14,7 @@ import {
   SchedulePhaseId,
   currentPhase,
   nextDose,
+  reminderEligibilityForNextDose,
   scheduleView,
 } from '@subq/shared'
 import { DateTime } from 'effect'
@@ -102,6 +103,54 @@ describe('ScheduleEngine', () => {
     expect(DateTime.formatIso(dose.suggestedDate)).toBe('2024-03-15T12:00:00.000Z')
     expect(dose.daysUntilDue).toBe(0)
     expect(dose.isOverdue).toBe(false)
+  })
+
+  it('marks a due day next scheduled dose eligible for a reminder', () => {
+    const schedule = makeSchedule([{ order: 1, durationDays: null, dosage: '2.5mg' }])
+    const dose = requireValue(
+      nextDose(schedule, DateTime.makeUnsafe('2024-01-08T00:00:00Z'), DateTime.makeUnsafe('2024-01-15T00:00:00Z')),
+    )
+
+    const eligibility = reminderEligibilityForNextDose(dose)
+
+    expect(eligibility.shouldSendReminder).toBe(true)
+    expect(eligibility.daysOverdue).toBe(0)
+  })
+
+  it('suppresses reminders before the next scheduled dose due day', () => {
+    const schedule = makeSchedule([{ order: 1, durationDays: null, dosage: '2.5mg' }])
+    const dose = requireValue(
+      nextDose(schedule, DateTime.makeUnsafe('2024-01-14T00:00:00Z'), DateTime.makeUnsafe('2024-01-15T00:00:00Z')),
+    )
+
+    const eligibility = reminderEligibilityForNextDose(dose)
+
+    expect(eligibility.shouldSendReminder).toBe(false)
+    expect(eligibility.daysOverdue).toBe(0)
+  })
+
+  it('keeps a recent overdue next scheduled dose eligible inside the overdue reminder window', () => {
+    const schedule = makeSchedule([{ order: 1, durationDays: null, dosage: '2.5mg' }])
+    const dose = requireValue(
+      nextDose(schedule, DateTime.makeUnsafe('2024-01-01T00:00:00Z'), DateTime.makeUnsafe('2024-01-15T00:00:00Z')),
+    )
+
+    const eligibility = reminderEligibilityForNextDose(dose)
+
+    expect(eligibility.shouldSendReminder).toBe(true)
+    expect(eligibility.daysOverdue).toBe(7)
+  })
+
+  it('suppresses reminders after the overdue reminder window passes', () => {
+    const schedule = makeSchedule([{ order: 1, durationDays: null, dosage: '2.5mg' }])
+    const dose = requireValue(
+      nextDose(schedule, DateTime.makeUnsafe('2024-01-01T00:00:00Z'), DateTime.makeUnsafe('2024-01-16T00:00:00Z')),
+    )
+
+    const eligibility = reminderEligibilityForNextDose(dose)
+
+    expect(eligibility.shouldSendReminder).toBe(false)
+    expect(eligibility.daysOverdue).toBe(8)
   })
 
   it('builds a schedule view with phase status, expected counts, and assigned injections', () => {

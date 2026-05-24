@@ -1,8 +1,7 @@
 import { DateTime } from 'effect'
-import type { NextScheduledDose } from '@subq/shared'
+import { reminderEligibilityForNextDose, type NextScheduledDose } from '@subq/shared'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-const MAX_OVERDUE_REMINDER_DAYS = 7
 
 export interface ReminderCandidate {
   readonly userId: string
@@ -35,6 +34,7 @@ const daysSince = (date: DateTime.Utc | null, now: DateTime.Utc): number | null 
 
 export const planReminder = (candidate: ReminderCandidate, now: DateTime.Utc): UserDueForReminder => {
   const nextScheduledDose = candidate.nextScheduledDose
+  const eligibility = reminderEligibilityForNextDose(nextScheduledDose)
 
   return {
     userId: candidate.userId,
@@ -45,14 +45,14 @@ export const planReminder = (candidate: ReminderCandidate, now: DateTime.Utc): U
     daysSinceLastInjection: daysSince(candidate.lastInjectionDate, now),
     lastInjectionSite: candidate.lastInjectionSite,
     isOverdue: nextScheduledDose.isOverdue,
-    daysOverdue: nextScheduledDose.isOverdue ? Math.abs(nextScheduledDose.daysUntilDue) : 0,
+    daysOverdue: eligibility.daysOverdue,
   }
 }
 
 export const planReminderIfDue = (candidate: ReminderCandidate, now: DateTime.Utc): UserDueForReminder | null => {
-  const nextScheduledDose = candidate.nextScheduledDose
+  const eligibility = reminderEligibilityForNextDose(candidate.nextScheduledDose)
 
-  if (nextScheduledDose.daysUntilDue > 0 || nextScheduledDose.daysUntilDue < -MAX_OVERDUE_REMINDER_DAYS) {
+  if (!eligibility.shouldSendReminder) {
     return null
   }
 
