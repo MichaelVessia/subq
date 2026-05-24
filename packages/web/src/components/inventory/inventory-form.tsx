@@ -1,5 +1,15 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
-import { DrugName, DrugSource, InventoryCreate, type InventoryId, InventoryUpdate, TotalAmount } from '@subq/shared'
+import {
+  DrugName,
+  DrugSource,
+  drugVariantsForInventoryForm,
+  InventoryCreate,
+  type InventoryForm as InventoryFormValue,
+  type InventoryId,
+  InventoryUpdate,
+  supportsInventoryForm,
+  TotalAmount,
+} from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { useForm } from 'react-hook-form'
 import { type InventoryFormInput, inventoryFormStandardSchema } from '../../lib/form-schemas.js'
@@ -7,18 +17,6 @@ import { Button } from '../ui/button.js'
 import { Input } from '../ui/input.js'
 import { Label } from '../ui/label.js'
 import { Select } from '../ui/select.js'
-
-// Drugs organized by form type
-const VIAL_DRUGS = ['Semaglutide (Compounded)', 'Tirzepatide (Compounded)', 'Retatrutide (Compounded)']
-
-const PEN_DRUGS = [
-  'Semaglutide (Ozempic)',
-  'Semaglutide (Wegovy)',
-  'Tirzepatide (Mounjaro)',
-  'Tirzepatide (Zepbound)',
-  'Liraglutide (Saxenda)',
-  'Dulaglutide (Trulicity)',
-]
 
 interface InventoryFormProps {
   onSubmit: (data: InventoryCreate, quantity: number) => Promise<void>
@@ -33,6 +31,10 @@ interface InventoryFormProps {
     status?: 'new' | 'opened' | 'finished'
     beyondUseDate?: Date | null
   }
+}
+
+function inventoryFormFromValue(value: string): InventoryFormValue {
+  return value === 'pen' ? 'pen' : 'vial'
 }
 
 export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: InventoryFormProps) {
@@ -72,7 +74,7 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
   const totalAmount = watch('totalAmount')
 
   // Get drugs filtered by form type
-  const availableDrugs = formType === 'vial' ? VIAL_DRUGS : PEN_DRUGS
+  const availableDrugs = drugVariantsForInventoryForm(formType)
 
   // Simple validity check for button enable state (matches original behavior)
   const hasRequiredFields = drug !== '' && source !== '' && totalAmount !== ''
@@ -124,9 +126,8 @@ export function InventoryForm({ onSubmit, onUpdate, onCancel, initialData }: Inv
             onChange={(e) => {
               register('form').onChange(e)
               // Clear drug if not valid for new form type
-              const newFormType = e.target.value as 'vial' | 'pen'
-              const newAvailableDrugs = newFormType === 'vial' ? VIAL_DRUGS : PEN_DRUGS
-              if (drug && !newAvailableDrugs.includes(drug)) {
+              const newFormType = inventoryFormFromValue(e.target.value)
+              if (drug && !supportsInventoryForm(drug, newFormType)) {
                 setValue('drug', '')
               }
             }}

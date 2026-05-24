@@ -12,7 +12,10 @@ import {
   type InjectionScheduleId,
   InjectionSite,
   type InventoryId,
+  listDefaultInjectionSites,
+  listKnownDrugVariants,
   Notes,
+  suggestedDosagesForDrug,
 } from '@subq/shared'
 import { DateTime, Option } from 'effect'
 import { AlertTriangle } from 'lucide-react'
@@ -34,27 +37,6 @@ function toLocalDatetimeString(date: Date): string {
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
-
-const GLP1_DRUGS = [
-  { name: 'Semaglutide (Ozempic)', dosages: ['0.25mg', '0.5mg', '1mg', '2mg'] },
-  { name: 'Semaglutide (Wegovy)', dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2.4mg'] },
-  { name: 'Semaglutide (Compounded)', dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2mg', '2.4mg'] },
-  { name: 'Tirzepatide (Mounjaro)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
-  { name: 'Tirzepatide (Zepbound)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
-  { name: 'Tirzepatide (Compounded)', dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'] },
-  { name: 'Retatrutide (Compounded)', dosages: ['1mg', '2mg', '4mg', '8mg', '12mg'] },
-  { name: 'Liraglutide (Saxenda)', dosages: ['0.6mg', '1.2mg', '1.8mg', '2.4mg', '3mg'] },
-  { name: 'Dulaglutide (Trulicity)', dosages: ['0.75mg', '1.5mg', '3mg', '4.5mg'] },
-]
-
-const INJECTION_SITES = [
-  'Left abdomen',
-  'Right abdomen',
-  'Left thigh',
-  'Right thigh',
-  'Left upper arm',
-  'Right upper arm',
-]
 
 interface InjectionLogFormProps {
   onSubmit: (data: InjectionLogCreate) => Promise<void>
@@ -86,8 +68,8 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   const inventory = Result.getOrElse(inventoryResult, () => [])
   const schedules = Result.getOrElse(schedulesResult, () => [] as InjectionSchedule[])
 
-  const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS.map((d) => d.name)])]
-  const allSites = [...new Set([...userSites, ...INJECTION_SITES])]
+  const allDrugs = [...new Set([...userDrugs, ...listKnownDrugVariants()])]
+  const allSites = [...new Set([...userSites, ...listDefaultInjectionSites()])]
 
   // Track selected schedule for auto-linking
   const [selectedScheduleId, setSelectedScheduleId] = useState<string>(initialData?.scheduleId ?? '')
@@ -181,9 +163,8 @@ export function InjectionLogForm({ onSubmit, onUpdate, onCancel, onMarkFinished,
   // Get active (non-finished) inventory items for current drug
   const activeInventory = inventory.filter((item) => item.status !== 'finished' && (!drug || item.drug === drug))
 
-  const selectedDrugInfo = GLP1_DRUGS.find((d) => d.name === drug || drug.toLowerCase().includes(d.name.toLowerCase()))
   // Fallback to generic suggestions only when no schedule
-  const fallbackDosageSuggestions = selectedDrugInfo?.dosages ?? []
+  const fallbackDosageSuggestions = suggestedDosagesForDrug(drug)
 
   const onFormSubmit = async (data: InjectionLogFormInput) => {
     // Determine scheduleId: use selected schedule (from dropdown or initial data)

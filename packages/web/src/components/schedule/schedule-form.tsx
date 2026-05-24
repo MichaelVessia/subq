@@ -10,6 +10,7 @@ import {
   InjectionScheduleCreate,
   type InjectionScheduleId,
   InjectionScheduleUpdate,
+  listKnownDrugVariants,
   Notes,
   type PhaseDurationDays,
   type PhaseOrder,
@@ -34,18 +35,6 @@ function toLocalDateString(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
-
-const GLP1_DRUGS = [
-  'Semaglutide (Ozempic)',
-  'Semaglutide (Wegovy)',
-  'Semaglutide (Compounded)',
-  'Tirzepatide (Mounjaro)',
-  'Tirzepatide (Zepbound)',
-  'Tirzepatide (Compounded)',
-  'Retatrutide (Compounded)',
-  'Liraglutide (Saxenda)',
-  'Dulaglutide (Trulicity)',
-]
 
 const FREQUENCIES: { value: Frequency; label: string }[] = [
   { value: 'daily', label: 'Daily' },
@@ -176,7 +165,7 @@ export function ScheduleForm({ onSubmit, onUpdate, onCancel, initialData, presel
 
   const drugsResult = useAtomValue(InjectionDrugsAtom)
   const userDrugs = Result.getOrElse(drugsResult, () => [])
-  const allDrugs = [...new Set([...userDrugs, ...GLP1_DRUGS])]
+  const allDrugs = [...new Set([...userDrugs, ...listKnownDrugVariants()])]
 
   const addPhase = () => {
     const currentPhases = watch('phases')
