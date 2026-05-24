@@ -19,33 +19,14 @@ import {
   ScheduleName,
   SchedulePhase,
   SchedulePhaseId,
+  frequencyToDays,
+  nextDose,
 } from '@subq/shared'
 import { DateTime, Effect, Layer, Option } from 'effect'
 import { TestClock } from 'effect/testing'
 import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo } from '../src/injection/injection-log-repo.js'
 import { ScheduleRepo } from '../src/schedule/schedule-repo.js'
-
-// ============================================
-// Helper: frequencyToDays (copied from rpc-handlers for testing)
-// ============================================
-
-const frequencyToDays = (frequency: string): number => {
-  switch (frequency) {
-    case 'daily':
-      return 1
-    case 'every_3_days':
-      return 3
-    case 'weekly':
-      return 7
-    case 'every_2_weeks':
-      return 14
-    case 'monthly':
-      return 30
-    default:
-      return 7
-  }
-}
 
 // ============================================
 // Test-specific types for controlling test state
@@ -182,7 +163,7 @@ const createTestInjection = (scheduleId: string, datetime: DateTime.Utc, dosage:
 }
 
 // ============================================
-// NextDose Calculation Logic (extracted from handler for unit testing)
+// NextDose Calculation through the shared ScheduleEngine interface
 // ============================================
 
 const calculateNextDose = Effect.gen(function* () {
@@ -200,68 +181,11 @@ const calculateNextDose = Effect.gen(function* () {
     return null
   }
 
-  // Get last injection for this drug
   const lastInjectionOpt = yield* scheduleRepo.getLastInjectionDate(user.id, schedule.drug)
   const now = yield* DateTime.now
-  const msPerDay = 1000 * 60 * 60 * 24
+  const lastInjectionDate = Option.isSome(lastInjectionOpt) ? lastInjectionOpt.value : null
 
-  // Determine current phase based on days since start
-  const startDate = schedule.startDate
-  const daysSinceStart = Math.floor((DateTime.toEpochMillis(now) - DateTime.toEpochMillis(startDate)) / msPerDay)
-
-  // Find which phase we're in
-  let cumulativeDays = 0
-  let currentPhaseIndex = 0
-  for (let i = 0; i < schedule.phases.length; i++) {
-    const phase = schedule.phases[i]
-    if (!phase) continue
-    // Indefinite phase (null duration) - we're in this phase and stay here
-    if (phase.durationDays === null) {
-      currentPhaseIndex = i
-      break
-    }
-    if (daysSinceStart < cumulativeDays + phase.durationDays) {
-      currentPhaseIndex = i
-      break
-    }
-    cumulativeDays += phase.durationDays
-    // If we've gone past all phases, stay on the last one
-    if (i === schedule.phases.length - 1) {
-      currentPhaseIndex = i
-    }
-  }
-
-  const currentPhase = schedule.phases[currentPhaseIndex]
-  if (!currentPhase) {
-    return null
-  }
-
-  // Calculate next dose date
-  const intervalDays = frequencyToDays(schedule.frequency)
-  let suggestedDate: DateTime.Utc
-
-  if (Option.isNone(lastInjectionOpt)) {
-    // No injections yet, suggest today or start date (whichever is later)
-    suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
-  } else {
-    const lastInjection = lastInjectionOpt.value
-    suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
-  }
-
-  const daysUntilDue = Math.floor((DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay)
-  const isOverdue = daysUntilDue < 0
-
-  return {
-    scheduleId: schedule.id,
-    scheduleName: schedule.name,
-    drug: schedule.drug,
-    dosage: currentPhase.dosage,
-    suggestedDate,
-    currentPhase: (currentPhaseIndex + 1) as PhaseOrder,
-    totalPhases: schedule.phases.length,
-    daysUntilDue,
-    isOverdue,
-  }
+  return nextDose(schedule, lastInjectionDate, now)
 })
 
 // ============================================

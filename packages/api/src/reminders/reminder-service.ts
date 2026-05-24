@@ -1,21 +1,14 @@
 import { SqlClient } from 'effect/unstable/sql'
+import { Frequency } from '@subq/shared'
 import { Context, Data, DateTime, Effect, Layer, Schema } from 'effect'
+import {
+  planReminder,
+  planReminderIfDue,
+  type ReminderCandidate,
+  type UserDueForReminder as PlannedReminder,
+} from './reminder-planner.js'
 
-// ============================================
-// Types
-// ============================================
-
-export interface UserDueForReminder {
-  userId: string
-  email: string
-  name: string
-  drug: string
-  dosage: string
-  daysSinceLastInjection: number | null // null = first injection
-  lastInjectionSite: string | null
-  isOverdue: boolean
-  daysOverdue: number // 0 if not overdue
-}
+export type { UserDueForReminder } from './reminder-planner.js'
 
 export class ReminderServiceError extends Data.TaggedError('ReminderServiceError')<{
   message: string
@@ -32,7 +25,7 @@ const UserScheduleRow = Schema.Struct({
   name: Schema.String,
   drug: Schema.String,
   dosage: Schema.String,
-  frequency: Schema.String,
+  frequency: Frequency,
   start_date: Schema.String,
   last_injection_date: Schema.NullOr(Schema.String),
   last_injection_site: Schema.NullOr(Schema.String),
@@ -40,23 +33,17 @@ const UserScheduleRow = Schema.Struct({
 
 const decodeUserScheduleRow = Schema.decodeUnknownEffect(UserScheduleRow)
 
-// Frequency to days mapping
-const frequencyToDays = (frequency: string): number => {
-  switch (frequency) {
-    case 'daily':
-      return 1
-    case 'every_3_days':
-      return 3
-    case 'weekly':
-      return 7
-    case 'every_2_weeks':
-      return 14
-    case 'monthly':
-      return 30
-    default:
-      return 7
-  }
-}
+const rowToReminderCandidate = (row: typeof UserScheduleRow.Type): ReminderCandidate => ({
+  userId: row.user_id,
+  email: row.email,
+  name: row.name,
+  drug: row.drug,
+  dosage: row.dosage,
+  frequency: row.frequency,
+  startDate: DateTime.makeUnsafe(row.start_date),
+  lastInjectionDate: row.last_injection_date === null ? null : DateTime.makeUnsafe(row.last_injection_date),
+  lastInjectionSite: row.last_injection_site,
+})
 
 // ============================================
 // Service Definition
@@ -65,8 +52,8 @@ const frequencyToDays = (frequency: string): number => {
 export class ReminderService extends Context.Service<
   ReminderService,
   {
-    readonly getUsersDueToday: () => Effect.Effect<UserDueForReminder[], ReminderServiceError>
-    readonly getAllUsersWithActiveSchedule: () => Effect.Effect<UserDueForReminder[], ReminderServiceError>
+    readonly getUsersDueToday: () => Effect.Effect<PlannedReminder[], ReminderServiceError>
+    readonly getAllUsersWithActiveSchedule: () => Effect.Effect<PlannedReminder[], ReminderServiceError>
   }
 >()('ReminderService') {}
 
@@ -79,7 +66,7 @@ export const ReminderServiceLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
-    const getUsersDueToday = (): Effect.Effect<UserDueForReminder[], ReminderServiceError> =>
+    const getUsersDueToday = (): Effect.Effect<PlannedReminder[], ReminderServiceError> =>
       Effect.gen(function* () {
         // Query users with:
         // - Active schedule
@@ -131,49 +118,14 @@ export const ReminderServiceLive = Layer.effect(
         `
 
         const now = DateTime.nowUnsafe()
-        const msPerDay = 1000 * 60 * 60 * 24
-        const usersDue: UserDueForReminder[] = []
+        const usersDue: PlannedReminder[] = []
 
         for (const row of rows) {
           const decoded = yield* decodeUserScheduleRow(row)
-          const intervalDays = frequencyToDays(decoded.frequency)
+          const reminder = planReminderIfDue(rowToReminderCandidate(decoded), now)
 
-          let suggestedDate: DateTime.Utc
-          let daysSinceLastInjection: number | null = null
-
-          if (!decoded.last_injection_date) {
-            // No injections yet - due on start date or today (whichever is later)
-            const startDate = DateTime.makeUnsafe(decoded.start_date)
-            suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
-          } else {
-            const lastInjection = DateTime.makeUnsafe(decoded.last_injection_date)
-            suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
-            daysSinceLastInjection = Math.round(
-              (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
-            )
-          }
-
-          const daysUntilDue = Math.round(
-            (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
-          )
-
-          const isOverdue = daysUntilDue < 0
-          const daysOverdue = isOverdue ? Math.abs(daysUntilDue) : 0
-
-          // Due today (daysUntilDue <= 0) through 7 days overdue (daysUntilDue >= -7)
-          // Stop emailing after 7 days overdue to avoid spamming inactive users
-          if (daysUntilDue <= 0 && daysUntilDue >= -7) {
-            usersDue.push({
-              userId: decoded.user_id,
-              email: decoded.email,
-              name: decoded.name,
-              drug: decoded.drug,
-              dosage: decoded.dosage,
-              daysSinceLastInjection,
-              lastInjectionSite: decoded.last_injection_site,
-              isOverdue,
-              daysOverdue,
-            })
+          if (reminder !== null) {
+            usersDue.push(reminder)
           }
         }
 
@@ -183,7 +135,7 @@ export const ReminderServiceLive = Layer.effect(
       }).pipe(Effect.mapError((cause) => new ReminderServiceError({ message: 'Failed to get users due today', cause })))
 
     // For testing: get all users with active schedules (ignores due date filter)
-    const getAllUsersWithActiveSchedule = (): Effect.Effect<UserDueForReminder[], ReminderServiceError> =>
+    const getAllUsersWithActiveSchedule = (): Effect.Effect<PlannedReminder[], ReminderServiceError> =>
       Effect.gen(function* () {
         // LEFT JOIN user_settings since users may not have settings yet (default to reminders enabled)
         // Use same query structure as getUsersDueToday to get proper data
@@ -232,44 +184,11 @@ export const ReminderServiceLive = Layer.effect(
         `
 
         const now = DateTime.nowUnsafe()
-        const msPerDay = 1000 * 60 * 60 * 24
-        const users: UserDueForReminder[] = []
+        const users: PlannedReminder[] = []
 
         for (const row of rows) {
           const decoded = yield* decodeUserScheduleRow(row)
-          const intervalDays = frequencyToDays(decoded.frequency)
-
-          let daysSinceLastInjection: number | null = null
-          let suggestedDate: DateTime.Utc
-
-          if (!decoded.last_injection_date) {
-            const startDate = DateTime.makeUnsafe(decoded.start_date)
-            suggestedDate = DateTime.isGreaterThan(now, startDate) ? now : startDate
-          } else {
-            const lastInjection = DateTime.makeUnsafe(decoded.last_injection_date)
-            suggestedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(lastInjection) + intervalDays * msPerDay)
-            daysSinceLastInjection = Math.round(
-              (DateTime.toEpochMillis(now) - DateTime.toEpochMillis(lastInjection)) / msPerDay,
-            )
-          }
-
-          const daysUntilDue = Math.round(
-            (DateTime.toEpochMillis(suggestedDate) - DateTime.toEpochMillis(now)) / msPerDay,
-          )
-          const isOverdue = daysUntilDue < 0
-          const daysOverdue = isOverdue ? Math.abs(daysUntilDue) : 0
-
-          users.push({
-            userId: decoded.user_id,
-            email: decoded.email,
-            name: decoded.name,
-            drug: decoded.drug,
-            dosage: decoded.dosage,
-            daysSinceLastInjection,
-            lastInjectionSite: decoded.last_injection_site,
-            isOverdue,
-            daysOverdue,
-          })
+          users.push(planReminder(rowToReminderCandidate(decoded), now))
         }
 
         yield* Effect.logInfo('getAllUsersWithActiveSchedule completed').pipe(
