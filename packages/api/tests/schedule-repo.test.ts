@@ -12,9 +12,23 @@ import {
 import { DateTime, Effect, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { ScheduleRepo, ScheduleRepoLive } from '../src/schedule/schedule-repo.js'
-import { insertInjectionLog, insertSchedule, insertSchedulePhase, makeInitializedTestLayer } from './helpers/test-db.js'
+import {
+  insertInjectionLog,
+  insertSchedule,
+  insertSchedulePhase,
+  insertSettings,
+  insertUser,
+  makeInitializedTestLayer,
+} from './helpers/test-db.js'
 
 const TestLayer = makeInitializedTestLayer(ScheduleRepoLive)
+
+const requireValue = <T>(value: T | null | undefined): T => {
+  if (value === null || value === undefined) {
+    throw new Error('Expected value to be present')
+  }
+  return value
+}
 
 describe('ScheduleRepo', () => {
   describe('create', () => {
@@ -536,6 +550,83 @@ describe('ScheduleRepo', () => {
           if (Option.isSome(lastDate)) {
             expect(DateTime.formatIso(lastDate.value)).toContain('2024-01-15')
           }
+        }),
+      )
+    })
+  })
+
+  describe('listActiveReminderInputs', () => {
+    it.layer(TestLayer)((it) => {
+      it.effect('hydrates eligible active schedules with phases and recent injection fields', () =>
+        Effect.gen(function* () {
+          yield* insertUser('eligible-user', 'eligible@example.com', 'Eligible User')
+          yield* insertSchedule(
+            'eligible-schedule',
+            'Eligible schedule',
+            'Semaglutide',
+            'weekly',
+            new Date('2024-01-01T12:00:00Z'),
+            'eligible-user',
+            { source: 'Compounded', notes: 'Reminder notes' },
+          )
+          yield* insertSchedulePhase('eligible-phase-2', 'eligible-schedule', 2, '5mg')
+          yield* insertSchedulePhase('eligible-phase-1', 'eligible-schedule', 1, '2.5mg', 28)
+          yield* insertInjectionLog(
+            'same-drug-old',
+            new Date('2024-01-04T12:00:00Z'),
+            'Semaglutide',
+            '2.5mg',
+            'eligible-user',
+            { injectionSite: 'left thigh' },
+          )
+          yield* insertInjectionLog(
+            'same-drug-new',
+            new Date('2024-01-08T12:00:00Z'),
+            'Semaglutide',
+            '2.5mg',
+            'eligible-user',
+            { injectionSite: 'right thigh' },
+          )
+          yield* insertInjectionLog(
+            'other-drug-newer',
+            new Date('2024-01-10T12:00:00Z'),
+            'Testosterone',
+            '100mg',
+            'eligible-user',
+            { injectionSite: 'abdomen' },
+          )
+
+          yield* insertUser('disabled-user', 'disabled@example.com', 'Disabled User')
+          yield* insertSettings('disabled-settings', 'disabled-user', 'lbs', false)
+          yield* insertSchedule(
+            'disabled-schedule',
+            'Disabled schedule',
+            'Semaglutide',
+            'weekly',
+            new Date('2024-01-01T12:00:00Z'),
+            'disabled-user',
+          )
+          yield* insertSchedulePhase('disabled-phase', 'disabled-schedule', 1, '2.5mg')
+
+          const repo = yield* ScheduleRepo
+          const inputs = yield* repo.listActiveReminderInputs()
+          const input = requireValue(inputs[0])
+          const firstPhase = requireValue(input.schedule.phases[0])
+          const secondPhase = requireValue(input.schedule.phases[1])
+          const lastInjectionDate = requireValue(input.lastInjectionDate)
+
+          expect(inputs).toHaveLength(1)
+          expect(input.userId).toBe('eligible-user')
+          expect(input.email).toBe('eligible@example.com')
+          expect(input.name).toBe('Eligible User')
+          expect(input.schedule.name).toBe('Eligible schedule')
+          expect(input.schedule.source).toBe('Compounded')
+          expect(input.schedule.notes).toBe('Reminder notes')
+          expect(firstPhase.order).toBe(1)
+          expect(firstPhase.dosage).toBe('2.5mg')
+          expect(secondPhase.order).toBe(2)
+          expect(DateTime.formatIso(lastInjectionDate)).toBe('2024-01-08T12:00:00.000Z')
+          expect(input.lastInjectionSite).toBe('abdomen')
         }),
       )
     })
