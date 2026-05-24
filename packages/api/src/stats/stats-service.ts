@@ -1,5 +1,6 @@
 import { SqlClient } from 'effect/unstable/sql'
 import {
+  calculateWeightTrajectory,
   Count,
   DayOfWeek,
   DayOfWeekCount,
@@ -84,41 +85,6 @@ const DatetimeRow = Schema.Struct({
 const decodeDatetimeRow = Schema.decodeUnknownEffect(DatetimeRow)
 
 // ============================================
-// Linear Regression Helpers
-// ============================================
-
-interface LinearRegressionResult {
-  slope: number // lbs per millisecond
-  intercept: number
-}
-
-/**
- * Computes linear regression coefficients from data points.
- * Returns null if fewer than 2 points or all points at same time.
- */
-function computeLinearRegression(points: { date: Date; weight: number }[]): LinearRegressionResult | null {
-  if (points.length < 2) return null
-
-  const n = points.length
-  // Use timestamps as x values (milliseconds since epoch)
-  const sumX = points.reduce((acc, p) => acc + p.date.getTime(), 0)
-  const sumY = points.reduce((acc, p) => acc + p.weight, 0)
-  const sumXY = points.reduce((acc, p) => acc + p.date.getTime() * p.weight, 0)
-  const sumX2 = points.reduce((acc, p) => acc + p.date.getTime() * p.date.getTime(), 0)
-
-  const denominator = n * sumX2 - sumX * sumX
-  // Avoid division by zero (all points at same time)
-  if (denominator === 0) return null
-
-  const slope = (n * sumXY - sumX * sumY) / denominator
-  const intercept = (sumY - slope * sumX) / n
-
-  return { slope, intercept }
-}
-
-const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000
-
-// ============================================
 // Timezone Helpers
 // ============================================
 
@@ -144,42 +110,6 @@ function getDayOfWeekInTimezone(date: Date, timezone: string): number {
     Sat: 6,
   }
   return dayMap[weekdayStr] ?? 0
-}
-
-/**
- * Computes rate of change in lbs per week using linear regression.
- * Returns 0 if fewer than 2 points.
- */
-function computeRateOfChange(points: { date: Date; weight: number }[]): number {
-  const regression = computeLinearRegression(points)
-  if (!regression) return 0
-  return regression.slope * MS_PER_WEEK
-}
-
-/**
- * Computes a linear regression trend line from weight data points.
- * Returns null if fewer than 2 points.
- */
-function computeTrendLine(points: WeightTrendPoint[]): TrendLine | null {
-  const regression = computeLinearRegression(points)
-  if (!regression || points.length < 2) return null
-
-  const { slope, intercept } = regression
-
-  // Calculate start and end points for the trend line
-  const startDate = points[0]!.date
-  const endDate = points[points.length - 1]!.date
-  const startWeight = slope * startDate.getTime() + intercept
-  const endWeight = slope * endDate.getTime() + intercept
-
-  return new TrendLine({
-    slope,
-    intercept,
-    startDate,
-    startWeight: Weight.make(startWeight),
-    endDate,
-    endWeight: Weight.make(endWeight),
-  })
 }
 
 // ============================================
@@ -254,15 +184,14 @@ export const StatsServiceLive = Layer.effect(
           weight: p.weight,
         }))
 
-        // Use linear regression for rate of change (same as trend line)
-        const rateOfChangeNum = computeRateOfChange(points)
+        const trajectory = calculateWeightTrajectory(points)
         yield* Effect.annotateCurrentSpan('entryCount', decoded.entry_count)
 
         return new WeightStats({
           minWeight: Weight.make(decoded.min_weight),
           maxWeight: Weight.make(decoded.max_weight),
           avgWeight: Weight.make(decoded.avg_weight),
-          rateOfChange: WeightRateOfChange.make(rateOfChangeNum),
+          rateOfChange: WeightRateOfChange.make(trajectory.rateOfChange),
           entryCount: Count.make(decoded.entry_count),
         })
       })().pipe(Effect.orDie)
@@ -286,8 +215,19 @@ export const StatsServiceLive = Layer.effect(
           points.push(new WeightTrendPoint({ date: decoded.datetime, weight: Weight.make(decoded.weight) }))
         }
 
-        // Calculate linear regression trend line
-        const trendLine = computeTrendLine(points)
+        const trajectory = calculateWeightTrajectory(points)
+        const trendLineData = trajectory.trendLine
+        const trendLine =
+          trendLineData === null
+            ? null
+            : new TrendLine({
+                slope: trendLineData.slope,
+                intercept: trendLineData.intercept,
+                startDate: trendLineData.startDate,
+                startWeight: Weight.make(trendLineData.startWeight),
+                endDate: trendLineData.endDate,
+                endWeight: Weight.make(trendLineData.endWeight),
+              })
         yield* Effect.annotateCurrentSpan('pointCount', points.length)
 
         return new WeightTrendStats({ points, trendLine })

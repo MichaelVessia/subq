@@ -43,7 +43,7 @@ export class WeightTrendPoint extends Schema.Class<WeightTrendPoint>('WeightTren
 
 /** Linear regression trend line data */
 export class TrendLine extends Schema.Class<TrendLine>('TrendLine')({
-  /** Slope in lbs per day */
+  /** Slope in lbs per millisecond */
   slope: Schema.Number,
   /** Y-intercept (weight at epoch) */
   intercept: Schema.Number,

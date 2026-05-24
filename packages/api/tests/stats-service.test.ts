@@ -31,6 +31,7 @@ describe('StatsService', () => {
           expect(result!.minWeight).toBe(190)
           expect(result!.maxWeight).toBe(200)
           expect(result!.avgWeight).toBe(195)
+          expect(result!.rateOfChange).toBeCloseTo(-5)
           expect(result!.entryCount).toBe(3)
         }),
       )
@@ -68,6 +69,8 @@ describe('StatsService', () => {
           expect(result.points[0]!.weight).toBe(200) // Jan 1
           expect(result.points[1]!.weight).toBe(195) // Jan 8
           expect(result.points[2]!.weight).toBe(190) // Jan 15
+          expect(result.trendLine?.startWeight).toBeCloseTo(200)
+          expect(result.trendLine?.endWeight).toBeCloseTo(190)
         }),
       )
     })

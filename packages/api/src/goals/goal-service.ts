@@ -1,5 +1,14 @@
 import { SqlClient } from 'effect/unstable/sql'
-import { GoalDatabaseError, GoalProgress, type PaceStatus, PercentComplete, type UserGoal, Weight } from '@subq/shared'
+import {
+  calculateWeightTrajectory,
+  GoalDatabaseError,
+  GoalProgress,
+  type PaceStatus,
+  PercentComplete,
+  projectWeightTrajectoryDate,
+  type UserGoal,
+  Weight,
+} from '@subq/shared'
 import { Context, Cache, DateTime, Duration, Effect, Layer, Option, Schema } from 'effect'
 import { GoalRepo } from './goal-repo.js'
 
@@ -54,39 +63,6 @@ const MS_PER_WEEK = 7 * MS_PER_DAY
 const MAX_PROJECTION_YEARS = 5
 
 // ============================================
-// Linear Regression Helper
-// ============================================
-
-interface LinearRegressionResult {
-  slope: number // lbs per millisecond
-  intercept: number
-}
-
-function computeLinearRegression(points: { date: DateTime.Utc; weight: number }[]): LinearRegressionResult | null {
-  if (points.length < 2) return null
-
-  const n = points.length
-  const sumX = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date), 0)
-  const sumY = points.reduce((acc, p) => acc + p.weight, 0)
-  const sumXY = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date) * p.weight, 0)
-  const sumX2 = points.reduce((acc, p) => acc + DateTime.toEpochMillis(p.date) * DateTime.toEpochMillis(p.date), 0)
-
-  const denominator = n * sumX2 - sumX * sumX
-  if (denominator === 0) return null
-
-  const slope = (n * sumXY - sumX * sumY) / denominator
-  const intercept = (sumY - slope * sumX) / n
-
-  return { slope, intercept }
-}
-
-function computeRateOfChange(points: { date: DateTime.Utc; weight: number }[]): number {
-  const regression = computeLinearRegression(points)
-  if (!regression) return 0
-  return regression.slope * MS_PER_WEEK
-}
-
-// ============================================
 // Goal Service Implementation
 // ============================================
 
@@ -115,7 +91,7 @@ export const GoalServiceLive = Layer.effect(
 
     const getWeightAtDate = (userId: string, date: DateTime.Utc) =>
       Effect.gen(function* () {
-        const dateStr = DateTime.formatIso(date).split('T')[0]!
+        const dateStr = DateTime.formatIso(date).slice(0, 10)
         // Get weight entry closest to the target date (on or before preferred, else after)
         const rows = yield* sql`
           SELECT datetime, weight FROM weight_logs
@@ -135,30 +111,15 @@ export const GoalServiceLive = Layer.effect(
       currentWeight: number,
       rateOfChange: number,
     ): DateTime.Utc | null => {
-      // Rate of change is lbs per week (negative = losing)
-      if (rateOfChange >= 0) {
-        // Not losing weight, can't project
-        return null
-      }
-
-      const remainingLbs = currentWeight - goal.goalWeight
-      if (remainingLbs <= 0) {
-        // Already at or below goal
-        return DateTime.nowUnsafe()
-      }
-
-      const weeksToGoal = remainingLbs / Math.abs(rateOfChange)
-      const msToGoal = weeksToGoal * MS_PER_WEEK
       const now = DateTime.nowUnsafe()
-      const projectedDate = DateTime.makeUnsafe(DateTime.toEpochMillis(now) + msToGoal)
-
-      // Cap at 5 years
-      const maxDate = DateTime.makeUnsafe(DateTime.toEpochMillis(now) + MAX_PROJECTION_YEARS * 365 * MS_PER_DAY)
-      if (DateTime.isGreaterThan(projectedDate, maxDate)) {
-        return null // Too far out to be meaningful
-      }
-
-      return projectedDate
+      const projectedDate = projectWeightTrajectoryDate({
+        currentWeight,
+        targetWeight: goal.goalWeight,
+        rateOfChange,
+        now: new Date(DateTime.toEpochMillis(now)),
+        maxProjectionDays: MAX_PROJECTION_YEARS * 365,
+      })
+      return projectedDate === null ? null : DateTime.makeUnsafe(projectedDate.toISOString())
     }
 
     const calculatePaceStatus = (goal: UserGoal, currentWeight: number, rateOfChange: number): PaceStatus => {
@@ -222,15 +183,16 @@ export const GoalServiceLive = Layer.effect(
           ORDER BY datetime ASC
         `.pipe(Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })))
 
-        const points: { date: DateTime.Utc; weight: number }[] = []
+        const points: { date: Date; weight: number }[] = []
         for (const row of rows) {
           const decoded = yield* decodeWeightRow(row).pipe(
             Effect.mapError((cause) => GoalDatabaseError.make({ operation: 'query', cause })),
           )
-          points.push({ date: DateTime.makeUnsafe(decoded.datetime), weight: decoded.weight })
+          points.push({ date: new Date(decoded.datetime), weight: decoded.weight })
         }
 
-        const rateOfChange = computeRateOfChange(points)
+        const trajectory = calculateWeightTrajectory(points)
+        const rateOfChange = trajectory.rateOfChange
 
         const lbsLost = goal.startingWeight - currentWeight
         const totalToLose = goal.startingWeight - goal.goalWeight
