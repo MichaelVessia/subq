@@ -1,10 +1,9 @@
 import { SqlClient } from 'effect/unstable/sql'
 import {
+  buildInjectionDayOfWeekStats,
+  buildObservedInjectionFrequency,
   calculateWeightTrajectory,
   Count,
-  DayOfWeek,
-  DayOfWeekCount,
-  DaysBetween,
   Dosage,
   DosageHistoryPoint,
   DosageHistoryStats,
@@ -16,7 +15,6 @@ import {
   InjectionFrequencyStats,
   InjectionSiteCount,
   InjectionSiteStats,
-  InjectionsPerWeek,
   InjectionSite,
   type StatsParams,
   TrendLine,
@@ -80,37 +78,9 @@ const decodeDrugCountRow = Schema.decodeUnknownEffect(DrugCountRow)
 
 // Datetime-only row schema (for timezone-aware day of week calculation)
 const DatetimeRow = Schema.Struct({
-  datetime: Schema.String,
+  datetime: Schema.DateFromString,
 })
-const decodeDatetimeRow = Schema.decodeUnknownEffect(DatetimeRow)
-
-// ============================================
-// Timezone Helpers
-// ============================================
-
-/**
- * Gets the day of week (0=Sunday, 6=Saturday) for a date in a specific timezone.
- * Uses Intl.DateTimeFormat for IANA timezone support.
- */
-function getDayOfWeekInTimezone(date: Date, timezone: string): number {
-  // Create a formatter that outputs the weekday as a number in the target timezone
-  // We use 'short' weekday and map it, or use formatToParts
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    timeZone: timezone,
-  })
-  const weekdayStr = formatter.format(date)
-  const dayMap: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  }
-  return dayMap[weekdayStr] ?? 0
-}
+const decodeDatetimeRows = Schema.decodeUnknownEffect(Schema.Array(DatetimeRow))
 
 // ============================================
 // Stats Service Definition
@@ -140,6 +110,22 @@ export const StatsServiceLive = Layer.effect(
   StatsService,
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
+
+    const listInjectionDatetimes = (params: StatsParams, userId: string) =>
+      Effect.gen(function* () {
+        const startDateStr = params.startDate?.toISOString()
+        const endDateStr = params.endDate?.toISOString()
+        const rows = yield* sql`
+          SELECT datetime
+          FROM injection_logs
+          WHERE user_id = ${userId}
+          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
+          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
+          ORDER BY datetime ASC
+        `
+        const decoded = yield* decodeDatetimeRows(rows)
+        return decoded.map((row) => row.datetime)
+      })
 
     const getWeightStats = (params: StatsParams, userId: string) =>
       Effect.fn('StatsService.getWeightStats')(function* () {
@@ -302,80 +288,13 @@ export const StatsServiceLive = Layer.effect(
     const getInjectionFrequency = (params: StatsParams, userId: string) =>
       Effect.fn('StatsService.getInjectionFrequency')(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
-        const startDateStr = params.startDate?.toISOString()
-        const endDateStr = params.endDate?.toISOString()
         const timezone = params.timezone ?? 'UTC'
+        const datetimes = yield* listInjectionDatetimes(params, userId)
+        const result = buildObservedInjectionFrequency(datetimes, timezone)
 
-        // Fetch datetimes for timezone-aware day-of-week calculation
-        // and let SQLite handle the date arithmetic (avg days between, weeks in period)
-        const rows = yield* sql`
-          WITH injection_data AS (
-            SELECT 
-              datetime,
-              LAG(datetime) OVER (ORDER BY datetime) as prev_datetime
-            FROM injection_logs
-            WHERE user_id = ${userId}
-            ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-            ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-          )
-          SELECT
-            (SELECT COUNT(*) FROM injection_data) as total_injections,
-            (SELECT AVG(julianday(datetime) - julianday(prev_datetime))
-             FROM injection_data WHERE prev_datetime IS NOT NULL) as avg_days_between,
-            (SELECT (julianday(MAX(datetime)) - julianday(MIN(datetime))) / 7.0
-             FROM injection_data) as weeks_in_period
-        `
-        if (rows.length === 0) return null
-
-        // Parse the frequency stats (without day of week - we'll calculate that separately)
-        const FrequencyRow = Schema.Struct({
-          total_injections: Schema.Number,
-          avg_days_between: Schema.NullOr(Schema.Number),
-          weeks_in_period: Schema.NullOr(Schema.Number),
-        })
-        const decoded = yield* Schema.decodeUnknownEffect(FrequencyRow)(rows[0])
-        const totalInjectionsNum = decoded.total_injections
-        if (totalInjectionsNum === 0) return null
-
-        // Now fetch all datetimes for timezone-aware day-of-week calculation
-        const datetimeRows = yield* sql`
-          SELECT datetime
-          FROM injection_logs
-          WHERE user_id = ${userId}
-          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-        `
-
-        // Count by day of week in user's timezone
-        const dayCounts = new Map<number, number>()
-        for (const row of datetimeRows) {
-          const dtDecoded = yield* decodeDatetimeRow(row)
-          const date = new Date(dtDecoded.datetime)
-          const dayOfWeek = getDayOfWeekInTimezone(date, timezone)
-          dayCounts.set(dayOfWeek, (dayCounts.get(dayOfWeek) ?? 0) + 1)
-        }
-
-        // Find most frequent day of week
-        let mostFrequentDow: number | null = null
-        let maxCount = 0
-        for (const [dow, count] of dayCounts.entries()) {
-          if (count > maxCount) {
-            maxCount = count
-            mostFrequentDow = dow
-          }
-        }
-
-        const weeks = decoded.weeks_in_period ?? 1
-        const injectionsPerWeekNum = weeks > 0 ? totalInjectionsNum / weeks : totalInjectionsNum
-        yield* Effect.annotateCurrentSpan('totalInjections', totalInjectionsNum)
+        yield* Effect.annotateCurrentSpan('totalInjections', result?.totalInjections ?? 0)
         yield* Effect.annotateCurrentSpan('timezone', timezone)
-
-        return new InjectionFrequencyStats({
-          totalInjections: Count.make(totalInjectionsNum),
-          avgDaysBetween: DaysBetween.make(decoded.avg_days_between ?? 0),
-          mostFrequentDayOfWeek: mostFrequentDow !== null ? DayOfWeek.make(mostFrequentDow) : null,
-          injectionsPerWeek: InjectionsPerWeek.make(injectionsPerWeekNum),
-        })
+        return result
       })().pipe(Effect.orDie)
 
     const getDrugBreakdown = (params: StatsParams, userId: string) =>
@@ -407,46 +326,13 @@ export const StatsServiceLive = Layer.effect(
     const getInjectionByDayOfWeek = (params: StatsParams, userId: string) =>
       Effect.fn('StatsService.getInjectionByDayOfWeek')(function* () {
         yield* Effect.annotateCurrentSpan('userId', userId)
-        const startDateStr = params.startDate?.toISOString()
-        const endDateStr = params.endDate?.toISOString()
         const timezone = params.timezone ?? 'UTC'
+        const datetimes = yield* listInjectionDatetimes(params, userId)
+        const result = buildInjectionDayOfWeekStats(datetimes, timezone)
 
-        // Fetch raw datetimes and calculate day of week in user's timezone
-        // SQLite's strftime uses UTC, so we need to do this in JS
-        const rows = yield* sql`
-          SELECT datetime
-          FROM injection_logs
-          WHERE user_id = ${userId}
-          ${startDateStr ? sql`AND datetime >= ${startDateStr}` : sql``}
-          ${endDateStr ? sql`AND datetime <= ${endDateStr}` : sql``}
-        `
-
-        // Count by day of week in user's timezone
-        const dayCounts = new Map<number, number>()
-        let total = 0
-        for (const row of rows) {
-          const decoded = yield* decodeDatetimeRow(row)
-          const date = new Date(decoded.datetime)
-          const dayOfWeek = getDayOfWeekInTimezone(date, timezone)
-          dayCounts.set(dayOfWeek, (dayCounts.get(dayOfWeek) ?? 0) + 1)
-          total += 1
-        }
-
-        // Convert to sorted array of DayOfWeekCount
-        const days: DayOfWeekCount[] = []
-        for (const [dayOfWeek, count] of dayCounts.entries()) {
-          days.push(
-            new DayOfWeekCount({
-              dayOfWeek: DayOfWeek.make(dayOfWeek),
-              count: Count.make(count),
-            }),
-          )
-        }
-        days.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-
-        yield* Effect.annotateCurrentSpan('totalInjections', total)
+        yield* Effect.annotateCurrentSpan('totalInjections', result.totalInjections)
         yield* Effect.annotateCurrentSpan('timezone', timezone)
-        return new InjectionDayOfWeekStats({ days, totalInjections: Count.make(total) })
+        return result
       })().pipe(Effect.orDie)
 
     return {
