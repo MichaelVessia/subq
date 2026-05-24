@@ -146,9 +146,9 @@ const AuthRoutesLive = Layer.effectDiscard(
   }),
 )
 
-// RPC Protocol + routes layer
-// Uses layerProtocolHttp but we'll merge it differently to share the router
-const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(RpcSerialization.layerNdjson))
+// RPC Protocol + routes layer. This layer must be shared with RpcServer.layer via
+// provideMerge; otherwise the HTTP route accepts requests but no RPC server consumes them.
+const RpcProtocolLive = RpcServer.layerProtocolHttp({ path: '/rpc' }).pipe(Layer.provide(HttpRouter.layer))
 
 // Static directory for production (SPA serving)
 const STATIC_DIR = process.env.STATIC_DIR || './packages/web/dist'
@@ -311,12 +311,14 @@ const RpcLiveWithDeps = RpcServer.layer(AppRpcs).pipe(
   Layer.tap(() => Effect.logInfo('RPC server layer initialized')),
 )
 
+const RpcServerLive = RpcLiveWithDeps.pipe(Layer.provideMerge(RpcProtocolLive))
+
 // Server port configuration
 const port = Number(process.env.PORT) || 3001
 
 // HTTP server with all dependencies
-const HttpLive = HttpRouter.serve(AllRoutesLive, { middleware: corsMiddleware }).pipe(
-  Layer.provide(RpcLiveWithDeps),
+const HttpLive = RpcServerLive.pipe(
+  Layer.provide(HttpRouter.serve(AllRoutesLive, { middleware: corsMiddleware })),
   Layer.provide(RpcSerialization.layerNdjson),
   Layer.provide(BunHttpServer.layer({ port })),
   // Provide auth service
