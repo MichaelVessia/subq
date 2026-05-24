@@ -6,13 +6,11 @@ import {
   type WeightLogListParams,
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
-import { GoalService } from '../goals/goal-service.js'
 import { WeightLogRepo } from './weight-log-repo.js'
 
 export const WeightRpcHandlersLive = WeightRpcs.toLayer(
   Effect.gen(function* () {
     const repo = yield* WeightLogRepo
-    const goalService = yield* GoalService
 
     const WeightLogList = Effect.fn('rpc.weight.list')(function* (params: WeightLogListParams) {
       const { user } = yield* Effect.service(AuthContext)
@@ -52,9 +50,6 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
       )
       const weightLog = yield* repo.create(data, user.id)
 
-      // Invalidate goal progress cache since weight data changed
-      yield* goalService.invalidateCache(user.id)
-
       yield* Effect.logInfo('WeightLogCreate completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogCreate', id: weightLog.id }),
       )
@@ -66,9 +61,6 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
       yield* Effect.logInfo('WeightLogUpdate called').pipe(Effect.annotateLogs({ rpc: 'WeightLogUpdate', id: data.id }))
       const result = yield* repo.update(data, user.id)
 
-      // Invalidate goal progress cache since weight data changed
-      yield* goalService.invalidateCache(user.id)
-
       yield* Effect.logInfo('WeightLogUpdate completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogUpdate', id: result.id }),
       )
@@ -79,9 +71,6 @@ export const WeightRpcHandlersLive = WeightRpcs.toLayer(
       const { user } = yield* Effect.service(AuthContext)
       yield* Effect.logInfo('WeightLogDelete called').pipe(Effect.annotateLogs({ rpc: 'WeightLogDelete', id }))
       const result = yield* repo.delete(id, user.id)
-
-      // Invalidate goal progress cache since weight data changed
-      yield* goalService.invalidateCache(user.id)
 
       yield* Effect.logInfo('WeightLogDelete completed').pipe(
         Effect.annotateLogs({ rpc: 'WeightLogDelete', id, deleted: result }),

@@ -9,7 +9,7 @@ import {
   type UserGoal,
   Weight,
 } from '@subq/shared'
-import { Context, Cache, DateTime, Duration, Effect, Layer, Option, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
 import { GoalRepo } from './goal-repo.js'
 
 // ============================================
@@ -39,7 +39,7 @@ export class GoalService extends Context.Service<
       userId: string,
       date: DateTime.Utc,
     ) => Effect.Effect<Option.Option<number>, GoalDatabaseError>
-    /** Calculate goal progress including projection (cached, 15min TTL) */
+    /** Calculate goal progress including projection */
     readonly getGoalProgress: (userId: string) => Effect.Effect<GoalProgress | null, GoalDatabaseError>
     /** Calculate projected goal date based on rate of change */
     readonly calculateProjectedDate: (
@@ -49,8 +49,6 @@ export class GoalService extends Context.Service<
     ) => DateTime.Utc | null
     /** Calculate pace status */
     readonly calculatePaceStatus: (goal: UserGoal, currentWeight: number, rateOfChange: number) => PaceStatus
-    /** Invalidate goal progress cache for a user (call after weight mutations) */
-    readonly invalidateCache: (userId: string) => Effect.Effect<void>
   }
 >()('GoalService') {}
 
@@ -161,8 +159,7 @@ export const GoalServiceLive = Layer.effect(
       return 'behind'
     }
 
-    // Uncached implementation of getGoalProgress
-    const computeGoalProgress = (userId: string) =>
+    const getGoalProgress = (userId: string) =>
       Effect.gen(function* () {
         const goalOpt = yield* goalRepo.getActive(userId)
         if (Option.isNone(goalOpt)) {
@@ -223,19 +220,6 @@ export const GoalServiceLive = Layer.effect(
         })
       })
 
-    // Create cache for goal progress (15 minute TTL)
-    const goalProgressCache = yield* Cache.make({
-      capacity: 1000,
-      timeToLive: Duration.minutes(15),
-      lookup: (userId: string) => computeGoalProgress(userId),
-    })
-
-    // Cached getGoalProgress
-    const getGoalProgress = (userId: string) => Cache.get(goalProgressCache, userId)
-
-    // Cache invalidation
-    const invalidateCache = (userId: string) => Cache.invalidate(goalProgressCache, userId)
-
     return {
       getCurrentWeight,
       getMostRecentWeight,
@@ -243,7 +227,6 @@ export const GoalServiceLive = Layer.effect(
       getGoalProgress,
       calculateProjectedDate,
       calculatePaceStatus,
-      invalidateCache,
     }
   }),
 )

@@ -58,4 +58,43 @@ describe('GoalService', () => {
       expect(DateTime.toEpochMillis(progress.projectedDate)).toBeLessThanOrEqual(latestProjection)
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect('reads fresh User Goal changes when calculating Goal Progress', () =>
+    Effect.gen(function* () {
+      const userId = 'user-fresh-goal-progress'
+
+      yield* insertGoal({
+        id: 'goal-freshness',
+        userId,
+        goalWeight: 180,
+        startingWeight: 200,
+        startingDate: new Date('2024-01-01T00:00:00Z'),
+        targetDate: null,
+      })
+      yield* insertWeightLog('w-fresh-1', new Date('2024-01-01T00:00:00Z'), 200, userId)
+      yield* insertWeightLog('w-fresh-2', new Date('2024-01-08T00:00:00Z'), 190, userId)
+
+      const service = yield* GoalService
+      const before = yield* service.getGoalProgress(userId)
+
+      expect(before).not.toBeNull()
+      if (before === null) return
+      expect(before.lbsRemaining).toBe(10)
+      expect(before.percentComplete).toBe(50)
+
+      const sql = yield* SqlClient.SqlClient
+      yield* sql`
+        UPDATE user_goals
+        SET goal_weight = 170
+        WHERE id = 'goal-freshness' AND user_id = ${userId}
+      `
+
+      const after = yield* service.getGoalProgress(userId)
+
+      expect(after).not.toBeNull()
+      if (after === null) return
+      expect(after.lbsRemaining).toBe(20)
+      expect(after.percentComplete).toBeCloseTo(33.333, 3)
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })
