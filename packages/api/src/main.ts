@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { AuthRpcMiddlewareLive, AuthService, AuthServiceLive, toEffectHandler } from './auth/index.js'
 import { DataExportRpcHandlersLive, DataExportServiceLive } from './data-export/index.js'
 import { GoalRepoLive, GoalRpcHandlersLive, GoalServiceLive } from './goals/index.js'
-import { InjectionLogRepoLive, InjectionRpcHandlersLive } from './injection/index.js'
+import { InjectionLogRepoLive, InjectionRpcHandlersLive, ScheduleAssignmentLive } from './injection/index.js'
 import { InventoryRepoLive, InventoryRpcHandlersLive } from './inventory/index.js'
 import { ScheduleCadenceServiceLive, ScheduleRepoLive, ScheduleRpcHandlersLive } from './schedule/index.js'
 import { SettingsRepoLive, SettingsRpcHandlersLive } from './settings/index.js'
@@ -309,6 +309,7 @@ const ServicesLive = Layer.mergeAll(
   GoalServiceLive,
   DataExportServiceLive,
   ScheduleCadenceServiceLive,
+  ScheduleAssignmentLive,
 ).pipe(Layer.provide(RepositoriesLive), Layer.provide(SqlLive))
 
 // RPC handler layer with auth middleware - needs services and repos

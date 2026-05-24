@@ -1,14 +1,4 @@
-import {
-  Dosage,
-  DrugName,
-  DrugSource,
-  InjectionLogId,
-  InjectionScheduleId,
-  InjectionSite,
-  Limit,
-  Notes,
-  Offset,
-} from '@subq/shared'
+import { Dosage, DrugName, DrugSource, InjectionLogId, InjectionSite, Limit, Notes, Offset } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
 import { InjectionLogRepo, InjectionLogRepoLive } from '../src/injection/injection-log-repo.js'
@@ -513,54 +503,6 @@ describe('InjectionLogRepo', () => {
 
           expect(logs.length).toBe(2)
           expect(logs.every((l) => l.scheduleId === 'sched-1')).toBe(true)
-        }),
-      )
-    })
-  })
-
-  describe('bulkAssignSchedule', () => {
-    it.layer(TestLayer)((it) => {
-      it.effect('assigns schedule to multiple injections', () =>
-        Effect.gen(function* () {
-          yield* insertSchedule('sched-1', 'TRT', 'Testosterone', 'weekly', new Date('2024-01-01'), 'user-123')
-          yield* insertInjectionLog('inj-1', new Date('2024-01-15T10:00:00Z'), 'Testosterone', '100mg', 'user-123')
-          yield* insertInjectionLog('inj-2', new Date('2024-01-22T10:00:00Z'), 'Testosterone', '100mg', 'user-123')
-
-          const repo = yield* InjectionLogRepo
-          yield* repo.bulkAssignSchedule(
-            {
-              ids: [InjectionLogId.make('inj-1'), InjectionLogId.make('inj-2')],
-              scheduleId: InjectionScheduleId.make('sched-1'),
-            },
-            'user-123',
-          )
-
-          // Verify the assignment worked by checking the injections are now linked
-          const logs = yield* repo.listBySchedule('sched-1', 'user-123')
-          expect(logs.length).toBe(2)
-        }),
-      )
-    })
-
-    it.layer(TestLayer)((it) => {
-      it.effect('does not assign injections belonging to different user', () =>
-        Effect.gen(function* () {
-          yield* insertSchedule('sched-1', 'TRT', 'Testosterone', 'weekly', new Date('2024-01-01'), 'user-123')
-          yield* insertInjectionLog('inj-1', new Date('2024-01-15T10:00:00Z'), 'Testosterone', '100mg', 'user-456')
-
-          const repo = yield* InjectionLogRepo
-          yield* repo.bulkAssignSchedule(
-            {
-              ids: [InjectionLogId.make('inj-1')],
-              scheduleId: InjectionScheduleId.make('sched-1'),
-            },
-            'user-123',
-          )
-
-          // Should not have updated any rows since the injection belongs to user-456
-          // Verify by checking no injections are linked to this schedule for user-123
-          const logs = yield* repo.listBySchedule('sched-1', 'user-123')
-          expect(logs.length).toBe(0)
         }),
       )
     })

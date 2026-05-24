@@ -9,6 +9,7 @@ import {
   InjectionLogDelete,
   InjectionLogListParams,
   InjectionLogUpdate,
+  ScheduleAssignmentTargetNotFoundError,
 } from './domain.ts'
 
 // ============================================
@@ -56,6 +57,6 @@ export const InjectionRpcs = RpcGroup.make(
   Rpc.make('InjectionLogBulkAssignSchedule', {
     payload: InjectionLogBulkAssignSchedule,
     success: Schema.Number, // returns count of updated rows
-    error: InjectionLogDatabaseError,
+    error: Schema.Union([InjectionLogDatabaseError, ScheduleAssignmentTargetNotFoundError]),
   }),
 )

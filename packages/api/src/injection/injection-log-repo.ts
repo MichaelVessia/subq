@@ -4,7 +4,6 @@ import {
   DrugName,
   DrugSource,
   InjectionLog,
-  type InjectionLogBulkAssignSchedule,
   type InjectionLogCreate,
   InjectionLogDatabaseError,
   InjectionLogId,
@@ -47,9 +46,6 @@ const decodeSiteRows = Schema.decodeUnknownEffect(Schema.Array(InjectionSiteRow)
 
 const LastSiteRow = Schema.Struct({ injection_site: Schema.NullOr(Schema.String) })
 const decodeLastSiteRows = Schema.decodeUnknownEffect(Schema.Array(LastSiteRow))
-
-const CountRow = Schema.Struct({ count: Schema.Number })
-const decodeCountRow = Schema.decodeUnknownEffect(CountRow)
 
 // Transform DB row to domain object using branded type constructors
 const rowToDomain = (row: typeof InjectionLogRow.Type): InjectionLog =>
@@ -98,10 +94,6 @@ export class InjectionLogRepo extends Context.Service<
     readonly getUniqueDrugs: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
     readonly getUniqueSites: (userId: string) => Effect.Effect<string[], InjectionLogDatabaseError>
     readonly getLastSite: (userId: string) => Effect.Effect<string | null, InjectionLogDatabaseError>
-    readonly bulkAssignSchedule: (
-      data: InjectionLogBulkAssignSchedule,
-      userId: string,
-    ) => Effect.Effect<number, InjectionLogDatabaseError>
     readonly listBySchedule: (
       scheduleId: string,
       userId: string,
@@ -271,30 +263,6 @@ export const InjectionLogRepoLive = Layer.effect(
         return row ? row.injection_site : null
       }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'query', cause })))
 
-    const bulkAssignSchedule = (data: InjectionLogBulkAssignSchedule, userId: string) =>
-      Effect.gen(function* () {
-        if (data.ids.length === 0) return 0
-
-        const now = DateTime.formatIso(DateTime.nowUnsafe())
-        const scheduleId = data.scheduleId
-
-        // Single batch UPDATE using IN clause for all IDs
-        yield* sql`
-          UPDATE injection_logs
-          SET schedule_id = ${scheduleId},
-              updated_at = ${now}
-          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
-        `
-
-        // Count how many rows were actually updated (belong to this user)
-        const countResult = yield* sql`
-          SELECT COUNT(*) as count FROM injection_logs
-          WHERE id IN ${sql.in(data.ids)} AND user_id = ${userId}
-        `
-        const countRow = yield* decodeCountRow(countResult[0])
-        return countRow.count
-      }).pipe(Effect.mapError((cause) => InjectionLogDatabaseError.make({ operation: 'update', cause })))
-
     const listBySchedule = (scheduleId: string, userId: string) =>
       Effect.gen(function* () {
         const rows = yield* sql`
@@ -316,7 +284,6 @@ export const InjectionLogRepoLive = Layer.effect(
       getUniqueDrugs,
       getUniqueSites,
       getLastSite,
-      bulkAssignSchedule,
       listBySchedule,
     }
   }),

@@ -43,7 +43,18 @@ export class InjectionLogDatabaseError extends Schema.TaggedClass<InjectionLogDa
   },
 ) {}
 
-export const InjectionLogError = Schema.Union([InjectionLogNotFoundError, InjectionLogDatabaseError])
+export class ScheduleAssignmentTargetNotFoundError extends Schema.TaggedClass<ScheduleAssignmentTargetNotFoundError>()(
+  'ScheduleAssignmentTargetNotFoundError',
+  {
+    scheduleId: Schema.String,
+  },
+) {}
+
+export const InjectionLogError = Schema.Union([
+  InjectionLogNotFoundError,
+  InjectionLogDatabaseError,
+  ScheduleAssignmentTargetNotFoundError,
+])
 export type InjectionLogError = typeof InjectionLogError.Type
 // ============================================
 // Core Domain Type

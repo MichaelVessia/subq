@@ -8,10 +8,12 @@ import {
 } from '@subq/shared'
 import { DateTime, Effect, Option } from 'effect'
 import { InjectionLogRepo } from './injection-log-repo.js'
+import { ScheduleAssignment } from './schedule-assignment.js'
 
 export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
   Effect.gen(function* () {
     const repo = yield* InjectionLogRepo
+    const scheduleAssignment = yield* ScheduleAssignment
 
     const InjectionLogList = Effect.fn('rpc.injection.list')(function* (params: InjectionLogListParams) {
       const { user } = yield* Effect.service(AuthContext)
@@ -129,7 +131,7 @@ export const InjectionRpcHandlersLive = InjectionRpcs.toLayer(
           scheduleId: data.scheduleId ?? 'null',
         }),
       )
-      const result = yield* repo.bulkAssignSchedule(data, user.id)
+      const result = yield* scheduleAssignment.assign(data, user.id)
       yield* Effect.logInfo('InjectionLogBulkAssignSchedule completed').pipe(
         Effect.annotateLogs({ rpc: 'InjectionLogBulkAssignSchedule', updated: result }),
       )
