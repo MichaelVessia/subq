@@ -1,6 +1,12 @@
 import { AsyncResult as Result } from 'effect/unstable/reactivity'
 import { useAtomSet, useAtomValue } from '@effect/atom-react'
-import type { Inventory, InventoryCreate, InventoryId, InventoryUpdate } from '@subq/shared'
+import {
+  groupInventoryStacksByStatus,
+  type Inventory,
+  type InventoryCreate,
+  type InventoryId,
+  type InventoryUpdate,
+} from '@subq/shared'
 import type { DateTime } from 'effect'
 import { MoreHorizontal } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
@@ -29,34 +35,6 @@ const statusColors = {
   new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   opened: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   finished: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-}
-
-/** Represents a group of identical inventory items */
-interface InventoryStack {
-  /** All items in this stack */
-  items: Inventory[]
-  /** The grouping key */
-  key: string
-}
-
-/** Create a grouping key for an inventory item */
-const getStackKey = (item: Inventory): string => {
-  const budKey = item.beyondUseDate ? toDate(item.beyondUseDate).toISOString().split('T')[0] : 'no-bud'
-  return `${item.drug}|${item.source}|${item.form}|${item.totalAmount}|${item.status}|${budKey}`
-}
-
-/** Group inventory items into stacks */
-const groupIntoStacks = (items: Inventory[]): InventoryStack[] => {
-  const stackMap = new Map<string, Inventory[]>()
-
-  for (const item of items) {
-    const key = getStackKey(item)
-    const existing = stackMap.get(key) ?? []
-    existing.push(item)
-    stackMap.set(key, existing)
-  }
-
-  return Array.from(stackMap.entries()).map(([key, items]) => ({ key, items }))
 }
 
 export function InventoryList() {
@@ -132,7 +110,7 @@ export function InventoryList() {
   )
 
   const handleMarkAllOpened = useCallback(
-    async (items: Inventory[]) => {
+    async (items: readonly Inventory[]) => {
       for (const item of items) {
         await markOpened({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
       }
@@ -141,7 +119,7 @@ export function InventoryList() {
   )
 
   const handleMarkAllFinished = useCallback(
-    async (items: Inventory[]) => {
+    async (items: readonly Inventory[]) => {
       for (const item of items) {
         await markFinished({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
       }
@@ -150,7 +128,7 @@ export function InventoryList() {
   )
 
   const handleDeleteAll = useCallback(
-    async (items: Inventory[]) => {
+    async (items: readonly Inventory[]) => {
       if (confirm(`Delete all ${items.length} inventory items?`)) {
         for (const item of items) {
           await deleteItem({ payload: { id: item.id }, reactivityKeys: [ReactivityKeys.inventory] })
@@ -161,11 +139,7 @@ export function InventoryList() {
   )
 
   const renderContent = (items: readonly Inventory[]) => {
-    // Group by status, then stack duplicates
-    const activeItems = items.filter((i) => i.status !== 'finished')
-    const finishedItems = items.filter((i) => i.status === 'finished')
-    const activeStacks = groupIntoStacks([...activeItems])
-    const finishedStacks = groupIntoStacks([...finishedItems])
+    const { active: activeStacks, finished: finishedStacks } = groupInventoryStacksByStatus(items)
 
     return (
       <div>
@@ -219,8 +193,8 @@ export function InventoryList() {
         {activeStacks.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
             {activeStacks.map((stack) => {
-              const item = stack.items[0]!
-              const count = stack.items.length
+              const item = stack.representative
+              const count = stack.count
               const isStacked = count > 1
 
               return (
@@ -310,8 +284,8 @@ export function InventoryList() {
             <h3 className="text-lg font-medium mb-4 text-muted-foreground">Finished</h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-60">
               {finishedStacks.map((stack) => {
-                const item = stack.items[0]!
-                const count = stack.items.length
+                const item = stack.representative
+                const count = stack.count
                 const isStacked = count > 1
 
                 return (
