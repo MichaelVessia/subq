@@ -1,4 +1,5 @@
 import type { InventoryForm } from '../inventory/domain.js'
+import { SITE_ROTATION } from '../injection/site-rotation.js'
 
 export interface DrugVocabularyEntry {
   readonly name: string
@@ -46,15 +47,6 @@ const DrugVocabularyEntries: readonly DrugVocabularyEntry[] = [
   { name: 'Dulaglutide (Trulicity)', suggestedDosages: ['0.75mg', '1.5mg', '3mg', '4.5mg'], inventoryForms: ['pen'] },
 ]
 
-const DefaultInjectionSites: readonly string[] = [
-  'Left abdomen',
-  'Right abdomen',
-  'Left thigh',
-  'Right thigh',
-  'Left upper arm',
-  'Right upper arm',
-]
-
 export function listKnownDrugVariants(): string[] {
   return DrugVocabularyEntries.map((entry) => entry.name)
 }
@@ -73,7 +65,7 @@ export function supportsInventoryForm(drug: string, form: InventoryForm): boolea
 }
 
 export function listDefaultInjectionSites(): string[] {
-  return DefaultInjectionSites.map((site) => site)
+  return SITE_ROTATION.map((site) => site)
 }
 
 function findDrugVocabularyEntry(drug: string): DrugVocabularyEntry | undefined {

@@ -6,6 +6,7 @@ import {
   suggestedDosagesForDrug,
   supportsInventoryForm,
 } from '../src/drug-vocabulary/index.js'
+import { getNextSite, SITE_ROTATION } from '../src/injection/index.js'
 
 describe('DrugVocabulary', () => {
   it('provides known drug variants for injection and schedule choices', () => {
@@ -74,5 +75,15 @@ describe('DrugVocabulary', () => {
       'Left upper arm',
       'Right upper arm',
     ])
+  })
+
+  it('uses every default injection site in site rotation order', () => {
+    expect(listDefaultInjectionSites()).toEqual([...SITE_ROTATION])
+    expect(getNextSite('Left abdomen')).toBe('Right abdomen')
+    expect(getNextSite('Right abdomen')).toBe('Left thigh')
+    expect(getNextSite('Left thigh')).toBe('Right thigh')
+    expect(getNextSite('Right thigh')).toBe('Left upper arm')
+    expect(getNextSite('Left upper arm')).toBe('Right upper arm')
+    expect(getNextSite('Right upper arm')).toBe('Left abdomen')
   })
 })
